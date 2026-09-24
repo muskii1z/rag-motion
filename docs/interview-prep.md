@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: between Steps 2 and 3.
+Last updated: Step 3.
 
 ---
 
@@ -34,6 +34,7 @@ Evidence so far:
   - [pgvector](concepts.md#pgvector): each exercise's embedding is stored as a `vector(1024)` column in the same row as its name, equipment, and difficulty, and compared with the `<=>` cosine distance operator.
   - [Semantic search](concepts.md#semantic-search): embeddings match by meaning ("hip hinge" finds "Romanian deadlift") but are weak on exact terms ("RDL" is just three letters to the model).
   - [Embedding](concepts.md#embedding) (extended with the exact-terms weakness).
+- [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): how embeddings are compared. On toy 3-number vectors, pgvector's `<=>` gave 0 for identical, 0.024 for very similar, 1 for unrelated, and 2 for opposite. See [pgvector](concepts.md#pgvector). No real embeddings yet (Step 7).
 
 ## Retrieval
 
@@ -60,6 +61,12 @@ Evidence so far:
   - [pgvector](concepts.md#pgvector): vector column, distance operator, and indexes. Meaning-based ranking and column filters in one SQL query, instead of splitting data across a relational database and a vector database.
   - [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag): keyword search (built-in full-text search), semantic search (pgvector), and filters (`WHERE`) all run in one database. Only reranking needs an outside model.
   - [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql): Supabase supports pgvector, so the skills and schema transfer to a hosted deployment.
+- [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): now running, not just planned.
+  - PostgreSQL 16.15 with pgvector 0.8.6, in Docker via [Docker Compose](concepts.md#docker-compose). Commit `5d66ed2`.
+  - [Extension available vs enabled](concepts.md#extension-available-vs-enabled): the image only makes pgvector available; the `ragmotion` database switched it on with `CREATE EXTENSION`. Shown before and after with `pg_available_extensions` and `\dx`.
+  - [pgvector](concepts.md#pgvector): the `<=>` cosine distance scale checked by hand (0 identical, 1 unrelated, 2 opposite).
+  - [Docker volume](concepts.md#docker-volume): persistence proven. Deleted the container, started a new one, and pgvector was still enabled.
+  - [Port mapping](concepts.md#port-mapping) and [0009](decisions/0009-local-db-port-5434-localhost-only.md): checked what other projects used before picking a port, and chose 5434 to avoid a collision. A small story about looking before building.
 
 ## Evaluation
 
@@ -109,6 +116,12 @@ Evidence so far:
 - [Step 2](build-log.md#step-2-git-setup-secret-protection-and-private-github-repo): code backed up to a private GitHub repo (https://github.com/muskii1z/rag-motion). `.env.example` lists every setting a new environment needs (`DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`), so configuration comes from the environment, not from code. [.gitignore](concepts.md#gitignore) keeps `.venv` out because it is rebuilt from `uv.lock`.
 - [Localhost and port 5432](concepts.md#localhost-and-port-5432) and [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql) (between Steps 2 and 3): the app only knows a `DATABASE_URL`, and Supabase supports pgvector, so one possible path is pointing that setting at a hosted Supabase database. Discussed, not decided.
 - [Docker volume](concepts.md#docker-volume): database data lives outside the container, so the container can be recreated without data loss.
+- [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): the database is now reproducible.
+  - [Docker Compose](concepts.md#docker-compose): `docker-compose.yml` is checked into the repo and defines the image, port, volume, and healthcheck. One command (`docker compose up -d --wait`) brings it up on any machine with Docker.
+  - [Healthcheck (started vs ready)](concepts.md#healthcheck-started-vs-ready): `pg_isready` every 5 seconds, and `--wait` returns only once Postgres can accept connections. Point to make: "started" is not "ready".
+  - [Docker volume](concepts.md#docker-volume): tested, not assumed. The container was deleted and rebuilt, and the data survived. `down -v` would delete it.
+  - `DATABASE_URL` in `.env.example` now points at `localhost:5434`. Deploying means replacing that one setting with a hosted database's URL ([0009](decisions/0009-local-db-port-5434-localhost-only.md) revisit signal).
+  - Planned for Step 4: `db/schema.sql` starts with `CREATE EXTENSION IF NOT EXISTS vector;`, so a fresh database doesn't depend on a manual command.
 - Actual deployment not yet covered.
 
 ## Security
@@ -128,6 +141,9 @@ Evidence so far:
 - [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup): the environment audit checked for key variables by printing their names only, never their values.
 - [Step 1](build-log.md#step-1-install-uv-create-the-python-project-add-dependencies): pydantic-settings is installed to read keys from `.env`. Not wired up yet.
 - Related supply-chain point: [Transitive dependencies](concepts.md#transitive-dependencies). 6 requested libraries became 62 installed packages, each one code we are trusting.
+- [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): the database password, and network exposure.
+  - [Binding the database to localhost only](concepts.md#binding-the-database-to-localhost-only): the port is `127.0.0.1:5434`, so only this Mac can connect, not other devices on the network. Docker's default would listen on all interfaces.
+  - The password `postgres` is in plain text in `docker-compose.yml`. That's acceptable only because it is a local development credential for a database bound to 127.0.0.1. In production it would come from a secret manager. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
 
 ## Architecture
 
@@ -136,6 +152,7 @@ Evidence so far:
 - [LLM vs embedding model](concepts.md#llm-vs-embedding-model): the question is embedded, the database finds relevant exercises, then Claude answers.
 - [0006. Interface](decisions/0006-interface-cli-first.md): requests come through CLI scripts, then a FastAPI `/ask` endpoint at Step 12.
 - [Package layout](concepts.md#package-layout): all app code lives in one importable package, `src/ragmotion/`, so CLI scripts, tests, and the future API share it.
+- [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (extended in Step 3): the storage layer is built. Python code connects to `localhost:5434`, which reaches container `rag-motion-db-1`, whose data sits in volume `rag-motion_pgdata`.
 - The full request path is not built yet.
 
 ## Tradeoffs

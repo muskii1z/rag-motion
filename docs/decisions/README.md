@@ -10,3 +10,4 @@ One file per real decision, numbered in order. Each records the context, options
 - [0006. Interface: CLI first, thin FastAPI at Step 12](0006-interface-cli-first.md) (Step 0)
 - [0007. Version control: git and a private GitHub repo](0007-version-control-git-github.md) (Step 0, implemented in Step 2)
 - [0008. Documentation with a build-scribe subagent](0008-documentation-build-scribe.md) (Step 0)
+- [0009. Local database on port 5434, bound to 127.0.0.1](0009-local-db-port-5434-localhost-only.md) (Step 3)

@@ -20,3 +20,6 @@ There are millions of vectors, or latency needs exceed what pgvector indexes can
 
 ## Note (2026-09-24, between Steps 2 and 3)
 A concepts discussion before Step 3 confirmed the rationale. Keyword search (Postgres's built-in full-text search), semantic search (pgvector), and metadata filtering (`WHERE` clauses) can all run in one Postgres query. Only reranking would need an outside model. Supabase also supports pgvector, which gives a possible deployment path: point the app at a hosted database by changing the connection string. See the [build log entry](../build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types) and [pgvector](../concepts.md#pgvector).
+
+## Implemented in Step 3 (2026-09-24)
+`docker-compose.yml` runs `pgvector/pgvector:pg16` with a named volume and a healthcheck. Running versions: PostgreSQL 16.15 and pgvector 0.8.6, enabled in the `ragmotion` database with `CREATE EXTENSION`. Deleting and recreating the container kept the data, confirming the volume works. The Mac-side port is 5434, not 5432, to avoid clashing with other local projects; see [0009](0009-local-db-port-5434-localhost-only.md). Commit `5d66ed2`. See the [Step 3 build log entry](../build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector).

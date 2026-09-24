@@ -213,19 +213,53 @@ Docker runs software in a sealed box called a container. The container has its o
 
 *First seen: between Steps 2 and 3.*
 
+### Docker Compose
+Docker Compose reads a YAML file (a plain-text settings format based on indentation), here `docker-compose.yml`, that describes one or more containers: which image, which settings, which ports, and where to store data. One command, `docker compose up -d`, then starts the whole setup, and anyone who clones the repo gets the same setup. Without it, you would type a long `docker run` command with every option by hand and hope to remember it next time. Compose names things after the project folder, so in Step 3 it created container `rag-motion-db-1`, volume `rag-motion_pgdata`, and network `rag-motion_default`.
+
+**In an interview:** "The database is defined in a docker-compose file that's checked into the repo, so the setup is code: image, port, volume, and healthcheck. Anyone can bring it up with one command."
+
+*First seen: Step 3.*
+
+### Port mapping
+A container has its own ports, separate from the Mac's. A port mapping connects the two. `"127.0.0.1:5434:5432"` means: Mac port 5434 forwards to container port 5432. So Postgres inside the container still listens on its normal 5432, and our code connects to `localhost:5434` on the Mac. This is why several projects can each run Postgres on 5432 inside their own containers, as long as each one uses a different Mac port. On this Mac, `jobscout` uses 5433, `vh_technology` is set up for 5432, and rag-motion uses 5434. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
+
+**In an interview:** "I checked what else was running before picking a port. Another project was configured for 5432, so I mapped host port 5434 to the container's 5432. Nothing inside the container changes; only the connection string does."
+
+*First seen: Step 3.*
+
+### Healthcheck (started vs ready)
+A container being "started" doesn't mean Postgres is ready to accept connections. Postgres needs a few seconds to set itself up, especially on first run. A healthcheck is a small test Docker runs over and over to ask the program whether it's actually ready. Ours runs `pg_isready -U postgres -d ragmotion` (a tool that ships with Postgres) every 5 seconds. `docker compose up -d --wait` then returns only once the healthcheck passes, and `docker compose ps` shows the container as `(healthy)`. Without this, a script run right after startup could fail with a connection error.
+
+**In an interview:** "Started isn't ready. The compose file has a healthcheck using pg_isready, and I start it with --wait, so nothing tries to connect before Postgres can actually accept connections."
+
+*First seen: Step 3.*
+
+### Extension available vs enabled
+A Postgres extension (an add-on that gives the database new abilities) goes through two stages. **Available** means the extension's code is installed on the server; the `pgvector/pgvector:pg16` image ships it. **Enabled** means a specific database has switched it on with `CREATE EXTENSION vector;`. Each database opts in separately. In Step 3, `pg_available_extensions` listed `vector` 0.8.6 with an empty `installed_version`, and `\dx` (the psql command that lists enabled extensions) showed only `plpgsql` (Postgres's built-in procedural language, present in every database). After `CREATE EXTENSION`, `\dx` listed `vector 0.8.6`. Writing it as `CREATE EXTENSION IF NOT EXISTS` makes it safe to run again.
+
+**In an interview:** "The pgvector image only makes the extension available. Each database has to run CREATE EXTENSION to turn it on. I put that line at the top of the schema file so a fresh database sets itself up." (The schema file is planned for Step 4.)
+
+*First seen: Step 3.*
+
 ### Docker volume
 A volume is a storage area Docker keeps on the Mac where the database files are actually saved. It lives outside the container. So stopping or deleting the container does not delete the data; a new container can pick up the same volume.
 
 **In an interview:** "The container is disposable, the data isn't. Postgres writes to a Docker volume, so I can stop or recreate the container without losing anything."
 
-*First seen: between Steps 2 and 3.*
+*Step 3 update:* Proven by hand. The volume is named `rag-motion_pgdata` and is mounted at `/var/lib/postgresql/data`, where Postgres keeps its files. After enabling pgvector, `docker compose down` stopped and **removed** the container and its network, but `docker volume ls` still showed the volume. A brand-new container started with `docker compose up -d --wait` still had pgvector 0.8.6 enabled. Warning: `docker compose down -v` also deletes the volume, and with it all the data. Plain `down` keeps it.
+
+**In an interview (with evidence):** "I tested it: deleted the container, started a fresh one, and the pgvector setting was still there, because the state lives in the volume. The one command to be careful with is down -v, which deletes the volume too."
+
+*First seen: between Steps 2 and 3. Extended: Step 3.*
 
 ### localhost and port 5432
 `localhost` means "this computer". A port is a numbered entry point on a computer that a particular server program listens on. 5432 is Postgres's standard port. So `localhost:5432` means "the Postgres server on this machine". It plays the same role as a Supabase connection string, just pointing at the local machine. The project's `.env.example` already uses it: `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ragmotion`.
 
 **In an interview:** "Locally the app connects to localhost:5432, Postgres's default port. In production, that one DATABASE_URL setting changes and nothing else does."
 
-*First seen: between Steps 2 and 3.*
+*Step 3 update:* This project no longer uses Mac port 5432. Another local project is configured for 5432, so rag-motion maps Mac port **5434** to the container's 5432 (see [Port mapping](#port-mapping)). `.env.example` now says `DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ragmotion`. Postgres inside the container still listens on 5432.
+
+*First seen: between Steps 2 and 3. Extended: Step 3.*
 
 ### Where the database runs in this project
 The database runs on the developer's Mac Mini, inside Docker. The Python code talks to it over `localhost:5432`, and the data itself sits in a Docker volume.
@@ -244,7 +278,21 @@ Your Mac
 
 **In an interview:** "There are three layers: my Python code, a Postgres container, and a volume holding the data. The code only knows a connection string, so I can swap the container for a hosted database without touching the code."
 
-*First seen: between Steps 2 and 3.*
+*Step 3 update:* Built. The real names and port:
+
+```
+Your Mac
+├── rag-motion/                  ← our Python code
+│      │  connects to localhost:5434 (this Mac only)
+│      ▼
+└── Docker
+    └── container rag-motion-db-1   ← PostgreSQL 16.15 + pgvector 0.8.6, listening on 5432 inside
+           │
+           ▼
+        volume rag-motion_pgdata     ← where the data is actually saved
+```
+
+*First seen: between Steps 2 and 3. Extended: Step 3.*
 
 ### pgvector
 pgvector is an extension for PostgreSQL. Plain Postgres stores text, numbers, dates, and lists, but has no idea what an [embedding](#embedding) is. pgvector adds three things:
@@ -256,7 +304,20 @@ The payoff is that meaning-based search and regular column conditions fit in one
 
 **In an interview:** "pgvector gives Postgres a vector column, a distance operator, and vector indexes. That lets me rank by meaning and filter on equipment and difficulty in a single query, instead of stitching a vector database to a relational one."
 
-*First seen: between Steps 2 and 3.*
+*Step 3 update:* pgvector 0.8.6 is now running and enabled in the `ragmotion` database (see [Extension available vs enabled](#extension-available-vs-enabled)). We tried `<=>` on made-up 3-number vectors to learn how to read cosine distance:
+
+| Compared with `[1,0,0]` | Meaning | `<=>` result |
+|---|---|---|
+| `[1,0,0]` | identical | 0.000 |
+| `[0.9,0.2,0]` | very similar | 0.024 |
+| `[0,0,1]` | unrelated | 1.000 |
+| `[-1,0,0]` | opposite | 2.000 |
+
+So the scale runs from 0 (identical) to 2 (opposite), and smaller means more similar. That is why search queries use `ORDER BY embedding <=> ...` ascending. Real Voyage embeddings have 1,024 numbers instead of 3, but they are read the same way.
+
+**In an interview (with evidence):** "Cosine distance in pgvector runs from 0 for identical to 2 for opposite, with 1 meaning unrelated. I checked that on toy vectors before trusting it on real embeddings."
+
+*First seen: between Steps 2 and 3. Extended: Step 3.*
 
 ---
 
@@ -279,6 +340,13 @@ Before the first commit, three checks: preview what git would track (`git add -A
 **In an interview:** "Before the first commit I previewed the tracked files, confirmed .env was ignored, and grepped for key patterns. A pushed secret counts as leaked even if you delete it, so the cheap time to catch it is before the commit."
 
 *First seen: Step 2.*
+
+### Binding the database to localhost only
+A network interface is one of the ways a computer is connected (for example, the Wi-Fi connection, or the internal "this computer only" connection called 127.0.0.1). When Docker publishes a port without saying which interface, it listens on all of them (written 0.0.0.0), so other devices on the same network can try to connect. Writing the port as `"127.0.0.1:5434:5432"` limits it to programs on this Mac. That is also why the plain-text password `postgres` in `docker-compose.yml` is acceptable: it is a local development credential for a database no other device can reach. A deployed database would get its password from a secret manager (a service that stores and hands out secrets), never from a committed file. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
+
+**In an interview:** "Even locally, I bind the database port to 127.0.0.1, so it isn't exposed to the network. The dev password in the compose file is only acceptable because of that; in production it would come from a secret manager."
+
+*First seen: Step 3.*
 
 ---
 

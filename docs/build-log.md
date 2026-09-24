@@ -296,3 +296,107 @@ gh api repos/muskii1z/rag-motion/contents       # no .env or .venv present
 **Decisions.**
 - No new decision records.
 - Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with a note that this discussion confirmed its rationale.
+
+---
+
+## Step 3: Docker Compose, start Postgres, confirm pgvector
+**Date:** 2026-09-24 · **Commit:** `5d66ed2` feat: add PostgreSQL 16 + pgvector via docker compose
+
+**Goal.** Run PostgreSQL 16 with pgvector locally in Docker, switch pgvector on in the project database, and prove the data survives a container restart.
+
+**What we did.**
+- **Checked the port before choosing one.** Port 5432 (Postgres's standard port) was free on the Mac. But `docker ps -a` showed the developer's other projects also run Postgres in Docker:
+  - `jobscout-db-1` (image `pgvector/pgvector:pg16`), running, on Mac port 5433.
+  - `vh_technology-db-1` (image `postgres:16-alpine`), stopped, but configured for Mac port 5432. Starting it later would collide with rag-motion if rag-motion also used 5432.
+- **Chose Mac port 5434** to avoid both. Inside the container, Postgres still listens on its normal 5432; Docker forwards Mac port 5434 to it. See [Port mapping](concepts.md#port-mapping) and [0009](decisions/0009-local-db-port-5434-localhost-only.md).
+- **Wrote `docker-compose.yml`** (a file that describes a container setup so it starts with one command; see [Docker Compose](concepts.md#docker-compose)). It defines one service, `db`:
+  - image `pgvector/pgvector:pg16`
+  - `POSTGRES_USER=postgres`, `POSTGRES_PASSWORD=postgres`, `POSTGRES_DB=ragmotion`. These are local-only development credentials, not a real secret.
+  - ports `"127.0.0.1:5434:5432"`. The `127.0.0.1` part means only this Mac can connect, not other devices on the network. See [Binding the database to localhost only](concepts.md#binding-the-database-to-localhost-only).
+  - a named volume `pgdata` mounted at `/var/lib/postgresql/data`, where Postgres keeps its files.
+  - a healthcheck that runs `pg_isready -U postgres -d ragmotion` every 5 seconds. See [Healthcheck (started vs ready)](concepts.md#healthcheck-started-vs-ready).
+  - A comment header listing the start, stop, and wipe commands.
+- **Updated `DATABASE_URL`** in `.env.example` to `postgresql://postgres:postgres@localhost:5434/ragmotion`.
+- Started the database, checked the version, showed that pgvector was available but not yet enabled, enabled it, and tried the `<=>` distance operator on tiny made-up vectors.
+- **Persistence test.** Deleted the container, started a brand-new one, and checked that pgvector was still enabled.
+- Updated `CLAUDE.md`: Step 3 marked done, Step 4 next, and the stack line now notes port 5434 and the start command.
+
+**Commands.**
+
+```bash
+# Before starting: is the port free, and what else is running?
+lsof -nP -iTCP:5432 -sTCP:LISTEN   # nothing listening, so 5432 was free right now
+docker ps -a                       # found jobscout-db-1 (5433, running) and vh_technology-db-1 (5432, stopped)
+docker volume ls                   # no rag-motion volumes yet
+
+# Start the database
+docker compose up -d --wait
+# Created network rag-motion_default, volume rag-motion_pgdata, container rag-motion-db-1.
+# --wait returned only after the healthcheck passed: "Healthy".
+docker compose ps
+# rag-motion-db-1  Up 5 seconds (healthy)  127.0.0.1:5434->5432/tcp
+
+# Which Postgres is this?
+docker compose exec -T db psql -U postgres -d ragmotion -tAc "SELECT version();"
+# PostgreSQL 16.15 (Debian) on aarch64
+
+# Is pgvector available? Is it enabled?
+docker compose exec -T db psql -U postgres -d ragmotion -c \
+  "SELECT name, default_version, installed_version FROM pg_available_extensions WHERE name = 'vector';"
+# vector | 0.8.6 | (empty)   -> shipped in the image, but not enabled in this database
+docker compose exec -T db psql -U postgres -d ragmotion -c "\dx"
+# Only plpgsql (Postgres's built-in procedural language, present in every database)
+
+# Enable it
+docker compose exec -T db psql -U postgres -d ragmotion -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# CREATE EXTENSION. \dx now lists: vector 0.8.6, "vector data type and ivfflat and hnsw access methods"
+
+# Try cosine distance on made-up 3-number vectors
+SELECT '[1,0,0]'::vector <=> '[1,0,0]'::vector      -- identical  0.000
+     , '[1,0,0]'::vector <=> '[0.9,0.2,0]'::vector  -- similar    0.024
+     , '[1,0,0]'::vector <=> '[0,0,1]'::vector      -- unrelated  1.000
+     , '[1,0,0]'::vector <=> '[-1,0,0]'::vector;    -- opposite   2.000
+
+# Persistence test
+docker compose down            # stopped AND removed the container and network; the volume was kept
+docker volume ls               # rag-motion_pgdata still present
+docker compose up -d --wait    # a brand-new container, Healthy
+SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
+# vector 0.8.6 -> the setting survived, because it lives in the volume
+```
+
+`docker compose exec -T db psql ...` runs `psql` (Postgres's command-line client) inside the running `db` container, so no Postgres tools need to be installed on the Mac.
+
+**What we saw.**
+- Versions: **PostgreSQL 16.15** and **pgvector 0.8.6**.
+- Docker Compose named everything after the project folder: container `rag-motion-db-1`, volume `rag-motion_pgdata`, network `rag-motion_default`.
+- **Available is not the same as enabled.** The image ships the pgvector code, but each database has to opt in with `CREATE EXTENSION`. Before: `installed_version` was empty and `\dx` showed only `plpgsql`. After: `vector 0.8.6` was listed. See [Extension available vs enabled](concepts.md#extension-available-vs-enabled).
+- **How to read cosine distance.** 0 means identical, a small number (0.024) means very similar, 1 means unrelated, and 2 means opposite. Real Voyage embeddings have 1,024 numbers instead of 3, but they are read the same way. See [pgvector](concepts.md#pgvector).
+- **Containers are disposable; the volume holds the state.** `docker compose down` deleted the container, but the volume stayed, and a brand-new container still had pgvector enabled. See [Docker volume](concepts.md#docker-volume).
+- **Warning:** `docker compose down -v` also deletes the volume, and with it all the data. Plain `down` keeps it. The compose file header spells this out.
+- `CREATE EXTENSION` was run by hand in this step so the developer could see the before and after. For reproducibility, the plan is for Step 4's `db/schema.sql` to begin with `CREATE EXTENSION IF NOT EXISTS vector;`, so a fresh setup doesn't depend on remembering a manual command. Planned, not built yet.
+
+**Problems and fixes.**
+- A likely port collision was spotted before it happened. The developer's `vh_technology` project is configured for Mac port 5432 and `jobscout` uses 5433. Using 5432 would have worked today (the port was free) but would break whenever `vh_technology` was started. We used 5434 instead. No actual failure occurred.
+
+**Open questions.**
+- There is no `.env` file in the repo yet, only `.env.example`. When `.env` is created (before Step 6, when the first API key is needed), it should be copied from the updated `.env.example` so it gets port 5434, not the old 5432.
+
+**Developer questions.** None new this step. The developer said "let's do it" after the database concepts discussion, which is recorded in [Between Steps 2 and 3](#between-steps-2-and-3-understanding-the-database-and-search-types).
+
+**Minor choices (no separate decision record).**
+- The plain-text password `postgres` in `docker-compose.yml` is acceptable because the database is local-only and bound to 127.0.0.1. A deployed database would get its password from a secret manager (a service that stores and hands out secrets), never from a committed file.
+
+**Learned.**
+- [Docker Compose](concepts.md#docker-compose) (new)
+- [Port mapping](concepts.md#port-mapping) (new)
+- [Healthcheck (started vs ready)](concepts.md#healthcheck-started-vs-ready) (new)
+- [Extension available vs enabled](concepts.md#extension-available-vs-enabled) (new, includes `\dx`)
+- [Binding the database to localhost only](concepts.md#binding-the-database-to-localhost-only) (new)
+- [pgvector](concepts.md#pgvector) (extended: the cosine distance scale, with real numbers)
+- [Docker volume](concepts.md#docker-volume) (extended: `down` vs `down -v`, and the persistence test)
+- [localhost and port 5432](concepts.md#localhost-and-port-5432) and [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (extended: this project now uses Mac port 5434)
+
+**Decisions.**
+- [0009. Local database on port 5434, bound to 127.0.0.1](decisions/0009-local-db-port-5434-localhost-only.md) (new)
+- Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with an "Implemented in Step 3" note.
