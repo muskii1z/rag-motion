@@ -22,17 +22,21 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 3 | Docker Compose, start Postgres, confirm pgvector | done |
 | 4 | Exercise schema, create the table, inspect it in psql | done |
 | 5 | Write 20 exercises, seed script, query by hand | next |
-| 6 | First Claude call: prose to structured client profile | |
+| 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | |
 | 7 | First embedding: embed one sentence, look at the numbers | |
 | 8 | Embed all exercises, store vectors, compare two by hand | |
 | 9 | Similarity search CLI, judge results by eye | |
-| 10 | RAG: retrieved evidence to Claude, cited answer | |
-| 11 | First 20–30 eval questions, baseline run | |
-| 12 | Thin FastAPI /ask, tests, README | |
+| 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | |
+| 11 | LangSmith tracing on the RAG pipeline | |
+| 12 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | |
+| 13 | Chunking: split into passages, store in a second table with metadata | |
+| 14 | Embed chunks, search exercises + documents together, answers cite both | |
+| 15 | Evaluation set: own scoring script first, then viewed in LangSmith | |
+| 16 | FastAPI endpoint, tests, README | |
 
 Update the Status column as steps complete.
 
-**After Step 12: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic), and reranking one at a time. Rerun the Step 11 evaluation after each change and record the scores against the baseline.
+**After Step 16: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic), and reranking one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
 
 ## Stack decisions (see docs/decisions/ for the reasoning)
 
@@ -40,8 +44,8 @@ Update the Status column as steps complete.
 - **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), key in `VOYAGE_API_KEY`
-- **Claude Opus 5** (`claude-opus-5`) via the `anthropic` SDK, key in `ANTHROPIC_API_KEY`
-- CLI scripts first. FastAPI only at step 12
+- **LLM: likely via OpenRouter** (developer's preference, key in `OPENROUTER_API_KEY`); model and library confirmed at Step 6. The original default was Claude Opus 5 via the `anthropic` SDK (decision 0003)
+- CLI scripts first. Minimal local UI at Step 10. FastAPI endpoint at Step 16
 
 ## Rules
 
