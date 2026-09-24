@@ -1,0 +1,19 @@
+# 0004. Database: PostgreSQL 16 + pgvector in Docker
+**Date:** 2026-09-23 · **Step:** 0 · **Status:** accepted
+
+## Context
+The app needs to store exercises with structured data (such as equipment and difficulty) and their embedding vectors, and search them. The environment audit found no local Postgres, but Docker was running and the `pgvector/pgvector:pg16` image was already pulled.
+
+## Options considered
+- **PostgreSQL + pgvector.** A production-grade relational database. pgvector is an extension that adds vector storage and similarity search. Structured data and vectors live in one database and can be combined in one query.
+- **A dedicated vector database (e.g. Pinecone, Qdrant).** More specialized for vectors at huge scale. Structured data would live elsewhere.
+- **SQLite.** A database stored in a single file, with no server to run. Zero setup and built into Python. But vector search needs a separate extension (sqlite-vec) that is less mature than pgvector, it handles many simultaneous writers poorly, and it's not what production web apps typically run. The master context document explicitly chose PostgreSQL over SQLite to learn a production-oriented database.
+
+## Decision
+Use PostgreSQL 16 with pgvector, run in Docker with docker-compose (a tool that starts containers from a config file), using the `pgvector/pgvector:pg16` image. Structured data and vectors sit together and can be filtered and searched in one query, and the developer learns a production-grade relational database. Docker means nothing is installed directly on the Mac and the setup is reproducible.
+
+## Tradeoffs
+Docker must be running. pgvector is less specialized than a dedicated vector database at huge scale.
+
+## Revisit when
+There are millions of vectors, or latency needs exceed what pgvector indexes can deliver.
