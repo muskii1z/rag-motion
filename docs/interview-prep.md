@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 2.
+Last updated: between Steps 2 and 3.
 
 ---
 
@@ -30,6 +30,10 @@ Evidence so far:
 - [LLM vs embedding model](concepts.md#llm-vs-embedding-model)
 - [Why Anthropic doesn't sell embeddings](concepts.md#why-anthropic-doesnt-sell-embeddings)
 - [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): 1024 dimensions, separate `"document"` and `"query"` input types.
+- [Between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types): where embeddings live and what they are bad at.
+  - [pgvector](concepts.md#pgvector): each exercise's embedding is stored as a `vector(1024)` column in the same row as its name, equipment, and difficulty, and compared with the `<=>` cosine distance operator.
+  - [Semantic search](concepts.md#semantic-search): embeddings match by meaning ("hip hinge" finds "Romanian deadlift") but are weak on exact terms ("RDL" is just three letters to the model).
+  - [Embedding](concepts.md#embedding) (extended with the exact-terms weakness).
 
 ## Retrieval
 
@@ -37,19 +41,34 @@ Evidence so far:
 Evidence so far:
 - [Embedding](concepts.md#embedding): embeddings don't store facts and can't enforce hard constraints like "must use dumbbells", so metadata filtering is still needed.
 - [0004. Database: PostgreSQL 16 + pgvector](decisions/0004-database-postgres-pgvector.md): structured fields and vectors in one database so they can be combined in one query.
+- [Between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types): the main answer, using the example question "beginner RDL variations with dumbbells".
+  - [Semantic search](concepts.md#semantic-search) misses exact terms: it may rank loosely related exercises above "Dumbbell RDL". [Keyword search](concepts.md#keyword-search) catches that exact name but misses paraphrases.
+  - [Metadata filtering](concepts.md#metadata-filtering): a barbell exercise can be very close in meaning to a dumbbell one, so "dumbbells only" must be a `WHERE` clause, not a hope.
+  - [Hybrid search](concepts.md#hybrid-search): keyword plus semantic, merged, so each covers the other's blind spot.
+  - [Reranking](concepts.md#reranking): retrieve 20 cheaply, let a more careful model pick the best 5.
+  - [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag): the full pipeline diagram, and the plan to add each technique one at a time against an eval baseline. Planned, not built.
 
 ## PostgreSQL
 
 ### Why PostgreSQL + pgvector?
 Evidence so far:
-- [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md): options compared, tradeoffs, and when to revisit.
+- [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md): options compared, tradeoffs, and when to revisit. Now includes a note that the between-Steps-2-and-3 discussion confirmed the rationale.
 - [0005. Database access: psycopg 3 with raw SQL](decisions/0005-database-access-psycopg-raw-sql.md)
 - [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup): the `pgvector/pgvector:pg16` image was already on the machine.
+- [Between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types):
+  - [SQLite vs PostgreSQL](concepts.md#sqlite-vs-postgresql): a server handles concurrent writes, supports extensions, and matches production. Good story: the developer came from SQLite and Supabase.
+  - [pgvector](concepts.md#pgvector): vector column, distance operator, and indexes. Meaning-based ranking and column filters in one SQL query, instead of splitting data across a relational database and a vector database.
+  - [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag): keyword search (built-in full-text search), semantic search (pgvector), and filters (`WHERE`) all run in one database. Only reranking needs an outside model.
+  - [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql): Supabase supports pgvector, so the skills and schema transfer to a hosted deployment.
 
 ## Evaluation
 
 ### How do you know your RAG system works?
-*Not yet covered.* First eval questions and a baseline run are planned for Step 11.
+Evidence so far:
+- Planned, not done. See [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag), discussed [between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types).
+  - Step 11 builds an evaluation set (questions paired with the exercises that should come back) and runs it against basic semantic search to record a baseline score.
+  - In Phase 1F (after Step 12), hybrid search, metadata filters, and reranking are added one at a time, with the same eval rerun after each, so each improvement is a number ("hits went from X to Y"), not a claim.
+- No eval set or scores exist yet.
 
 ## Agents
 
@@ -88,6 +107,8 @@ Evidence so far:
 - [Virtual environment](concepts.md#virtual-environment): isolation checked by hand (project anthropic 1.8.0 vs global 0.86.0; voyageai only inside the project).
 - [.python-version](concepts.md#python-version): Python 3.12 pinned for the project.
 - [Step 2](build-log.md#step-2-git-setup-secret-protection-and-private-github-repo): code backed up to a private GitHub repo (https://github.com/muskii1z/rag-motion). `.env.example` lists every setting a new environment needs (`DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`), so configuration comes from the environment, not from code. [.gitignore](concepts.md#gitignore) keeps `.venv` out because it is rebuilt from `uv.lock`.
+- [Localhost and port 5432](concepts.md#localhost-and-port-5432) and [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql) (between Steps 2 and 3): the app only knows a `DATABASE_URL`, and Supabase supports pgvector, so one possible path is pointing that setting at a hosted Supabase database. Discussed, not decided.
+- [Docker volume](concepts.md#docker-volume): database data lives outside the container, so the container can be recreated without data loss.
 - Actual deployment not yet covered.
 
 ## Security
@@ -122,6 +143,7 @@ Evidence so far:
 ### What would you change if this system had 100,000 users?
 Evidence so far:
 - [0004](decisions/0004-database-postgres-pgvector.md) revisit signal: millions of vectors or latency beyond what pgvector indexes deliver.
+- [pgvector](concepts.md#pgvector): vector indexes (for example HNSW) are skipped for 20 exercises but would be needed at scale.
 - [0002](decisions/0002-embeddings-voyage-4-lite.md) revisit signal: embedding cost at scale.
 - [0003](decisions/0003-llm-claude-opus-5.md): LLM cost per token and cheaper model options.
 - [0005](decisions/0005-database-access-psycopg-raw-sql.md) revisit signal: add SQLAlchemy and Alembic when the schema changes often.

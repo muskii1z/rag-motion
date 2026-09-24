@@ -29,7 +29,62 @@ An embedding is a list of numbers that represents the meaning of a piece of text
 
 **In an interview:** "An embedding is a numeric fingerprint of meaning. It's great for finding similar text, but it can't guarantee hard constraints, so I combine it with metadata filters."
 
-*First seen: Step 0.*
+*Between Steps 2 and 3 update:* Embeddings are also weak on exact terms. To an embedding model, an abbreviation like "RDL" is just three letters, so search by meaning alone may rank loosely related exercises above the one literally named "Dumbbell RDL". See [Semantic search](#semantic-search), [Keyword search](#keyword-search), and [Metadata filtering](#metadata-filtering).
+
+*First seen: Step 0. Extended: between Steps 2 and 3.*
+
+### Keyword search
+Keyword search finds rows that contain the actual words in the question. Using the running example "beginner RDL variations with dumbbells", the word "RDL" (Romanian deadlift) matches an exercise named "Dumbbell RDL" exactly. It fails when the wording differs: "hip hinge" won't find "Romanian deadlift" unless those words appear in the exercise text. PostgreSQL has keyword search built in, called full-text search.
+
+**In an interview:** "Keyword search is precise on exact terms like exercise names and abbreviations, but it's blind to synonyms. Postgres has it built in as full-text search, so it needs no extra service."
+
+*First seen: between Steps 2 and 3.*
+
+### Semantic search
+Semantic search compares [embeddings](#embedding) instead of words, using [pgvector](#pgvector) inside the database. It matches by meaning, so "hip hinge" can find "Romanian deadlift" even with no words in common. Its weak spot is exact terms: "RDL" is just three letters to the embedding model, so it may rank loosely related exercises above the one literally named "Dumbbell RDL".
+
+**In an interview:** "Semantic search handles paraphrases, like 'hip hinge' finding Romanian deadlifts, but it's fuzzy on exact names and abbreviations. That's the gap keyword search fills."
+
+*First seen: between Steps 2 and 3.*
+
+### Metadata filtering
+Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
+
+**In an interview:** "Similarity is a ranking, not a guarantee. If a client only has dumbbells, that has to be a WHERE clause, because a barbell RDL is semantically almost identical to a dumbbell one."
+
+*First seen: between Steps 2 and 3.*
+
+### Hybrid search
+Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
+
+**In an interview:** "Hybrid search means running keyword and vector search together and merging the rankings. Keyword catches exact exercise names, vectors catch paraphrases, and in Postgres both can run against the same table."
+
+*First seen: between Steps 2 and 3.*
+
+### Reranking
+Reranking is a second stage after retrieval. First, retrieve a wide set of candidates (say the top 20). Then a second, more careful model reorders them and the best 5 are kept. It is slower but more accurate, which is why it only runs on a short list. Voyage AI sells reranking models, so this could stay with a provider the project already uses. It is the only part of the production-style pipeline that needs a model outside Postgres.
+
+**In an interview:** "Retrieval is tuned for recall, meaning cast a wide net, then a reranker spends more compute on just the top 20 to get precision. Voyage offers rerankers, so it wouldn't add a new vendor."
+
+*First seen: between Steps 2 and 3.*
+
+### Basic vs production-style RAG
+The project builds the simple pipeline first and adds the more advanced pieces later, one at a time:
+
+```
+Basic RAG (Steps 9–10):
+  question → semantic search → top 5 → Claude
+
+Production-style RAG (Phase 1F, after Step 12):
+  question → keyword search ┐
+           → semantic search┘→ merge → metadata filters → rerank → top 5 → Claude
+```
+
+The reason is measurement. Step 11 builds an evaluation set: questions paired with the exercises that should come back. It runs against basic semantic search first, and that score is recorded as the baseline (the starting number every later change is compared to). In Phase 1F, hybrid search, filters, and reranking are added one at a time, and the same evaluation is rerun after each. That turns "better RAG" from a claim into numbers, such as "hybrid search lifted hits from X to Y". Postgres with pgvector can do everything except reranking in one database: full-text search is built in, semantic search comes from pgvector, and filters are `WHERE` clauses. This is a plan; none of it is built yet.
+
+**In an interview:** "The plan is to build basic semantic RAG first and measure it against an eval set as a baseline, then add hybrid search, filters, and reranking one at a time and rerun the same eval, so every improvement has a number behind it." (Update this line with real numbers once Step 11 and Phase 1F are done.)
+
+*First seen: between Steps 2 and 3.*
 
 ---
 
@@ -132,6 +187,76 @@ pip (installs libraries) and venv (creates virtual environments) ship with Pytho
 **In an interview:** "I chose uv over pip and venv because it's one tool, it's fast, and it produces a lockfile automatically, with a standard pyproject.toml."
 
 *First seen: Step 0.*
+
+---
+
+## Databases
+
+### SQLite vs PostgreSQL
+SQLite is a database stored in a single file. Your code opens that file and reads it directly, with no separate program running. PostgreSQL (Postgres for short) is a database server: a program that runs all the time and accepts connections. Code connects to it over the network, sends SQL, and gets rows back. The server design matters for three reasons: it handles many users writing at once (SQLite struggles with that), it supports extensions that add new abilities ([pgvector](#pgvector) is one), and local development looks the same as production, so when the app is deployed only the connection string changes.
+
+**In an interview:** "SQLite is a file your code opens; Postgres is a server your code connects to. I wanted the server model because it handles concurrent writes, supports extensions like pgvector, and my local setup matches production except for one connection string."
+
+*First seen: between Steps 2 and 3.*
+
+### Supabase is PostgreSQL
+Supabase hosts a PostgreSQL database in the cloud and adds a dashboard, auth (user login), and an API on top. The tables and SQL used in Supabase are the same thing this project uses. That is why Supabase gives you a connection string: the address of the database server, plus the login details, in one line of text. Supabase also offers pgvector, so this project's database work transfers directly, and the app could be pointed at Supabase later just by changing the connection string.
+
+**In an interview:** "I'd used Supabase before, which is hosted Postgres. Running Postgres locally in Docker showed me what's underneath, and since Supabase supports pgvector, deploying there would mostly be a connection string change."
+
+*First seen: between Steps 2 and 3.*
+
+### Docker, images, and containers
+Docker runs software in a sealed box called a container. The container has its own copy of Postgres and everything Postgres needs, so nothing is installed into the Mac itself. An image is the ready-made template a container is started from. This project uses the image `pgvector/pgvector:pg16`, which is PostgreSQL 16 with pgvector already included. It was already downloaded on the Mac Mini (found in the [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup) audit).
+
+**In an interview:** "Postgres runs in a Docker container from the official pgvector image, so the database is reproducible and nothing is installed on the host machine."
+
+*First seen: between Steps 2 and 3.*
+
+### Docker volume
+A volume is a storage area Docker keeps on the Mac where the database files are actually saved. It lives outside the container. So stopping or deleting the container does not delete the data; a new container can pick up the same volume.
+
+**In an interview:** "The container is disposable, the data isn't. Postgres writes to a Docker volume, so I can stop or recreate the container without losing anything."
+
+*First seen: between Steps 2 and 3.*
+
+### localhost and port 5432
+`localhost` means "this computer". A port is a numbered entry point on a computer that a particular server program listens on. 5432 is Postgres's standard port. So `localhost:5432` means "the Postgres server on this machine". It plays the same role as a Supabase connection string, just pointing at the local machine. The project's `.env.example` already uses it: `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ragmotion`.
+
+**In an interview:** "Locally the app connects to localhost:5432, Postgres's default port. In production, that one DATABASE_URL setting changes and nothing else does."
+
+*First seen: between Steps 2 and 3.*
+
+### Where the database runs in this project
+The database runs on the developer's Mac Mini, inside Docker. The Python code talks to it over `localhost:5432`, and the data itself sits in a Docker volume.
+
+```
+Your Mac
+├── rag-motion/          ← our Python code
+│      │  connects to localhost:5432
+│      ▼
+└── Docker
+    └── container "db"   ← PostgreSQL 16 + pgvector, running
+           │
+           ▼
+        volume           ← where the data is actually saved
+```
+
+**In an interview:** "There are three layers: my Python code, a Postgres container, and a volume holding the data. The code only knows a connection string, so I can swap the container for a hosted database without touching the code."
+
+*First seen: between Steps 2 and 3.*
+
+### pgvector
+pgvector is an extension for PostgreSQL. Plain Postgres stores text, numbers, dates, and lists, but has no idea what an [embedding](#embedding) is. pgvector adds three things:
+1. **A vector column type.** `vector(1024)` holds exactly 1,024 numbers, which is what Voyage returns for each exercise. So each exercise's meaning is stored in the same row as its name, equipment, and difficulty.
+2. **Distance operators.** The main one, `<=>`, measures how far apart two vectors are, using cosine distance. A small distance means similar meaning. For example, `SELECT name FROM exercise ORDER BY embedding <=> <question vector> LIMIT 5;` means "give me the 5 exercises closest in meaning to this question".
+3. **Special indexes.** An index is a lookup structure that makes searching faster, like the index at the back of a book. pgvector's indexes (for example HNSW) make vector search fast at millions of rows. With 20 exercises we don't need one, so we skip it for now.
+
+The payoff is that meaning-based search and regular column conditions fit in one SQL query: "closest in meaning to glute exercises, but only where equipment includes dumbbells and difficulty is beginner". With a separate vector database, meaning and exercise details would be split across two systems. See [0004](decisions/0004-database-postgres-pgvector.md).
+
+**In an interview:** "pgvector gives Postgres a vector column, a distance operator, and vector indexes. That lets me rank by meaning and filter on equipment and difficulty in a single query, instead of stitching a vector database to a relational one."
+
+*First seen: between Steps 2 and 3.*
 
 ---
 

@@ -32,6 +32,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 
 Update the Status column as steps complete.
 
+**After Step 12: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic), and reranking one at a time. Rerun the Step 11 evaluation after each change and record the scores against the baseline.
+
 ## Stack decisions (see docs/decisions/ for the reasoning)
 
 - Python 3.12, managed with **uv** (`pyproject.toml` + `uv.lock`)

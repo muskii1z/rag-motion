@@ -262,3 +262,37 @@ gh api repos/muskii1z/rag-motion/contents       # no .env or .venv present
 **Decisions.**
 - No new decision records.
 - Updated [0007. Version control: git and a private GitHub repo](decisions/0007-version-control-git-github.md) with an "Implemented in Step 2" note: repo URL and the three commit hashes.
+
+---
+
+## Between Steps 2 and 3: Understanding the database and search types
+**Date:** 2026-09-24 · **Commit:** not committed (this docs update is committed right after it is written)
+
+**Goal.** Make sure the developer understands what the database is, where it runs, what pgvector adds, and how the main types of search in RAG differ, before building any of it.
+
+**What we did.**
+- A question-and-answer session only. No code, commands, or project files changed.
+- Developer background: before this project, the developer's database experience was SQLite and some Supabase. The answers built on that.
+- Most of the substance is in [concepts.md](concepts.md), under Databases and Embeddings and retrieval.
+
+**Commands.** None.
+
+**What we saw.** Nothing was run.
+
+**Developer questions.**
+- *"Explain this a bit. I've done nothing with databases besides SQLite and some Supabase. Where is this PostgreSQL, and what does the pgvector extension do exactly?"*
+  Supabase already is PostgreSQL, hosted in the cloud with extra tools on top. The difference from SQLite is that Postgres is a server (a program that runs all the time and accepts connections), not a file. In this project it runs on the Mac Mini inside a Docker container, with its data saved in a Docker volume, and our code reaches it at `localhost:5432`. pgvector adds a vector column type, distance operators for measuring similarity, and special indexes for speed. The payoff is meaning-based search and normal column filters in one SQL query.
+  See [SQLite vs PostgreSQL](concepts.md#sqlite-vs-postgresql), [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql), [Docker, images, and containers](concepts.md#docker-images-and-containers), [Docker volume](concepts.md#docker-volume), [localhost and port 5432](concepts.md#localhost-and-port-5432), [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project), [pgvector](concepts.md#pgvector).
+- *"So is this what you meant by semantic search and hybrid vs just regular search RAG?"*
+  Partly. Vector search plus column filters is "semantic search plus metadata filtering". "Hybrid" means something narrower: keyword search and semantic search run together, with the two result lists merged. Reranking is a further, optional stage. We start with basic semantic search, measure it with an evaluation set at Step 11, then add the other techniques one at a time and measure again.
+  See [Keyword search](concepts.md#keyword-search), [Semantic search](concepts.md#semantic-search), [Metadata filtering](concepts.md#metadata-filtering), [Hybrid search](concepts.md#hybrid-search), [Reranking](concepts.md#reranking), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag).
+
+**Problems and fixes.** None.
+
+**Learned.**
+- Databases: [SQLite vs PostgreSQL](concepts.md#sqlite-vs-postgresql), [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql), [Docker, images, and containers](concepts.md#docker-images-and-containers), [Docker volume](concepts.md#docker-volume), [localhost and port 5432](concepts.md#localhost-and-port-5432), [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project), [pgvector](concepts.md#pgvector) (all new)
+- Embeddings and retrieval: [Keyword search](concepts.md#keyword-search), [Semantic search](concepts.md#semantic-search), [Metadata filtering](concepts.md#metadata-filtering), [Hybrid search](concepts.md#hybrid-search), [Reranking](concepts.md#reranking), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag) (all new); [Embedding](concepts.md#embedding) (extended)
+
+**Decisions.**
+- No new decision records.
+- Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with a note that this discussion confirmed its rationale.

@@ -17,3 +17,6 @@ Docker must be running. pgvector is less specialized than a dedicated vector dat
 
 ## Revisit when
 There are millions of vectors, or latency needs exceed what pgvector indexes can deliver.
+
+## Note (2026-09-24, between Steps 2 and 3)
+A concepts discussion before Step 3 confirmed the rationale. Keyword search (Postgres's built-in full-text search), semantic search (pgvector), and metadata filtering (`WHERE` clauses) can all run in one Postgres query. Only reranking would need an outside model. Supabase also supports pgvector, which gives a possible deployment path: point the app at a hosted database by changing the connection string. See the [build log entry](../build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types) and [pgvector](../concepts.md#pgvector).
