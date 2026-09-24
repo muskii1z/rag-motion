@@ -7,7 +7,7 @@ A step-by-step journal of building rag-motion, an AI movement and exercise progr
 ## Step 0: Planning, environment audit, and documentation setup
 **Date:** 2026-09-23 to 2026-09-24 · **Commit:** `18c5cdf` docs: add working rules, build-scribe agent, and planning records (committed during Step 2, when git was set up)
 
-**Goal.** Understand the starting point on the Mac Mini, agree on the Phase 1 stack before writing any code, and set up a way to record every step, decision, and lesson.
+**Goal.** Understand the starting point on the development machine (the plan named a Mac Mini; work so far has been on a MacBook Air, see the [correction](#between-steps-4-and-5-deployment-options-teach-back-and-a-machine-correction)), agree on the Phase 1 stack before writing any code, and set up a way to record every step, decision, and lesson.
 
 **What we did.**
 
@@ -281,7 +281,7 @@ gh api repos/muskii1z/rag-motion/contents       # no .env or .venv present
 
 **Developer questions.**
 - *"Explain this a bit. I've done nothing with databases besides SQLite and some Supabase. Where is this PostgreSQL, and what does the pgvector extension do exactly?"*
-  Supabase already is PostgreSQL, hosted in the cloud with extra tools on top. The difference from SQLite is that Postgres is a server (a program that runs all the time and accepts connections), not a file. In this project it runs on the Mac Mini inside a Docker container, with its data saved in a Docker volume, and our code reaches it at `localhost:5432`. pgvector adds a vector column type, distance operators for measuring similarity, and special indexes for speed. The payoff is meaning-based search and normal column filters in one SQL query.
+  Supabase already is PostgreSQL, hosted in the cloud with extra tools on top. The difference from SQLite is that Postgres is a server (a program that runs all the time and accepts connections), not a file. In this project it runs on the developer's MacBook Air inside a Docker container, with its data saved in a Docker volume, and our code reaches it at `localhost:5432`. pgvector adds a vector column type, distance operators for measuring similarity, and special indexes for speed. The payoff is meaning-based search and normal column filters in one SQL query.
   See [SQLite vs PostgreSQL](concepts.md#sqlite-vs-postgresql), [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql), [Docker, images, and containers](concepts.md#docker-images-and-containers), [Docker volume](concepts.md#docker-volume), [localhost and port 5432](concepts.md#localhost-and-port-5432), [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project), [pgvector](concepts.md#pgvector).
 - *"So is this what you meant by semantic search and hybrid vs just regular search RAG?"*
   Partly. Vector search plus column filters is "semantic search plus metadata filtering". "Hybrid" means something narrower: keyword search and semantic search run together, with the two result lists merged. Reranking is a further, optional stage. We start with basic semantic search, measure it with an evaluation set at Step 11, then add the other techniques one at a time and measure again.
@@ -515,3 +515,49 @@ Rule tests. The brief recorded the result of each test, not the exact SQL typed.
 
 **Decisions.**
 - [0010. Exercise table: metadata columns with CHECK constraints](decisions/0010-exercise-table-check-constraints.md) (new)
+
+---
+
+## Between Steps 4 and 5: Deployment options, teach-back, and a machine correction
+**Date:** 2026-09-24 · **Commit:** not committed (this docs update is committed right after it is written)
+
+**Goal.** Answer a deployment question, check the developer's understanding with a teach-back, and correct a wrong fact in the docs.
+
+**What we did.**
+- Q&A and a teach-back only. No project code, commands, or schema changed.
+- **Machine correction.** The master context document said development happens on a Mac Mini, and these docs repeated it. In fact Steps 0 to 4 were all built on the developer's MacBook Air; the Mac Mini is currently unavailable. The terminal prompt showed `Musabs-MacBook-Air` and the developer confirmed it. Every "Mac Mini" mention in `docs/` was corrected.
+- **Consequence recorded:** the Postgres data lives in a Docker volume on the MacBook Air only. Code travels through GitHub; the database doesn't. On another machine: clone the repo, start Docker, apply `db/schema.sql`, run the seed script (Step 5). This is one reason schema and seed data live in the repo. See [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project).
+- Answered the question "Supabase or Pinecone?" (below).
+- The developer explained the system back in their own words. The full teach-back, what was right, what was corrected, and the polished interview version are saved in [interview-prep.md, Teach-backs](interview-prep.md#teach-backs).
+
+**Commands.**
+
+```bash
+# From the home folder (~):
+docker compose exec db psql -U postgres -d ragmotion -c "\d exercise"
+# no configuration file provided: not found
+
+# From the project folder:
+cd ~/rag-motion
+docker compose exec db psql -U postgres -d ragmotion -c "\d exercise"
+# Showed the exercise table.
+```
+
+**What we saw.**
+- `docker compose` finds the project by looking for `docker-compose.yml` in the current folder.
+
+**Problems and fixes.**
+- **Terminal mix-up.** The `\d exercise` command above failed when run from `~`, because Docker Compose looks for `docker-compose.yml` in the current folder. Fix: `cd ~/rag-motion` first. Rule from now on: every `docker compose` and `uv` command for this project runs from `~/rag-motion`. See [Commands run relative to the current folder](concepts.md#commands-run-relative-to-the-current-folder).
+- **Wrong machine in the docs.** Fixed as described above.
+
+**Developer questions.**
+- *"If I want to put this out there, would we move the database to something like Supabase or Pinecone?"* Supabase yes, Pinecone probably not; they solve different problems. Supabase is the same PostgreSQL + pgvector we run locally, hosted, so moving is: enable pgvector, run `db/schema.sql` unchanged, change `DATABASE_URL`, rerun the seed and embedding scripts. No code changes. Pinecone is vector-only, so it would sit next to Postgres, not replace it, and the two would have to be kept in sync. It makes sense at tens or hundreds of millions of vectors or very high traffic, not at 50 to 5,000 exercises. Deploying the whole app also means a backend host (Render, Fly.io, Railway), a frontend host (Netlify, Vercel), and API keys in the host's secret settings; that is Phase 6. Full reasoning in [0004](decisions/0004-database-postgres-pgvector.md#note-2026-09-24-between-steps-4-and-5-deployment-path-and-why-not-pinecone).
+- *Teach-back.* The developer asked to quiz themselves by explaining what's been built. Overall picture right; two fixes: uv is a tool, not a library, and a vector is 1,024 coordinates of meaning, not a label. See [Teach-backs](interview-prep.md#teach-backs).
+
+**Learned.**
+- New: [Commands run relative to the current folder](concepts.md#commands-run-relative-to-the-current-folder) (new group: Terminal basics), [Hosted Postgres (Supabase, Neon, etc.)](concepts.md#hosted-postgres-supabase-neon-etc), [Dedicated vector database (Pinecone)](concepts.md#dedicated-vector-database-pinecone)
+- Extended: [Package manager](concepts.md#package-manager) (uv is a tool, not a library), [Embedding](concepts.md#embedding) and [pgvector](concepts.md#pgvector) (a vector is coordinates of meaning; Voyage creates it, pgvector stores and compares it), [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (MacBook Air; code travels, the database doesn't)
+
+**Decisions.**
+- No new decision records.
+- Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with the Supabase migration path, the "why not Pinecone" reasoning, and the machine note.

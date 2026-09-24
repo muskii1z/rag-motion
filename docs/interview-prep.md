@@ -2,7 +2,35 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 4.
+Last updated: between Steps 4 and 5.
+
+---
+
+## Teach-backs
+
+The developer explains what has been built in their own words, gets corrections, and saves a polished version to say in interviews. This section grows over time.
+
+### Teach-back 1: after Step 4 (2026-09-24)
+
+**The developer's explanation** (lightly condensed, their wording kept):
+"So far we installed uv, it's a Python library, I think. Then we made the GitHub. Then we created our database, inside a Docker container. Then we created the database table structure. It's PostgreSQL, and it has a pgvector extension. PostgreSQL is just regular, you can store text, like type of exercise, equipment, what muscle, etc. The vector extension and vector storage basically allows us to identify those specific parts of the table, or any item, with a number, labels it with a number, and the idea is that if I have three leg exercises, those numbers would be closer than an arm and a leg exercise."
+
+**What was right.** The overall picture.
+- GitHub. Plus: `.gitignore` keeps API keys off GitHub ([.gitignore](concepts.md#gitignore)).
+- Database in a Docker container. Plus: the volume is where the data actually lives, so containers can be rebuilt ([Docker volume](concepts.md#docker-volume)).
+- PostgreSQL is the database and `exercise` is the table in it, with regular columns for equipment, muscles, and difficulty ([Schema](concepts.md#schema)).
+- The leg-vs-arm intuition is exactly right: similar exercises sit closer together.
+
+**What was corrected.**
+1. **uv is not a library, it's a tool.** Libraries are code the project uses (anthropic, voyageai). uv installs them into the project's private folder and records exact versions. uv is the delivery driver; libraries are the packages. See [Package manager](concepts.md#package-manager).
+2. **The vector isn't a label or a single number; it's a list of 1,024 numbers.** The labels are the `id` and `slug` (e.g. `goblet-squat`). The vector describes the exercise's meaning, not its name. Think of coordinates: a map location needs 2 numbers, meaning needs about 1,024. Similar meanings sit near each other, and `<=>` measures the distance. See [Embedding](concepts.md#embedding).
+- Also clarified: the `embedding` column is currently empty. Postgres doesn't create vectors. Voyage reads each description and returns the 1,024 numbers (Step 8); pgvector stores them and measures distance. See [pgvector](concepts.md#pgvector).
+
+**Interview version** (saved verbatim at the developer's request):
+
+> I used uv to set up the Python project and its dependencies, and pushed it to a private GitHub repo with secrets git-ignored. I run PostgreSQL in Docker, with a volume so the data persists. I created an exercise table with regular columns for things like equipment and difficulty, plus a vector column from the pgvector extension. Each exercise's description gets turned into a 1,024-number embedding, so exercises with similar meanings sit close together, and I can search by meaning and filter by the regular columns in the same query.
+
+Note: the last sentence describes the design. Embeddings are created in Step 8 and search is built in Step 9; neither exists yet.
 
 ---
 
@@ -81,6 +109,10 @@ Evidence so far:
   - [Transaction (BEGIN and ROLLBACK)](concepts.md#transaction-begin-and-rollback): a valid insert was tested and undone, leaving the table empty for seeding.
   - [Identity column and ID gaps](concepts.md#identity-column-and-id-gaps) and [Slug vs id](concepts.md#slug-vs-id): the test row got id 4 because failed inserts used up numbers. A concrete story for why citations use a slug.
   - [0010](decisions/0010-exercise-table-check-constraints.md): why CHECK constraints over free text or lookup tables.
+- [Between Steps 4 and 5](build-log.md#between-steps-4-and-5-deployment-options-teach-back-and-a-machine-correction): "Why not Pinecone?"
+  - [Dedicated vector database (Pinecone)](concepts.md#dedicated-vector-database-pinecone): Pinecone is vector-only, so it would sit next to Postgres and need syncing on every exercise change. Pinecone does support metadata filters, so the real argument is one source of truth: rows and vectors joinable in one query and updated in one transaction.
+  - [Hosted Postgres (Supabase, Neon, etc.)](concepts.md#hosted-postgres-supabase-neon-etc): the same stack is available hosted, so the local choice carries into deployment.
+  - Full reasoning in the [0004 note](decisions/0004-database-postgres-pgvector.md#note-2026-09-24-between-steps-4-and-5-deployment-path-and-why-not-pinecone).
 
 ## Evaluation
 
@@ -137,7 +169,11 @@ Evidence so far:
   - [Docker volume](concepts.md#docker-volume): tested, not assumed. The container was deleted and rebuilt, and the data survived. `down -v` would delete it.
   - `DATABASE_URL` in `.env.example` now points at `localhost:5434`. Deploying means replacing that one setting with a hosted database's URL ([0009](decisions/0009-local-db-port-5434-localhost-only.md) revisit signal).
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): `db/schema.sql` starts with `CREATE EXTENSION IF NOT EXISTS vector;` and is [idempotent](concepts.md#idempotent-script), so a fresh database is set up by one re-runnable file, applied with `-v ON_ERROR_STOP=1` so it stops at the first error.
-- Actual deployment not yet covered.
+- [Between Steps 4 and 5](build-log.md#between-steps-4-and-5-deployment-options-teach-back-and-a-machine-correction): a deployment plan, discussed not done.
+  - Database: [Hosted Postgres (Supabase, Neon, etc.)](concepts.md#hosted-postgres-supabase-neon-etc). Enable pgvector, run `db/schema.sql` unchanged, change `DATABASE_URL`, rerun the seed and embedding scripts. No code changes. Neon, Railway, Render, and AWS are alternatives.
+  - Rest of the app: backend on Render, Fly.io, or Railway; frontend on Netlify or Vercel; API keys move from `.env` into the host's secret settings. Phase 6 in the master context document.
+  - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project): code travels through GitHub, the database doesn't. Any machine rebuilds it from the repo (clone, start Docker, apply the schema, seed). That is why schema and seed data are files in git.
+- Actual deployment not yet done.
 
 ## Security
 
@@ -169,6 +205,7 @@ Evidence so far:
 - [Package layout](concepts.md#package-layout): all app code lives in one importable package, `src/ragmotion/`, so CLI scripts, tests, and the future API share it.
 - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (extended in Step 3): the storage layer is built. Python code connects to `localhost:5434`, which reaches container `rag-motion-db-1`, whose data sits in volume `rag-motion_pgdata`.
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the `exercise` table exists, holding each exercise's text, filterable metadata, provenance (`source`), and an empty `embedding` column in one row. Discussed but not built: a second table of document chunks for training principles ([Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge), [Chunking](concepts.md#chunking)).
+- [Teach-back 1](#teach-back-1-after-step-4-2026-09-24): the developer's polished interview version covers the storage layer (uv project, private GitHub repo, Postgres in Docker with a volume, exercise table with metadata columns and a pgvector column). Partial answer; it stops before the request path.
 - The full request path is not built yet.
 
 ## Tradeoffs
@@ -184,4 +221,5 @@ Evidence so far:
 - [0002](decisions/0002-embeddings-voyage-4-lite.md) tradeoff added in Step 1: the voyageai SDK pulls in LangChain core and LangSmith as [transitive dependencies](concepts.md#transitive-dependencies), which means a bigger install and more packages to keep patched.
 - [0010](decisions/0010-exercise-table-check-constraints.md) (Step 4): CHECK constraints with fixed lists vs lookup tables with foreign keys. CHECKs are simple and visible in one file, but adding a new equipment type means editing the schema. Revisit signal: vocabularies grow large or need their own attributes.
 - [Schema](concepts.md#schema) (Step 4): schema changes are cheap now, while the table is empty. Once real data and code depend on it, changes go through migrations. [0005](decisions/0005-database-access-psycopg-raw-sql.md) already plans a migration tool (Alembic) for when the schema changes often.
+- [Dedicated vector database (Pinecone)](concepts.md#dedicated-vector-database-pinecone) (between Steps 4 and 5): at large scale (tens or hundreds of millions of vectors, very high search traffic) a dedicated vector database becomes a real option, at the cost of running and syncing two systems. At 50 to 5,000 exercises it is not worth it. See the [0004 note](decisions/0004-database-postgres-pgvector.md#note-2026-09-24-between-steps-4-and-5-deployment-path-and-why-not-pinecone).
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).

@@ -31,7 +31,14 @@ An embedding is a list of numbers that represents the meaning of a piece of text
 
 *Between Steps 2 and 3 update:* Embeddings are also weak on exact terms. To an embedding model, an abbreviation like "RDL" is just three letters, so search by meaning alone may rank loosely related exercises above the one literally named "Dumbbell RDL". See [Semantic search](#semantic-search), [Keyword search](#keyword-search), and [Metadata filtering](#metadata-filtering).
 
-*First seen: Step 0. Extended: between Steps 2 and 3.*
+*Between Steps 4 and 5 update: a vector is coordinates of meaning, not a label.* In a teach-back, the developer described the vector as something that "labels" each exercise "with a number". The intuition that followed was exactly right (three leg exercises sit closer together than a leg and an arm exercise), but two details needed fixing, and both are common first-time confusions:
+- **It is a list of 1,024 numbers, not one number.** Think of coordinates. A place on a map needs 2 numbers; meaning needs about 1,024. Exercises with similar meanings sit near each other in that space, and pgvector's `<=>` measures the distance between them.
+- **It describes meaning, not a name.** The labels are the `id` and the `slug` (for example `goblet-squat`). The vector is computed from the description text and captures what the exercise is about.
+- **Who does what.** Postgres does not create vectors. Voyage AI reads each description and returns the 1,024 numbers (Step 8). [pgvector](#pgvector) stores them and measures distance. The `embedding` column is currently empty.
+
+**In an interview:** "An embedding isn't a label, it's a set of 1,024 coordinates describing meaning. Voyage produces it from the exercise description, and pgvector stores it and measures distance, so similar exercises end up close together."
+
+*First seen: Step 0. Extended: between Steps 2 and 3, between Steps 4 and 5.*
 
 ### Keyword search
 Keyword search finds rows that contain the actual words in the question. Using the running example "beginner RDL variations with dumbbells", the word "RDL" (Romanian deadlift) matches an exercise named "Dumbbell RDL" exactly. It fails when the wording differs: "hip hinge" won't find "Romanian deadlift" unless those words appear in the exercise text. PostgreSQL has keyword search built in, called full-text search.
@@ -122,12 +129,25 @@ A general chatbot like ChatGPT already knows general training principles and wou
 
 ---
 
+## Terminal basics
+
+### Commands run relative to the current folder
+The terminal always has a current folder, often shown in the prompt (`~` means your home folder). Many commands look for their files in that folder. `docker compose` looks for `docker-compose.yml` there, and `uv` looks for `pyproject.toml` there. Run from the wrong folder, they can't find the project. Between Steps 4 and 5, running `docker compose exec db psql ...` from `~` failed with `no configuration file provided: not found`. Running `cd ~/rag-motion` first fixed it. Rule: every `docker compose` and `uv` command for this project runs from `~/rag-motion`. `pwd` (print working directory) shows which folder you are in.
+
+**In an interview:** "Docker Compose and uv are project-aware: they find the project by looking in the current folder. When a command says it can't find its config, the first thing I check is which folder I'm in."
+
+*First seen: between Steps 4 and 5.*
+
+---
+
 ## Python tooling
 
 ### Library
 A library is code that other people already wrote and published so anyone can reuse it. We don't write libraries in this project; we download and install them into it. For example, the `anthropic` library already knows how to talk to Claude, so we don't have to write that ourselves.
 
 **In an interview:** "I lean on well-maintained libraries for the plumbing, like the Anthropic and Voyage SDKs and psycopg, and keep my own code focused on the retrieval and programming logic."
+
+Not to be confused with uv, which is a tool that installs libraries, not a library itself. See [Package manager](#package-manager).
 
 *First seen: Step 1.*
 
@@ -136,7 +156,9 @@ A Python project depends on other people's code, called libraries. A package man
 
 **In an interview:** "I used uv as the package manager. It handles the environment, the installs, and the lockfile in one tool."
 
-*First seen: Step 0.*
+*Between Steps 4 and 5 update: uv is a tool, not a library.* In a teach-back, the developer called uv "a Python library". That is a common first-time mix-up. A [library](#library) is code the project uses while it runs (anthropic, voyageai). uv is a tool you run from the terminal to build and manage the project: it installs those libraries into the project's private folder (`.venv`) and records their exact versions in `uv.lock`. The app never imports uv. Analogy: uv is the delivery driver; the libraries are the packages it delivers.
+
+*First seen: Step 0. Extended: between Steps 4 and 5.*
 
 ### Virtual environment
 A virtual environment is a private folder of installed libraries for one project. It keeps the project's libraries separate so they don't pollute the whole Mac or clash with other projects. For example, the Anthropic SDK was already installed globally on the Mac, but the project will get its own copy inside its environment.
@@ -238,10 +260,24 @@ Supabase hosts a PostgreSQL database in the cloud and adds a dashboard, auth (us
 
 **In an interview:** "I'd used Supabase before, which is hosted Postgres. Running Postgres locally in Docker showed me what's underneath, and since Supabase supports pgvector, deploying there would mostly be a connection string change."
 
-*First seen: between Steps 2 and 3.*
+*First seen: between Steps 2 and 3. See also [Hosted Postgres (Supabase, Neon, etc.)](#hosted-postgres-supabase-neon-etc) for the step-by-step migration path.*
+
+### Hosted Postgres (Supabase, Neon, etc.)
+Hosted Postgres means someone else runs the PostgreSQL server for you in the cloud. Supabase is the same technology this project runs locally (PostgreSQL plus pgvector), just hosted. Moving there would take four moves: create a Supabase project and enable pgvector (one click); run `db/schema.sql` unchanged; change `DATABASE_URL` to Supabase's connection string; run the seed and embedding scripts. No Python code or SQL changes, only the address. That is the payoff of developing on the same technology you deploy on. Neon, Railway, Render, and AWS also offer hosted Postgres with pgvector. This is a plan discussed between Steps 4 and 5, not something done.
+
+**In an interview:** "I develop on the same stack I'd deploy on. Moving to Supabase is: enable pgvector, run the same schema file, swap the DATABASE_URL, and rerun the seed and embedding scripts. No code changes, just a new address."
+
+*First seen: between Steps 4 and 5.*
+
+### Dedicated vector database (Pinecone)
+A dedicated vector database, such as Pinecone, stores only embeddings plus some metadata, and searches them very fast. It does not replace a regular database: exercises, and later clients, programs, and sessions, would still need Postgres. So using it means running two systems and keeping them in sync. Every time an exercise is edited or deleted, its vector in Pinecone must be updated too; if the two drift apart, search returns stale or deleted exercises. Pinecone does support metadata filters, so filtering alone is not the argument against it. The stronger argument for Postgres is one source of truth: exercises, vectors, and later clients and programs in one place, joinable in one query, and updated together in one [transaction](#transaction-begin-and-rollback). Pinecone would make sense at tens or hundreds of millions of vectors, very high search traffic, or for a team that doesn't want to tune database indexes. This project expects 50 to 5,000 exercises, nowhere near that.
+
+**In an interview:** "Pinecone is a fair option, and it does metadata filtering too. But it would be a second system to keep in sync with Postgres. At a few thousand exercises, one source of truth, where vectors and rows update in the same transaction, beats the extra speed. I'd revisit at tens of millions of vectors or very high query traffic."
+
+*First seen: between Steps 4 and 5. See [0004](decisions/0004-database-postgres-pgvector.md).*
 
 ### Docker, images, and containers
-Docker runs software in a sealed box called a container. The container has its own copy of Postgres and everything Postgres needs, so nothing is installed into the Mac itself. An image is the ready-made template a container is started from. This project uses the image `pgvector/pgvector:pg16`, which is PostgreSQL 16 with pgvector already included. It was already downloaded on the Mac Mini (found in the [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup) audit).
+Docker runs software in a sealed box called a container. The container has its own copy of Postgres and everything Postgres needs, so nothing is installed into the Mac itself. An image is the ready-made template a container is started from. This project uses the image `pgvector/pgvector:pg16`, which is PostgreSQL 16 with pgvector already included. It was already downloaded on the developer's MacBook Air (found in the [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup) audit).
 
 **In an interview:** "Postgres runs in a Docker container from the official pgvector image, so the database is reproducible and nothing is installed on the host machine."
 
@@ -298,7 +334,7 @@ A volume is a storage area Docker keeps on the Mac where the database files are 
 *First seen: between Steps 2 and 3. Extended: Step 3.*
 
 ### Where the database runs in this project
-The database runs on the developer's Mac Mini, inside Docker. The Python code talks to it over `localhost:5432`, and the data itself sits in a Docker volume.
+The database runs on the developer's MacBook Air, inside Docker. (The original plan named a Mac Mini; all work so far has been on the MacBook Air.) The Python code talks to it over `localhost:5432`, and the data itself sits in a Docker volume.
 
 ```
 Your Mac
@@ -328,7 +364,11 @@ Your Mac
         volume rag-motion_pgdata     ← where the data is actually saved
 ```
 
-*First seen: between Steps 2 and 3. Extended: Step 3.*
+*Between Steps 4 and 5 update: code travels, the database doesn't.* The Docker volume lives on the MacBook Air only. GitHub carries the code, including `docker-compose.yml` and `db/schema.sql`, but not the data inside the database. To get the same database on another machine: clone the repo, start Docker (`docker compose up -d --wait`), apply `db/schema.sql`, and run the seed script (planned for Step 5). This is one reason the schema and seed data live in the repo: the database can always be rebuilt from files in git.
+
+**In an interview:** "The database itself isn't in git, only the recipe for it. Schema and seed data are files in the repo, so any machine can rebuild the same database from a clone in a few commands."
+
+*First seen: between Steps 2 and 3. Extended: Step 3, between Steps 4 and 5.*
 
 ### pgvector
 pgvector is an extension for PostgreSQL. Plain Postgres stores text, numbers, dates, and lists, but has no idea what an [embedding](#embedding) is. pgvector adds three things:
@@ -355,7 +395,9 @@ So the scale runs from 0 (identical) to 2 (opposite), and smaller means more sim
 
 *Step 4 update:* The exercise table now has an `embedding vector(1024)` column, empty until Step 8. The size is enforced: inserting `'[1,2,3]'` failed with `ERROR: expected 1024 dimensions, not 3`. So if the wrong embedding model (one with a different number of dimensions) were ever used, the database would catch it on the first insert.
 
-*First seen: between Steps 2 and 3. Extended: Steps 3 and 4.*
+*Between Steps 4 and 5 update:* pgvector does not create vectors; it only stores and compares them. Voyage AI turns each description into 1,024 numbers (Step 8), and pgvector keeps them in the `embedding` column and measures distance with `<=>`. A vector is 1,024 coordinates of meaning, not a label; the labels are `id` and `slug`. This split of jobs was a first-time confusion in the developer's teach-back. See [Embedding](#embedding).
+
+*First seen: between Steps 2 and 3. Extended: Steps 3 and 4, between Steps 4 and 5.*
 
 ### Schema
 A schema is the definition of a table: its columns, each column's type, and the rules each value must follow. It is a contract the database enforces, so bad data is rejected at the door instead of discovered later. In this project it lives in `db/schema.sql`. Changing a schema is cheap while the table is empty (drop it and recreate it in seconds). Once real data and code depend on it, changes are done through migrations: scripted, versioned changes to a live database's structure. One design rule came out of Step 4: anything you want to filter on must be its own column; everything else can live in the description text, where the embedding captures its meaning.
