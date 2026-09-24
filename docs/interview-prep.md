@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 1.
+Last updated: Step 2.
 
 ---
 
@@ -87,6 +87,7 @@ Evidence so far:
 - [Runtime vs dev dependencies](concepts.md#runtime-vs-dev-dependencies): pytest sits in a dev group, so a production install can skip it.
 - [Virtual environment](concepts.md#virtual-environment): isolation checked by hand (project anthropic 1.8.0 vs global 0.86.0; voyageai only inside the project).
 - [.python-version](concepts.md#python-version): Python 3.12 pinned for the project.
+- [Step 2](build-log.md#step-2-git-setup-secret-protection-and-private-github-repo): code backed up to a private GitHub repo (https://github.com/muskii1z/rag-motion). `.env.example` lists every setting a new environment needs (`DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`), so configuration comes from the environment, not from code. [.gitignore](concepts.md#gitignore) keeps `.venv` out because it is rebuilt from `uv.lock`.
 - Actual deployment not yet covered.
 
 ## Security
@@ -95,7 +96,14 @@ Evidence so far:
 Evidence so far:
 - [Why .env stays out of git](concepts.md#why-env-stays-out-of-git): keys in a git-ignored `.env`, with a committed `.env.example` of blank values.
 - Variable names: `ANTHROPIC_API_KEY` ([0003](decisions/0003-llm-claude-opus-5.md)) and `VOYAGE_API_KEY` ([0002](decisions/0002-embeddings-voyage-4-lite.md)).
-- `.gitignore` and `.env.example` are created in Step 2.
+- [Step 2](build-log.md#step-2-git-setup-secret-protection-and-private-github-repo): built and verified.
+  - [.gitignore](concepts.md#gitignore) blocks `.env` and every `.env.*` variant, with one exception for `.env.example`. It was the very first commit (`b536be5`), so the rules were in place before anything else was tracked.
+  - `.env.example` documents all three settings: `DATABASE_URL` (local Docker default, not a real secret), and `ANTHROPIC_API_KEY` and `VOYAGE_API_KEY` left blank.
+  - [Secret check before the first commit](concepts.md#secret-check-before-the-first-commit): previewed the 21 files git would track, confirmed `.env` and `.venv` were ignored with `git check-ignore`, and grepped for key-shaped strings (`sk-ant-`, `ghp_`, `gho_`, Voyage-style keys, `API_KEY=<value>`). None found.
+  - After the push, listed the repo contents through the GitHub API: no `.env` or `.venv` on GitHub.
+  - The repo is private ([0007](decisions/0007-version-control-git-github.md)).
+- Point to make: a secret pushed to GitHub counts as leaked and must be rotated, even if deleted afterwards. That is why the checks happen before the first commit, not after.
+- [Credential helper](concepts.md#credential-helper): the push was pinned to the intended GitHub account (muskii1z) for that one command, and GitHub confirmed all commits were linked to it.
 - [Step 0](build-log.md#step-0-planning-environment-audit-and-documentation-setup): the environment audit checked for key variables by printing their names only, never their values.
 - [Step 1](build-log.md#step-1-install-uv-create-the-python-project-add-dependencies): pydantic-settings is installed to read keys from `.env`. Not wired up yet.
 - Related supply-chain point: [Transitive dependencies](concepts.md#transitive-dependencies). 6 requested libraries became 62 installed packages, each one code we are trusting.

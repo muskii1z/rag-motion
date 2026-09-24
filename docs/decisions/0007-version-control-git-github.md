@@ -17,3 +17,12 @@ Someone has to remember to make the repo public and tidy the README before shari
 
 ## Revisit when
 Phase 1 is complete and the README shows the architecture and eval numbers. Then make the repo public.
+
+## Implemented in Step 2
+Carried out as planned on 2026-09-24. See [Step 2 in the build log](../build-log.md#step-2-git-setup-secret-protection-and-private-github-repo).
+- Repo: https://github.com/muskii1z/rag-motion (private, default branch `main`).
+- First three commits:
+  - `b536be5` chore: add gitignore and env template
+  - `18c5cdf` docs: add working rules, build-scribe agent, and planning records
+  - `35b4345` chore: initialize Python project with uv
+- Verified on GitHub: owner muskii1z, all three commits linked to muskii1z, no `.env` or `.venv` uploaded.

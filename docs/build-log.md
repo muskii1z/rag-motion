@@ -5,7 +5,7 @@ A step-by-step journal of building rag-motion, an AI movement and exercise progr
 ---
 
 ## Step 0: Planning, environment audit, and documentation setup
-**Date:** 2026-09-23 to 2026-09-24 · **Commit:** not committed (git is initialized in Step 2)
+**Date:** 2026-09-23 to 2026-09-24 · **Commit:** `18c5cdf` docs: add working rules, build-scribe agent, and planning records (committed during Step 2, when git was set up)
 
 **Goal.** Understand the starting point on the Mac Mini, agree on the Phase 1 stack before writing any code, and set up a way to record every step, decision, and lesson.
 
@@ -90,7 +90,7 @@ The globally installed Python packages do not matter, because the project will g
 ---
 
 ## Step 1: Install uv, create the Python project, add dependencies
-**Date:** 2026-09-24 · **Commit:** not committed (git is initialized in Step 2; Step 1's files go into the first commit)
+**Date:** 2026-09-24 · **Commit:** `35b4345` chore: initialize Python project with uv (committed during Step 2, when git was set up)
 
 **Goal.** Give the project a private, reproducible Python environment with every library later steps need.
 
@@ -172,3 +172,93 @@ uv run ragmotion
 **Decisions.**
 - No new decision records.
 - Updated [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): its Tradeoffs now note that the voyageai library brings LangChain core and LangSmith packages into the environment.
+
+---
+
+## Step 2: Git setup, secret protection, and private GitHub repo
+**Date:** 2026-09-24 · **Commit:** `b536be5`, `18c5cdf`, `35b4345` (three commits, listed below)
+
+**Goal.** Put the project under version control with secrets protected, and back it up to a private GitHub repo on the developer's muskii1z account.
+
+**What we did.**
+- The developer already knows git from other projects, so explanations were kept short. They asked specifically that the repo go to the **muskii1z** GitHub account.
+- Checked, before creating anything, that the GitHub CLI (`gh`, GitHub's command-line tool) was logged in as muskii1z, and that no repo named `rag-motion` existed there yet.
+- Wrote `.gitignore` (the list of files git must never track). It excludes:
+  - `.env` and any `.env.*` file, except `.env.example`
+  - the `.venv` folder, Python caches (`__pycache__`, `*.pyc`), and build output (`build/`, `dist/`, `*.egg-info/`)
+  - tool caches (pytest, ruff, mypy)
+  - OS and editor noise (`.DS_Store`, `.idea/`, `.vscode/`)
+  - `.claude/settings.local.json` (per-machine Claude Code settings). The shared agent definition in `.claude/agents/` **is** committed.
+- Wrote `.env.example` with three settings and blank key values:
+  - `DATABASE_URL`, pre-filled with the local Docker default `postgresql://postgres:postgres@localhost:5432/ragmotion`. This is a local development password, not a real secret. The database itself arrives in Step 3.
+  - `ANTHROPIC_API_KEY`, blank (needed from Step 6).
+  - `VOYAGE_API_KEY`, blank (needed from Step 7).
+- Replaced the empty `README.md` that `uv init` created with a short placeholder: what the project is, the current phase, the RAG pipeline in one line, the stack, and links to the build log, decisions, and concepts. The full README is planned for Step 12.
+- Ran `git init` on branch `main`. Before committing, previewed exactly which files git would track, confirmed `.venv` and `.env` were ignored, and scanned the files about to be committed for anything shaped like an API key or token. None found. See [Secret check before the first commit](concepts.md#secret-check-before-the-first-commit).
+- Made three small commits instead of one big one, so the history reads in order: safety files first, then planning docs (Step 0), then the Python project (Step 1). See [Small, ordered commits](concepts.md#small-ordered-commits).
+- Created the private GitHub repo `muskii1z/rag-motion` and pushed.
+- Verified on GitHub's side: owner, visibility, the commits, author linking, and that no `.env` or `.venv` was uploaded.
+
+**Commands.**
+
+```bash
+# Check the GitHub account before creating anything
+gh auth status                       # logged in as muskii1z, the active account, https protocol
+gh api user --jq '.login'            # muskii1z (the API agreed with gh auth status)
+gh repo view muskii1z/rag-motion     # "Could not resolve", so the repo name was free
+git config --global user.name        # Musab Saraswat; commits use the developer's git email
+git config --global credential.helper  # nothing set globally
+
+# Initialize and check before the first commit
+git init -b main
+git add -A --dry-run                 # preview only: 21 files, no .venv, no .env
+git check-ignore -v .venv .env       # both ignored, and it printed which .gitignore rule matched
+# grep over the to-be-committed files for key-shaped strings:
+# sk-ant- (Anthropic), gho_ / ghp_ (GitHub tokens), Voyage-style keys, API_KEY=<value>
+# Result: no secrets found
+
+# Three commits
+git commit   # b536be5  chore: add gitignore and env template
+git commit   # 18c5cdf  docs: add working rules, build-scribe agent, and planning records
+git commit   # 35b4345  chore: initialize Python project with uv
+
+# Create the repo and push
+gh repo create muskii1z/rag-motion --private --description "..." --source=. --remote=origin
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin main
+# Pushed main and set it to track origin/main.
+# The two -c flags apply to this one command only (explained below).
+
+# Verify on GitHub's side
+gh repo view muskii1z/rag-motion                # owner muskii1z, visibility PRIVATE, default branch main
+gh api repos/muskii1z/rag-motion/commits        # all 3 commits present, each author linked to GitHub user muskii1z
+gh api repos/muskii1z/rag-motion/contents       # no .env or .venv present
+```
+
+**What we saw.**
+- Repo URL: https://github.com/muskii1z/rag-motion (private).
+- All three commits show as authored by muskii1z on GitHub. GitHub links a commit to an account by the commit's email address, and the developer's git email is linked to muskii1z.
+- **The push was pinned to one account.** A Mac can hold saved GitHub passwords for more than one account (for example in the Mac keychain). The push command told git, for that single command only, to ignore every saved [credential helper](concepts.md#credential-helper) and use the GitHub CLI's login instead. That guaranteed the push went as muskii1z, without changing the developer's global git settings.
+- The dry run and the GitHub contents check agreed: `.env` and `.venv` never left the machine.
+- The working tree was clean after the three commits.
+
+**Problems and fixes.**
+- `README.md` was empty, because `uv init` creates an empty one (noted in Step 1). The README is the first thing a visitor sees on GitHub, so we wrote a short placeholder before the first push.
+- No other problems.
+
+**Developer questions.**
+- *"Make sure this will go to the muskii1z account on GitHub."* Checked before and after. Before: the GitHub CLI's active login was muskii1z, and the API confirmed it. During: the repo was created explicitly as `muskii1z/rag-motion`, and the push was forced to use the CLI's muskii1z credentials. After: GitHub shows the repo owned by muskii1z and all three commits linked to muskii1z.
+
+**Minor choices (no separate decision record).**
+- Three commits instead of one, ordered safety files, then planning docs, then the Python project. The safety files (`.gitignore`, `.env.example`) went in first, so the ignore rules were in place before anything else was committed.
+- `DATABASE_URL` is pre-filled in `.env.example` because it is a local Docker default, not a secret. The two API keys are left blank.
+
+**Learned.**
+- [.gitignore](concepts.md#gitignore) (new)
+- [Why .env stays out of git](concepts.md#why-env-stays-out-of-git) (extended: the actual `.env.example` contents)
+- [Secret check before the first commit](concepts.md#secret-check-before-the-first-commit) (new)
+- [Small, ordered commits](concepts.md#small-ordered-commits) (new)
+- [Credential helper](concepts.md#credential-helper) (new)
+
+**Decisions.**
+- No new decision records.
+- Updated [0007. Version control: git and a private GitHub repo](decisions/0007-version-control-git-github.md) with an "Implemented in Step 2" note: repo URL and the three commit hashes.

@@ -18,8 +18,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 |---|---|---|
 | 0 | Documentation setup: this file, build-scribe agent, docs/ | done |
 | 1 | Install uv, create the Python project, add dependencies | done |
-| 2 | .gitignore, .env.example, git init, first commit, private GitHub repo | next |
-| 3 | Docker Compose, start Postgres, confirm pgvector | |
+| 2 | .gitignore, .env.example, git init, first commit, private GitHub repo | done |
+| 3 | Docker Compose, start Postgres, confirm pgvector | next |
 | 4 | Exercise schema, create the table, inspect it in psql | |
 | 5 | Write 20 exercises, seed script, query by hand | |
 | 6 | First Claude call: prose to structured client profile | |

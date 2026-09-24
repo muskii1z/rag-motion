@@ -142,7 +142,43 @@ API keys and passwords go in a local `.env` file. That file is listed in `.gitig
 
 **In an interview:** "Keys live in a git-ignored .env file. The repo only has a .env.example with blank values, so it's clear what's needed but nothing secret is committed."
 
-*First seen: Step 0.*
+*Step 2 update:* Both files now exist. `.env` holds the real values and is never committed. `.env.example` is committed and lists three settings: `DATABASE_URL` (pre-filled with the local Docker default, which is a development password, not a real secret), plus `ANTHROPIC_API_KEY` and `VOYAGE_API_KEY` left blank. Someone cloning the repo copies it to `.env` and fills in their own keys. The `.gitignore` rule ignores `.env` and every `.env.*` variant, then makes one exception for `.env.example`, so a file like `.env.local` can't slip in by accident.
+
+**In an interview (with evidence):** "The .env.example documents every setting the app needs. The ignore rule blocks .env and all its variants except the example, and I checked GitHub after the push to confirm no .env was uploaded."
+
+*First seen: Step 0. Extended: Step 2.*
+
+### Secret check before the first commit
+Before the first commit, three checks: preview what git would track (`git add -A --dry-run`), confirm the sensitive paths are ignored (`git check-ignore -v .venv .env`, which also names the matching rule), and search the files about to be committed for key-shaped text (for example `sk-ant-` for Anthropic keys, `ghp_` or `gho_` for GitHub tokens). This matters because once a secret is pushed to GitHub it must be treated as leaked and rotated (replaced with a new key), even if it is deleted later. Git history keeps old versions, and public repos get scanned by bots.
+
+**In an interview:** "Before the first commit I previewed the tracked files, confirmed .env was ignored, and grepped for key patterns. A pushed secret counts as leaked even if you delete it, so the cheap time to catch it is before the commit."
+
+*First seen: Step 2.*
+
+---
+
+## Version control
+
+### .gitignore
+`.gitignore` is a file listing the files and folders git must never track. It does two jobs. It protects secrets (`.env`). It also keeps out files that can be rebuilt or that only make sense on one machine: the `.venv` folder (rebuilt from `uv.lock`), Python caches, tool caches, macOS `.DS_Store` files, editor settings, and Claude Code's per-machine `.claude/settings.local.json`. The shared `.claude/agents/` folder is deliberately committed, because it defines the build-scribe for anyone working on the repo.
+
+**In an interview:** "The .gitignore keeps out secrets, anything rebuildable like the virtual environment, and anything machine-specific, but it keeps shared project config like the agent definitions."
+
+*First seen: Step 2.*
+
+### Small, ordered commits
+Instead of one big first commit, Step 2 made three focused ones: safety files (`.gitignore`, `.env.example`), then the planning docs, then the Python project. Each commit does one thing and has a clear message in conventional-commit style (a prefix such as `chore:` for setup or `docs:` for documentation). The safety files went first, so the ignore rules were in place before anything else was committed. For a portfolio repo, the history itself becomes part of the story a reviewer reads.
+
+**In an interview:** "I commit in small, ordered steps with conventional-commit messages, so the git history reads like the build log: safety first, then planning, then code."
+
+*First seen: Step 2.*
+
+### Credential helper
+When git pushes to GitHub over HTTPS (the web protocol), it needs a login token. A credential helper is the program git asks for that token. A Mac can have several: the Mac keychain, the GitHub CLI, and others, and they may hold logins for different GitHub accounts. In Step 2 the push command cleared all saved helpers and used only the GitHub CLI's (`gh auth git-credential`), and only for that one command. That guaranteed the push went as muskii1z without changing any global git settings.
+
+**In an interview:** "With more than one GitHub account on a machine, I don't trust whatever login git picks up. I pinned the push to the GitHub CLI's credentials for that one command, then confirmed on GitHub that the commits were linked to the right account."
+
+*First seen: Step 2.*
 
 ---
 
