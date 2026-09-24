@@ -2,7 +2,7 @@
 **Date:** 2026-09-24 · **Step:** 4 · **Status:** accepted
 
 ## Context
-The exercise table has several metadata columns (structured fields used for filtering): `movement_pattern`, `equipment`, `difficulty`, `laterality`, and `body_region`. In Phase 1F, after Step 12, retrieval will filter on these columns, for example "only exercises whose equipment is dumbbells, at beginner difficulty". A filter is only trustworthy if the values are consistent. If one row says `dumbbell` and another says `Dumbell`, a filter for `dumbbell` silently misses the second one, and nothing reports an error. So we needed to decide how strictly the database should control these values.
+The exercise table has several metadata columns (structured fields used for filtering): `movement_pattern`, `equipment`, `difficulty`, `laterality`, and `body_region`. In Phase 1F, after Step 12 (now after Step 16, see [0011](0011-phase-1-plan-revision-ingestion-and-langsmith.md)), retrieval will filter on these columns, for example "only exercises whose equipment is dumbbells, at beginner difficulty". A filter is only trustworthy if the values are consistent. If one row says `dumbbell` and another says `Dumbell`, a filter for `dumbbell` silently misses the second one, and nothing reports an error. So we needed to decide how strictly the database should control these values.
 
 ## Options considered
 - **Free-text columns.** Any text is accepted. Most flexible, and nothing to maintain. But typos and variants (`Dumbell`, `DB`, `dumbbells`) get in without any error and quietly break filters.
@@ -19,3 +19,6 @@ Adding a new equipment type or movement pattern (for example a TRX strap) means 
 
 ## Revisit when
 The vocabularies grow large, change often, or need their own attributes. Then move them to lookup tables with foreign keys.
+
+## Note (2026-09-24, Step 5): the allowed values now live in two places
+Step 5 added an `Exercise` Pydantic model in `src/ragmotion/models.py` whose `Literal` types mirror these CHECK lists, so the seed script can reject bad entries in Python, with the slug and field named, before anything reaches the database. The CHECK constraints stay as the final safety net. Tradeoff: adding an allowed value (for example a TRX strap) now means editing both `schema.sql` and `models.py`, and the two lists must be kept in sync by hand. See [Validate before write](../concepts.md#validate-before-write) and [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).

@@ -20,6 +20,13 @@ Anthropic's API only offers LLMs, not embedding models. So a RAG system (retriev
 
 *First seen: Step 0.*
 
+### OpenRouter
+OpenRouter is a service that sits between your code and many LLM providers. With one API key (a secret password that identifies you to a paid service) you can call models from different companies, which makes it easy to compare models later. In Step 5 the developer said they would prefer it to calling Claude directly. Tradeoffs: it adds a middleman between the app and the model provider, and support for structured output (the model returning data in an exact shape, not free text) varies from model to model. OpenRouter covers LLMs only; embeddings still need Voyage and its own key. The model and library are chosen at Step 6; until then [0003](decisions/0003-llm-claude-opus-5.md) is "under review".
+
+**In an interview:** "I routed LLM calls through OpenRouter so I could swap and compare models with one key. The cost is a middleman and uneven structured-output support across models, so I check that the model I pick can return the exact shape I need."
+
+*First seen: Step 5.*
+
 ---
 
 ## Embeddings and retrieval
@@ -61,7 +68,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 *Step 4 update:* The filter columns now exist in the exercise table: `equipment`, `difficulty`, `movement_pattern`, `laterality`, `body_region`, and `primary_muscles`. All but `primary_muscles` have [CHECK constraints](#check-constraints), so their values are consistent enough to filter on. No filtered queries have been written yet (planned for Phase 1F).
 
-*First seen: between Steps 2 and 3. Extended: Step 4.*
+*Step 5 update: "uses X" vs "only needs what I have".* The first filtered queries were run by hand on the 20 seeded exercises. Asking for beginner lower-body exercises where `'dumbbell' = ANY(equipment)` returned 5 rows, including Dumbbell Hip Thrust `{dumbbell,bench}` and Dumbbell Step-Up `{dumbbell,box}`. For a client who owns only dumbbells, those two are wrong. The right filter is `equipment <@ ARRAY['dumbbell','bodyweight']` ("everything it needs is in what I own"), which returned 11 rows across the whole catalog. A filter can be perfectly valid SQL and still answer the wrong question. See [Array operators: ANY vs contained-by](#array-operators-any-vs-contained-by).
+
+**In an interview (with evidence):** "My first equipment filter used 'contains dumbbell', and it returned a hip thrust that also needs a bench. The client's real question is 'what can I do with only what I own', which is a contained-by check. Getting the filter's meaning right matters as much as getting the SQL right."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4 and 5.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -84,44 +95,86 @@ The project builds the simple pipeline first and adds the more advanced pieces l
 Basic RAG (Steps 9–10):
   question → semantic search → top 5 → Claude
 
-Production-style RAG (Phase 1F, after Step 12):
+Production-style RAG (Phase 1F, after Step 16):
   question → keyword search ┐
            → semantic search┘→ merge → metadata filters → rerank → top 5 → Claude
 ```
 
-The reason is measurement. Step 11 builds an evaluation set: questions paired with the exercises that should come back. It runs against basic semantic search first, and that score is recorded as the baseline (the starting number every later change is compared to). In Phase 1F, hybrid search, filters, and reranking are added one at a time, and the same evaluation is rerun after each. That turns "better RAG" from a claim into numbers, such as "hybrid search lifted hits from X to Y". Postgres with pgvector can do everything except reranking in one database: full-text search is built in, semantic search comes from pgvector, and filters are `WHERE` clauses. This is a plan; none of it is built yet.
+The reason is measurement. Step 15 (originally Step 11) builds an evaluation set: questions paired with the exercises that should come back. It runs against basic semantic search first, and that score is recorded as the baseline (the starting number every later change is compared to). In Phase 1F, hybrid search, filters, and reranking are added one at a time, and the same evaluation is rerun after each. That turns "better RAG" from a claim into numbers, such as "hybrid search lifted hits from X to Y". Postgres with pgvector can do everything except reranking in one database: full-text search is built in, semantic search comes from pgvector, and filters are `WHERE` clauses. This is a plan; none of it is built yet.
 
-**In an interview:** "The plan is to build basic semantic RAG first and measure it against an eval set as a baseline, then add hybrid search, filters, and reranking one at a time and rerun the same eval, so every improvement has a number behind it." (Update this line with real numbers once Step 11 and Phase 1F are done.)
+**In an interview:** "The plan is to build basic semantic RAG first and measure it against an eval set as a baseline, then add hybrid search, filters, and reranking one at a time and rerun the same eval, so every improvement has a number behind it." (Update this line with real numbers once Step 15 and Phase 1F are done.)
 
-*First seen: between Steps 2 and 3.*
+*Step 5 update: renumbered.* The plan changed in [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand). The evaluation set moved from Step 11 to **Step 15**, after document ingestion (Steps 12 to 14), so the baseline measures the whole system (exercises plus documents), not just the catalog. Phase 1F now comes after **Step 16**. LangSmith tracing is added at Step 11, between basic RAG and ingestion. The LLM at the end of the pipeline is no longer assumed to be Claude; see [OpenRouter](#openrouter). See [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
+
+*First seen: between Steps 2 and 3. Extended: Step 5.*
+
+### Stale embeddings
+An embedding is computed from a piece of text at one moment. If the text is later edited but the embedding isn't recomputed, the vector still describes the old text. Search then matches the old meaning, and nothing reports an error. The seed script guards against this: when an exercise's content changes, the upsert sets `embedding = NULL`. A missing vector is visible and easy to find (`WHERE embedding IS NULL`), so the embedding step (Step 8) can recompute exactly those rows. A wrong vector would be invisible.
+
+**In an interview:** "Embeddings go stale when the source text changes. My seed script clears an exercise's vector whenever its content changes, so a missing embedding gets recomputed instead of a wrong one silently staying in the index."
+
+*First seen: Step 5.*
 
 ---
 
 ## RAG design
+
+### RAG: Retrieve, Augment, Generate
+RAG stands for retrieval-augmented generation. **Retrieve:** find the most relevant pieces of your own data for the question. **Augment:** put those pieces into the prompt (the text sent to the LLM), with an instruction to answer only from them. **Generate:** the LLM writes the answer and cites the pieces it used. The Step 5 diagram, using the running example:
+
+```
+Question: "beginner lower-body exercises with dumbbells"
+   ▼  Voyage turns the question into 1,024 numbers
+   ▼  pgvector compares it to all 20 exercise vectors       ← RETRIEVAL
+   │     1. Goblet Squat 0.18   2. Dumbbell RDL 0.21   3. Reverse Lunge 0.24
+   ▼  Prompt: "Answer using ONLY these exercises: [goblet-squat] ... Question: ..."   ← AUGMENTED
+   ▼  LLM writes an answer citing [goblet-squat] etc.       ← GENERATION
+```
+
+The scores are illustrative, not measured. Which steps build which letter: Step 5 gives retrieval something to search ([Seeding](#seeding)); Step 6 is G alone (a first LLM call); Steps 7 to 9 are R alone (embeddings and similarity search); Step 10 connects them into RAG. Seeding data or making one LLM call is a piece of RAG, not RAG.
+
+**In an interview:** "RAG is three stages: retrieve relevant evidence from my own data, augment the prompt with it, and have the model generate an answer that cites it. I built and inspected each stage on its own before wiring them together, so when something fails I know which stage to look at."
+
+*First seen: Step 5.*
+
+### Seeding
+Seeding means loading the first data into a database. It is the simplest form of ingestion (getting outside content into the system). The exercise data is already clean and structured, so seeding is just "validate and insert". Document ingestion (Steps 12 to 14) adds two steps before inserting: extract the text from a file such as a PDF, and split it into chunks. In Step 5, `scripts/seed_exercises.py` loads `data/exercises.json` (20 exercises) into the `exercise` table. The seed file lives in git, so any machine can rebuild the table from a clone.
+
+**In an interview:** "Seeding is ingestion at its simplest: clean, structured rows loaded from a file in the repo. I started there so I could learn embeddings and search on data I fully understood, before adding PDF extraction and chunking, which bring their own failure points."
+
+*First seen: Step 5.*
 
 ### Structured vs unstructured knowledge
 Structured knowledge is stored as rows with fixed columns, like the exercise table: each exercise has a name, an equipment list, a difficulty. Unstructured knowledge is paragraphs of text, like a textbook section explaining how to train for power (low reps, maximal intent, full rest, plyometrics). RAG systems often need both. For a request like "an explosive lower-body workout", the principles would come from documents and the concrete exercises from the table, and the answer would cite both. In Step 4 we built only the structured side; the document side is deferred.
 
 **In an interview:** "The app needs two kinds of knowledge: a structured exercise catalog I can filter by equipment and level, and unstructured training principles from documents. I built the catalog first, because it's needed whichever documents I end up using."
 
-*First seen: Step 4.*
+*Step 5 update: why both, and why the catalog first.* The developer asked why we were drafting exercises when the goal was learning to extract and chunk documents. Three reasons. (1) The catalog is not throwaway: Phase 2's program-building agent needs filterable rows ("3 lower-body power exercises that only need a box"), which can't be pulled reliably from textbook paragraphs. Documents answer "why and how to train"; the catalog answers "what exists". (2) Clean, known data first isolates embeddings and search. Ingestion adds new failure points (garbled PDF text, chunks cut mid-sentence, wrong chunk sizes, lost metadata), and if it is built first you can't tell which layer broke. (3) The exercises are real; only the descriptions are drafted, and the developer reviews them as the domain expert. The document side is now scheduled: Steps 12 to 14.
+
+**In an interview:** "Documents tell you why and how to train; the catalog tells you what exists and what it needs. An agent building a program needs to filter by equipment and level, which you can't do reliably on paragraphs. So I built the catalog first, then added document ingestion on top."
+
+*First seen: Step 4. Extended: Step 5.*
 
 ### Chunking
 Chunking means splitting long documents into passages of a few paragraphs each, so each passage can be embedded and retrieved on its own. A whole textbook chapter is too long and covers too many ideas for one [embedding](#embedding) to represent well, and too long to hand to the LLM in full. The chunks would be stored with their embeddings in a second table, next to the exercise table. The master context document calls this the knowledge ingestion pipeline. **Not built yet**; suggested for after Step 10.
 
+*Step 5 update:* Now scheduled. Step 12 extracts text from a real, openly licensed document (for example a PDF); Step 13 splits it into passages and stores them in a second table with metadata; Step 14 embeds the chunks and searches exercises and documents together. Failure points named in advance: garbled text from PDF extraction, chunks cut mid-sentence, chunk sizes that are too big or too small, and lost metadata (for example which page or section a chunk came from). LangSmith tracing (Step 11) is placed before this so bad chunked answers can be diagnosed. See [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
+
 **In an interview:** "Documents get split into chunks of a few paragraphs, each embedded and stored separately, so retrieval can return just the passage that answers the question instead of a whole chapter."
 
-*First seen: Step 4.*
+*First seen: Step 4. Extended: Step 5.*
 
 ### Content licensing in RAG
 Whatever text you ingest into a RAG system ends up stored in your database, and possibly in your repo. Copyrighted textbooks, such as NASM's materials or the NSCA's *Essentials of Strength Training and Conditioning*, can't go into a repo meant to become a public portfolio. Three options came up in Step 4: (a) write your own notes summarizing principles in your own words, citing the original source for each, and ingest the notes; (b) use openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) or open-access research papers; (c) keep copyrighted material local only, out of git and unpublished, which is fine for learning but can't be shown. This matches the master context document's rule: only use content we have permission to use or redistribute. No source has been chosen yet.
 
+*Step 5 update:* Candidate first document for Step 12: the U.S. Physical Activity Guidelines for Americans, a government publication that is free to use and redistribute (option b). The developer's own notes on NSCA power principles could be a second (option a). Not decided yet. The same honesty applies to the exercise catalog: its `source` says "Drafted with AI assistance; pending coach review" until the developer has reviewed it.
+
 **In an interview:** "Licensing is a design constraint in RAG, because the retrieved text lives in your system. I can't ingest a copyrighted textbook into a public repo, so the options were my own cited notes, openly licensed guidelines, or keeping copyrighted material local only."
 
-*First seen: Step 4.*
+*First seen: Step 4. Extended: Step 5.*
 
 ### Why RAG beats a plain chatbot here
-A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 11 are where points 1 and 4 get real evidence.
+A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 15 are where points 1 and 4 get real evidence (evaluation moved from Step 11 to Step 15 in Step 5).
 
 **In an interview:** "The model already knows training theory, so RAG isn't about making it smarter. It's about citations a coach can check, only recommending exercises the client can actually do, knowledge I've vetted myself, and quality I can measure."
 
@@ -235,7 +288,23 @@ The one dev library is **pytest**, which runs tests.
 
 **In an interview:** "The dependency list is deliberately small: two model SDKs, a Postgres driver plus its pgvector adapter, and Pydantic for validating data and loading config."
 
-*First seen: Step 1.*
+*Step 5 update:* pydantic, pydantic-settings, psycopg, and pgvector are now used by real code (`models.py`, `config.py`, `db.py`). anthropic and voyageai are still unused. The LLM library may change at Step 6 (see [OpenRouter](#openrouter)).
+
+*First seen: Step 1. Extended: Step 5.*
+
+### Pydantic model and Literal types
+A Pydantic model is a Python class that describes the exact shape of some data: which fields exist, their types, and which values are allowed. Handing it bad data raises an error that names the field. A `Literal` type lists the only values a field may take, for example `Literal["beginner", "intermediate", "advanced"]`. In Step 5, `src/ragmotion/models.py` defines an `Exercise` model whose `Literal` lists mirror the CHECK constraints in `db/schema.sql`. It also requires `slug` to be lowercase words joined by hyphens and `equipment` to be non-empty. The seed script validates all 20 entries against it before touching the database.
+
+**In an interview:** "I describe the data with a Pydantic model whose allowed values match the database constraints. A typo in the seed file fails in Python with the slug and field named, before it ever reaches Postgres."
+
+*First seen: Step 5.*
+
+### Config module (pydantic-settings)
+A config module is the one place in the code that knows where settings come from. `src/ragmotion/config.py` defines a pydantic-settings `Settings` class that reads environment variables and the `.env` file; everything else imports `settings` from it. Non-secret settings get defaults: `database_url` defaults to the local Docker URL (`localhost:5434`), so the database works before `.env` exists. Secrets (API keys) are optional in `Settings`, and each later step checks for the key it needs, so early steps don't fail because of a key they don't use.
+
+**In an interview:** "Configuration lives in one Settings class that reads .env. Non-secrets have sensible defaults; secrets are optional at load time and checked by the code that needs them, so the app fails with a clear message at the right place instead of on startup."
+
+*First seen: Step 5.*
 
 ### uv vs pip and venv
 pip (installs libraries) and venv (creates virtual environments) ship with Python, but they are two separate tools and don't lock exact versions. uv is a newer single tool that creates the environment, installs libraries, and writes a lockfile automatically. It is also much faster.
@@ -364,7 +433,7 @@ Your Mac
         volume rag-motion_pgdata     ← where the data is actually saved
 ```
 
-*Between Steps 4 and 5 update: code travels, the database doesn't.* The Docker volume lives on the MacBook Air only. GitHub carries the code, including `docker-compose.yml` and `db/schema.sql`, but not the data inside the database. To get the same database on another machine: clone the repo, start Docker (`docker compose up -d --wait`), apply `db/schema.sql`, and run the seed script (planned for Step 5). This is one reason the schema and seed data live in the repo: the database can always be rebuilt from files in git.
+*Between Steps 4 and 5 update: code travels, the database doesn't.* The Docker volume lives on the MacBook Air only. GitHub carries the code, including `docker-compose.yml` and `db/schema.sql`, but not the data inside the database. To get the same database on another machine: clone the repo, start Docker (`docker compose up -d --wait`), apply `db/schema.sql`, and run the seed script (built in Step 5: `uv run python scripts/seed_exercises.py`). This is one reason the schema and seed data live in the repo: the database can always be rebuilt from files in git.
 
 **In an interview:** "The database itself isn't in git, only the recipe for it. Schema and seed data are files in the repo, so any machine can rebuild the same database from a clone in a few commands."
 
@@ -444,21 +513,48 @@ A transaction is a group of database statements that succeed or fail together. `
 
 **In an interview:** "I tested a valid insert inside a transaction and rolled it back, so I could prove the schema accepts good data without polluting the table before seeding."
 
-*First seen: Step 4.*
+*Step 5 update:* The seed script writes all 20 rows in one transaction: either every row lands or none do. In Python, `get_connection()` is used as a context manager (a `with` block), which commits at the end if nothing failed and closes the connection. See [Validate before write](#validate-before-write).
+
+*First seen: Step 4. Extended: Step 5.*
 
 ### Idempotent script
 An idempotent script gives the same result no matter how many times it is run. `db/schema.sql` uses `CREATE EXTENSION IF NOT EXISTS` and `CREATE TABLE IF NOT EXISTS`, so running it again skips what already exists instead of failing. When it was applied in Step 4, Postgres printed `NOTICE: extension "vector" already exists, skipping` (it had been enabled by hand in Step 3). Applying it with `-v ON_ERROR_STOP=1` makes psql stop at the first real error instead of carrying on through the rest of the file.
 
 **In an interview:** "The schema script is idempotent, so it's safe to run on a fresh database or an existing one, and it stops at the first error rather than half-applying."
 
-*First seen: Step 4.*
+*Step 5 update:* The seed script is idempotent too, through an [upsert](#upsert). Run 1 printed "Inserted 20, updated 0, unchanged 0"; run 2 printed "Inserted 0, updated 0, unchanged 20", and the table still had 20 rows.
+
+*First seen: Step 4. Extended: Step 5.*
 
 ### Slug vs id
 A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.
 
 **In an interview:** "Every exercise has a unique slug like goblet-squat. Citations and eval cases use it, because internal IDs have gaps and aren't stable across reloads."
 
-*First seen: Step 4.*
+*Step 5 update:* The seed script uses the slug as its match key (`ON CONFLICT (slug)`), so re-running it updates the same exercise instead of creating a duplicate. See [Upsert](#upsert).
+
+*First seen: Step 4. Extended: Step 5.*
+
+### Upsert
+An upsert ("update or insert") inserts a row if it is new and updates it if it already exists, in one statement. In Postgres: `INSERT ... ON CONFLICT (slug) DO UPDATE SET ...`. "Conflict" means a row with the same unique `slug` already exists. `EXCLUDED` refers to the new values that were about to be inserted. The Step 5 seed script adds two refinements. A `WHERE (...) IS DISTINCT FROM (...)` clause means a row is only updated when something actually changed (`IS DISTINCT FROM` is a "not equal" that also treats empty values sensibly). And `RETURNING slug, (xmax = 0) AS inserted` reports back per row: `xmax` is an internal Postgres column that is 0 for a freshly inserted row, so the script can count inserted vs updated; rows that didn't change return nothing and count as unchanged. Upserts are what make a seed script safe to re-run.
+
+**In an interview:** "The seed script upserts on the slug, and only touches rows whose content actually changed. It reports inserted, updated, and unchanged, so a second run showing 0, 0, 20 proves it's idempotent."
+
+*First seen: Step 5.*
+
+### Validate before write
+Check the whole input before writing anything, and then write it all in one [transaction](#transaction-begin-and-rollback). The Step 5 seed script reads `data/exercises.json`, validates every entry against the `Exercise` [Pydantic model](#pydantic-model-and-literal-types), rejects duplicate slugs, and only then opens the database. Without this, entry 14 failing would leave 13 rows loaded and 7 missing: a half-loaded table. This gives two layers of validation: Pydantic in Python (clearer errors, naming the slug and field) and [CHECK constraints](#check-constraints) in Postgres (the final safety net). Tradeoff: the allowed-value lists now live in two places, `models.py` and `schema.sql`, and must be kept in sync by hand.
+
+**In an interview:** "I validate the whole file before writing, then load it in one transaction, so the table is never half-loaded. Pydantic gives readable errors up front and the database constraints are the backstop. The cost is keeping the two lists of allowed values in sync."
+
+*First seen: Step 5.*
+
+### Array operators: ANY vs contained-by
+Two ways to filter on a list column like `equipment`. `'dumbbell' = ANY(equipment)` means "the list contains dumbbell": the exercise *uses* a dumbbell, possibly plus other things. `equipment <@ ARRAY['dumbbell','bodyweight']` (`<@` means "is contained by") means "everything in the exercise's list is in my list": the exercise needs *nothing beyond* what I have. In Step 5, beginner lower-body exercises with `= ANY` returned 5 rows, including Dumbbell Hip Thrust (needs a bench) and Dumbbell Step-Up (needs a box). The `<@` query, across the whole catalog, returned 11 rows that need only dumbbells or bodyweight. For a client who owns only dumbbells, `<@` is the right question. See [Metadata filtering](#metadata-filtering).
+
+**In an interview:** "'Uses dumbbells' and 'only needs what I own' are different filters. ANY returned a hip thrust that also needs a bench; contained-by answers the client's actual question. That distinction will matter for metadata filtering and for program building."
+
+*First seen: Step 5.*
 
 ---
 
@@ -473,7 +569,9 @@ API keys and passwords go in a local `.env` file. That file is listed in `.gitig
 
 **In an interview (with evidence):** "The .env.example documents every setting the app needs. The ignore rule blocks .env and all its variants except the example, and I checked GitHub after the push to confirm no .env was uploaded."
 
-*First seen: Step 0. Extended: Step 2.*
+*Step 5 update:* `.env` now exists, copied from `.env.example`, and `git check-ignore` confirmed it is ignored. `.env.example` now lists `DATABASE_URL`, `OPENROUTER_API_KEY` (needed from Step 6), `VOYAGE_API_KEY` (needed from Step 7), and `ANTHROPIC_API_KEY` marked optional. The developer pastes the keys into `.env` in an editor, never into the chat with the AI assistant. The code reads them through one [config module](#config-module-pydantic-settings).
+
+*First seen: Step 0. Extended: Steps 2 and 5.*
 
 ### Secret check before the first commit
 Before the first commit, three checks: preview what git would track (`git add -A --dry-run`), confirm the sensitive paths are ignored (`git check-ignore -v .venv .env`, which also names the matching rule), and search the files about to be committed for key-shaped text (for example `sk-ant-` for Anthropic keys, `ghp_` or `gho_` for GitHub tokens). This matters because once a secret is pushed to GitHub it must be treated as leaked and rotated (replaced with a new key), even if it is deleted later. Git history keeps old versions, and public repos get scanned by bots.
@@ -488,6 +586,17 @@ A network interface is one of the ways a computer is connected (for example, the
 **In an interview:** "Even locally, I bind the database port to 127.0.0.1, so it isn't exposed to the network. The dev password in the compose file is only acceptable because of that; in production it would come from a secret manager."
 
 *First seen: Step 3.*
+
+---
+
+## Observability
+
+### LangSmith (tracing and evals)
+Observability means being able to see what a system did and why. LangSmith is a hosted service for this, with two main jobs. **Tracing:** it records every stage of one request (the question, the embedding call, the retrieved rows and their scores, the exact prompt sent to the LLM, the answer, token counts, and latency). **Evals:** it stores a set of test questions, runs the system on them, scores the results, and compares runs over time. It is already installed as a [transitive dependency](#transitive-dependencies) of voyageai, and it works without LangChain by wrapping our own API calls. It needs a free account and an API key, and traces (including prompts) are stored on LangSmith's servers; acceptable here because only fictional client data is used. **Planned for Step 11**, right after basic RAG and before document ingestion, so that when answers built from chunks go wrong the trace shows whether the right chunk was never retrieved or was retrieved and ignored. Until then, our scripts print every stage themselves (manual tracing), so the developer learns what a trace should contain before using a dashboard. Evals follow the same order: our own scoring script first (Step 15), then viewed in LangSmith.
+
+**In an interview:** "When a RAG answer is wrong, the first question is whether retrieval missed the evidence or the model ignored it. I printed every stage by hand first, then added LangSmith tracing before document ingestion, so every request shows the retrieved chunks, scores, and exact prompt side by side."
+
+*First seen: Step 5 (planned, not built).*
 
 ---
 

@@ -83,7 +83,7 @@ The globally installed Python packages do not matter, because the project will g
 - [0003. LLM: Claude Opus 5](decisions/0003-llm-claude-opus-5.md)
 - [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md)
 - [0005. Database access: psycopg 3 with raw SQL](decisions/0005-database-access-psycopg-raw-sql.md)
-- [0006. Interface: CLI first, thin FastAPI at Step 12](decisions/0006-interface-cli-first.md)
+- [0006. Interface: CLI first, thin FastAPI at Step 12](decisions/0006-interface-cli-first.md) (FastAPI renumbered to Step 16 in Step 5)
 - [0007. Version control: git and a private GitHub repo](decisions/0007-version-control-git-github.md)
 - [0008. Documentation with a build-scribe subagent](decisions/0008-documentation-build-scribe.md)
 
@@ -145,7 +145,7 @@ uv run ragmotion
 - Inside the project, `sys.executable` (the path of the Python program actually running) was `/Users/musabs1/rag-motion/.venv/bin/python`.
 - **Isolation proof.** The Mac's global Python still has anthropic 0.86.0, and `import voyageai` fails there. The project has anthropic 1.8.0 and voyageai works. The two environments do not affect each other. See [Virtual environment](concepts.md#virtual-environment).
 - The project uses the anthropic SDK (software development kit: the official library for calling Anthropic's API) 1.x series, not the 0.x series installed globally.
-- `README.md` was created by `uv init` but is currently empty. The real README is planned for Step 12.
+- `README.md` was created by `uv init` but is currently empty. The real README is planned for Step 12 (renumbered to Step 16 in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand)).
 
 **Problems and fixes.** None. The surprise was the package count (6 requested, 62 installed), which we investigated with `uv tree` and explained.
 
@@ -193,7 +193,7 @@ uv run ragmotion
   - `DATABASE_URL`, pre-filled with the local Docker default `postgresql://postgres:postgres@localhost:5432/ragmotion`. This is a local development password, not a real secret. The database itself arrives in Step 3.
   - `ANTHROPIC_API_KEY`, blank (needed from Step 6).
   - `VOYAGE_API_KEY`, blank (needed from Step 7).
-- Replaced the empty `README.md` that `uv init` created with a short placeholder: what the project is, the current phase, the RAG pipeline in one line, the stack, and links to the build log, decisions, and concepts. The full README is planned for Step 12.
+- Replaced the empty `README.md` that `uv init` created with a short placeholder: what the project is, the current phase, the RAG pipeline in one line, the stack, and links to the build log, decisions, and concepts. The full README is planned for Step 12 (now Step 16).
 - Ran `git init` on branch `main`. Before committing, previewed exactly which files git would track, confirmed `.venv` and `.env` were ignored, and scanned the files about to be committed for anything shaped like an API key or token. None found. See [Secret check before the first commit](concepts.md#secret-check-before-the-first-commit).
 - Made three small commits instead of one big one, so the history reads in order: safety files first, then planning docs (Step 0), then the Python project (Step 1). See [Small, ordered commits](concepts.md#small-ordered-commits).
 - Created the private GitHub repo `muskii1z/rag-motion` and pushed.
@@ -284,7 +284,7 @@ gh api repos/muskii1z/rag-motion/contents       # no .env or .venv present
   Supabase already is PostgreSQL, hosted in the cloud with extra tools on top. The difference from SQLite is that Postgres is a server (a program that runs all the time and accepts connections), not a file. In this project it runs on the developer's MacBook Air inside a Docker container, with its data saved in a Docker volume, and our code reaches it at `localhost:5432`. pgvector adds a vector column type, distance operators for measuring similarity, and special indexes for speed. The payoff is meaning-based search and normal column filters in one SQL query.
   See [SQLite vs PostgreSQL](concepts.md#sqlite-vs-postgresql), [Supabase is PostgreSQL](concepts.md#supabase-is-postgresql), [Docker, images, and containers](concepts.md#docker-images-and-containers), [Docker volume](concepts.md#docker-volume), [localhost and port 5432](concepts.md#localhost-and-port-5432), [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project), [pgvector](concepts.md#pgvector).
 - *"So is this what you meant by semantic search and hybrid vs just regular search RAG?"*
-  Partly. Vector search plus column filters is "semantic search plus metadata filtering". "Hybrid" means something narrower: keyword search and semantic search run together, with the two result lists merged. Reranking is a further, optional stage. We start with basic semantic search, measure it with an evaluation set at Step 11, then add the other techniques one at a time and measure again.
+  Partly. Vector search plus column filters is "semantic search plus metadata filtering". "Hybrid" means something narrower: keyword search and semantic search run together, with the two result lists merged. Reranking is a further, optional stage. We start with basic semantic search, measure it with an evaluation set at Step 11 (now Step 15, after the plan change in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand)), then add the other techniques one at a time and measure again.
   See [Keyword search](concepts.md#keyword-search), [Semantic search](concepts.md#semantic-search), [Metadata filtering](concepts.md#metadata-filtering), [Hybrid search](concepts.md#hybrid-search), [Reranking](concepts.md#reranking), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag).
 
 **Problems and fixes.** None.
@@ -420,7 +420,7 @@ Before any SQL was written, the developer stepped back and asked a bigger questi
 2. **The vision needs two kinds of knowledge.** See [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge).
    - *Principles:* how to train for power (low reps, maximal intent, full rest, plyometrics, sequencing, progression). These come from textbooks and guidelines. They are paragraphs of text, not rows. They would be stored by splitting documents into passages, embedding each passage, and saving them in a second table. The master context document calls this the knowledge ingestion pipeline. See [Chunking](concepts.md#chunking).
    - *Exercises:* box jumps, broad jumps, kettlebell swings, split squats, each with equipment and difficulty. That is the exercise table.
-   - A strong answer to the "explosive lower body" example would pull principles from documents and matching exercises from the catalog, and cite both. The exercise catalog is needed whichever documents are chosen, so Step 4 is not wasted work. A document table would be a later step, suggested after Step 10.
+   - A strong answer to the "explosive lower body" example would pull principles from documents and matching exercises from the catalog, and cite both. The exercise catalog is needed whichever documents are chosen, so Step 4 is not wasted work. A document table would be a later step, suggested after Step 10. (Made concrete in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand): ingestion is now Steps 12 to 14.)
 3. **Sources.** The organization the developer had in mind is NASM, the National Academy of Sports Medicine. For explosiveness and speed, the NSCA (National Strength and Conditioning Association) and its textbook *Essentials of Strength Training and Conditioning* is probably the better fit. Both are copyrighted textbooks, and the repo is meant to become a public portfolio, so their text cannot go in it. Three options were laid out: (a) the developer writes their own notes summarizing principles in their own words, citing NSCA or NASM for each, and we ingest the notes; this is the cleanest and uses their kinesiology background; (b) openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) and open-access research papers; (c) keep copyrighted material local only, out of git and unpublished; fine for learning, but it can't be shown in the portfolio. This matches the master context document's rule: only use content we have permission to use or redistribute. See [Content licensing in RAG](concepts.md#content-licensing-in-rag).
 4. **What makes this better than ChatGPT, answered honestly.** ChatGPT already knows general training principles and would write a decent explosive lower-body program. The advantage is not that the model knows more. It is that: every claim has a source a coach can check; it only uses exercises from the catalog that fit the client's equipment and level; the developer controls and vetted the knowledge instead of trusting whatever the model absorbed from the internet; and it is measurable through evaluation. See [Why RAG beats a plain chatbot here](concepts.md#why-rag-beats-a-plain-chatbot-here).
 5. **Scope.** Building a complete multi-week program is Phase 2 (the agent). Phase 1 is the foundation: ask a question, retrieve the right exercises (and later principles), and get a cited answer.
@@ -496,7 +496,7 @@ Rule tests. The brief recorded the result of each test, not the exact SQL typed.
 
 **Open questions.**
 - Which knowledge sources to use for training principles: the developer's own notes citing NSCA or NASM, openly licensed sources, or local-only copyrighted material. Deferred by the developer's scoping decision above.
-- Whether to add a document-ingestion step (a document/chunk table plus chunking and embedding) after Step 10. Not yet in the Phase 1 step table.
+- Whether to add a document-ingestion step (a document/chunk table plus chunking and embedding) after Step 10. Not yet in the Phase 1 step table. *Resolved in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand): ingestion is now Steps 12 to 14 ([0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)).*
 - The ID counter now starts past 4 because of the tests, so seeded exercises in Step 5 will not start at `id` 1. This does not matter if citations use the slug, but it will be visible when inspecting the table. (Inferred from the observation above; not checked.)
 
 **Developer questions.**
@@ -561,3 +561,152 @@ docker compose exec db psql -U postgres -d ragmotion -c "\d exercise"
 **Decisions.**
 - No new decision records.
 - Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with the Supabase migration path, the "why not Pinecone" reasoning, and the machine note.
+
+---
+
+## Step 5: Write 20 exercises, seed script, query by hand
+**Date:** 2026-09-24 · **Commit:** `408130e` feat: seed 20 exercises into Postgres
+
+**Goal.** Put the first real data into the exercise table so retrieval has something to search.
+
+### Before we started: four questions and a plan change
+
+Before any data was written, the developer asked four questions. Together they changed the Phase 1 plan.
+
+**Q1. "Are we drafting exercises just to do the simple version? What's the point of made-up exercises when the thing I'm supposed to learn is how to extract and chunk documents? When does that part come?"**
+- The exercises are real exercises. Only the descriptions are drafted, and the developer reviews them as the domain expert.
+- The catalog is not throwaway. Phase 2's program-building agent needs filterable rows, for example "3 lower-body power exercises that only need a box". That can't be pulled reliably out of textbook paragraphs. Documents answer "why and how to train"; the catalog answers "what exists". See [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge).
+- Clean, known data comes first so embeddings and search can be learned in isolation. Ingestion (getting documents into the system) adds new ways to fail: garbled text from PDFs, chunks cut mid-sentence, wrong chunk sizes, lost metadata. If ingestion is built first and results are bad, you can't tell which layer broke.
+- Claude agreed the plan had a real gap. Ingestion was only "maybe after Step 10", too vague for the part the developer most wants to learn. This led to the plan change below.
+
+**Q2. "Isn't LangSmith what helps us see what went wrong and why, and evaluate? Or am I trying to do too much?"**
+- Not too much; the instinct is right. LangSmith does two things. Tracing: it records every stage of a request (the question, the embedding call, the retrieved rows and their scores, the exact prompt, the answer, tokens, latency). Evals: it stores test questions, runs the system on them, scores the results, and compares runs. See [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals).
+- Not yet, because there is nothing to trace until the first full pipeline exists (Step 10).
+- Best placement: right after basic RAG and before ingestion. Then, when answers built from document chunks go wrong, the trace shows whether the right chunk was never retrieved, or was retrieved and ignored.
+- LangSmith is already installed as a [transitive dependency](concepts.md#transitive-dependencies) of voyageai (found in [Step 1](#step-1-install-uv-create-the-python-project-add-dependencies)). It works without LangChain by wrapping our own API calls.
+- Order matters. Until Step 11, our scripts print every stage themselves (manual tracing), so the developer knows what a trace should contain before using a dashboard. Likewise, we write our own eval scoring first, then view it in LangSmith.
+- It needs a free account and an API key. Traces, including prompts, are stored on LangSmith's servers. That is acceptable because the project only uses fictional client data.
+
+**Q3. "I'm not understanding the point of seeding data. 20 exercises and an LLM call, what does that do for me? That's not RAG."**
+- Correct: those are pieces of RAG, not RAG.
+- "Seeding" means loading the first data into a database. It is the simplest form of ingestion. The exercise data is already clean, so we just insert it. Documents (Steps 12 to 14) add "extract the text" and "chunk it" before inserting. See [Seeding](concepts.md#seeding).
+- RAG means **R**etrieve from your data, **A**ugment the prompt with it, **G**enerate the answer:
+
+```
+Question: "beginner lower-body exercises with dumbbells"
+   ▼  Voyage turns the question into 1,024 numbers
+   ▼  pgvector compares it to all 20 exercise vectors       ← RETRIEVAL
+   │     1. Goblet Squat 0.18   2. Dumbbell RDL 0.21   3. Reverse Lunge 0.24
+   ▼  Prompt: "Answer using ONLY these exercises: [goblet-squat] ... Question: ..."   ← AUGMENTED
+   ▼  LLM writes an answer citing [goblet-squat] etc.       ← GENERATION
+```
+
+  The scores in the diagram are illustrative, not measured. Nothing has been embedded yet.
+- Which steps build which letter: Step 5 gives retrieval something to search. Step 6 is G alone. Steps 7 to 9 are R alone. Step 10 connects them into RAG. See [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate).
+- Why only 20 exercises: small data the developer understands can be judged by eye. A push-up showing up in "unilateral lower-body" results is instantly wrong. With 2,000 rows you couldn't tell.
+- Developer's response: *"It's clear to me. Let's do it quickly."*
+
+**Q4. "What do you need me to do meanwhile? Grab an API key from OpenRouter? I probably won't use Claude's model. And we'll need a little UI to interact with it on localhost, right?"**
+- **Developer tasks.** Get an OpenRouter key (for the LLM) and a Voyage key (for embeddings; OpenRouter does not replace Voyage). Paste both into `.env` yourself, in an editor, never into the chat. Review the 20 exercises.
+- **LLM provider change.** The plan ([0003](decisions/0003-llm-claude-opus-5.md)) said Claude Opus 5 through the `anthropic` library. The developer now prefers OpenRouter: one key for many models, handy for comparing models later. Tradeoffs: an extra middleman, and support for structured output varies by model. The model and library will be chosen and recorded at Step 6. Decision 0003 is now marked "under review". See [OpenRouter](concepts.md#openrouter).
+- **UI.** Yes: a small local page added at Step 10, when RAG first works. It shows a question box, the answer, and the retrieved exercises with scores. This matches the master context document's "first major demo" (the answer shown next to its evidence). Before Step 10, the terminal is faster.
+
+**Plan change.** The step table in `CLAUDE.md` was updated in this step's commit. New Phase 1 sequence:
+
+| Step | What |
+|---|---|
+| 0–4 | Done |
+| 5 | Exercise catalog (this step) |
+| 6 | First LLM call via OpenRouter (model chosen here) |
+| 7 | First embedding |
+| 8 | Embed all exercises |
+| 9 | Similarity search CLI |
+| 10 | RAG with citations, plus a minimal local UI |
+| 11 | LangSmith tracing on the RAG pipeline |
+| 12 | Document ingestion: extract text from a real, openly licensed document (for example a PDF) |
+| 13 | Chunking: split into passages, second table with metadata |
+| 14 | Embed chunks, search exercises and documents together, answers cite both |
+| 15 | Evaluation set (own scoring script first, then viewed in LangSmith) |
+| 16 | FastAPI endpoint, tests, README |
+
+- Phase 1F (metadata filters, hybrid search, reranking) comes after Step 16 and is measured against the Step 15 baseline.
+- Evaluation moved after ingestion, so the baseline measures the whole system, not just the catalog.
+- Renumbering: the old Step 11 (evaluation) is now Step 15; the old Step 12 (FastAPI, tests, README) is now Step 16. Earlier entries in this log keep their original wording, with notes where the numbers changed.
+- Candidate first document: the U.S. Physical Activity Guidelines for Americans (a government publication, free to use and redistribute). The developer's own notes on NSCA power principles could be a second. Not decided yet. See [Content licensing in RAG](concepts.md#content-licensing-in-rag).
+- Recorded as [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
+
+### Step 5 itself
+
+**What we did.**
+- **Config and keys.** Updated `CLAUDE.md` (step table; stack line now says the LLM is likely via OpenRouter, confirmed at Step 6; minimal UI at Step 10; FastAPI at Step 16). In `.env.example`, added `OPENROUTER_API_KEY` (needed from Step 6), kept `VOYAGE_API_KEY`, and moved `ANTHROPIC_API_KEY` to "optional". Created `.env` by copying `.env.example` and confirmed git ignores it. The developer will paste the keys in.
+- **The data: `data/exercises.json`.** 20 original exercise entries:
+  - Lower body: goblet-squat, dumbbell-romanian-deadlift, glute-bridge, dumbbell-hip-thrust, dumbbell-reverse-lunge, bulgarian-split-squat, dumbbell-step-up, single-leg-romanian-deadlift
+  - Power: kettlebell-swing, box-jump, broad-jump, lateral-bound (three jumps and the swing, chosen with the developer's explosiveness example in mind)
+  - Upper body: push-up, dumbbell-overhead-press, one-arm-dumbbell-row, band-pull-apart, inverted-row
+  - Core and carry: dead-bug, pallof-press, farmer-carry
+  - Every movement pattern in the schema is covered. From the file: hinge 5, lunge 3, jump 3, pull 3, push 2, core 2, squat 1, carry 1.
+  - Each description says what the exercise is, what it trains, and where it's useful. This matters because the description is the text that gets embedded and matched against questions. Each entry also has short instructions.
+  - `source` for all 20 is "Drafted with AI assistance; pending coach review". That is honest provenance (a record of where content came from). After the developer reviews, it becomes "Drafted with AI assistance, reviewed by M. Saraswat".
+- **New code** (in the `src/ragmotion/` package and `scripts/`):
+  - `src/ragmotion/config.py`: a pydantic-settings `Settings` class that reads `.env`. `database_url` defaults to the local Docker URL, so the database works before `.env` exists. API keys are optional here, and each later step checks for the key it needs. See [Config module (pydantic-settings)](concepts.md#config-module-pydantic-settings).
+  - `src/ragmotion/db.py`: `get_connection()` opens a psycopg connection and calls `register_vector`, so psycopg understands pgvector's vector type. Used as a context manager (a `with` block that commits and closes the connection automatically).
+  - `src/ragmotion/models.py`: an `Exercise` Pydantic model. Its allowed values (`Literal` types) mirror the CHECK constraints in `db/schema.sql`. `slug` must be lowercase words joined by hyphens; `equipment` must be non-empty. See [Pydantic model and Literal types](concepts.md#pydantic-model-and-literal-types).
+  - `scripts/seed_exercises.py`: reads and validates the whole JSON file first, rejects duplicate slugs, then [upserts](concepts.md#upsert) all rows in one [transaction](concepts.md#transaction-begin-and-rollback) with `INSERT ... ON CONFLICT (slug) DO UPDATE`. It only updates a row when something actually changed (`IS DISTINCT FROM`). When an exercise's content changes, it sets `embedding = NULL`, so the old vector gets recomputed later instead of silently mismatching the new text (see [Stale embeddings](concepts.md#stale-embeddings)). It reports inserted, updated, and unchanged counts using `RETURNING (xmax = 0)`, a Postgres trick that tells whether a row was newly inserted.
+
+**Commands.**
+
+```bash
+cp .env.example .env
+# Created .env. git check-ignore confirmed it is ignored.
+
+uv run python scripts/seed_exercises.py
+# Run 1: Validated 20 exercises. Inserted 20, updated 0, unchanged 0. Table has 20 rows.
+
+uv run python scripts/seed_exercises.py
+# Run 2: Inserted 0, updated 0, unchanged 20. Table has 20 rows.
+# Proves the script is safe to re-run (idempotent).
+```
+
+Hand queries, all run with `docker compose exec -T db psql ...` from `~/rag-motion`. The brief recorded the results, not the exact SQL typed.
+
+| Query | Result |
+|---|---|
+| All rows, ordered by `body_region` and `movement_pattern` | 20 rows. Lower 11, upper 5, core 2, full 2. |
+| Beginner, lower body, `'dumbbell' = ANY(equipment)` | 5 rows: Dumbbell Hip Thrust `{dumbbell,bench}`, Dumbbell Reverse Lunge, Dumbbell RDL, Dumbbell Step-Up `{dumbbell,box}`, Goblet Squat. |
+| Jumps plus the kettlebell swing | Box Jump, Broad Jump, Kettlebell Swing, Lateral Bound (unilateral). |
+| `equipment <@ ARRAY['dumbbell','bodyweight']` (needs nothing beyond dumbbells or bodyweight) | 11 rows. |
+| Count by difficulty | beginner 14, intermediate 6, advanced 0. |
+| Rows with and without an embedding | 20 without, 0 with. Embeddings are filled at Step 8. |
+
+**What we saw.**
+- **"Uses dumbbells" and "only needs what I own" are different questions.** `= ANY` asks "does the equipment list contain dumbbell?". `<@` (contained by) asks "is everything this exercise needs in the set I have?". The beginner-dumbbell query with `= ANY` returned the hip thrust and the step-up, which also need a bench or a box. For a client who owns only dumbbells, those are wrong answers. The `<@` query answers the right question. This matters for metadata filtering in Phase 1F and for program building in Phase 2. See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by).
+- **No advanced exercises.** The catalog has 14 beginner and 6 intermediate. Flagged for the developer's review.
+- **Two validation layers now exist:** Pydantic in Python, CHECK constraints in Postgres. Pydantic gives clearer errors (which slug, which field) before anything reaches the database; the constraints stay as the final safety net. Tradeoff: the allowed-value lists live in two places (`models.py` and `schema.sql`) and must be kept in sync. See [Validate before write](concepts.md#validate-before-write).
+- Upserting the same file twice changed nothing the second time, so re-running the seed after editing one description will touch only that row and clear only that row's embedding. (The first half was shown by run 2; the "one row" behaviour follows from the SQL and has not been tested by editing a description yet.)
+
+**Problems and fixes.** None.
+
+**Open questions.**
+- Coach review of all 20 descriptions is pending. When it is done, `source` changes to "Drafted with AI assistance, reviewed by M. Saraswat" and the seed is re-run.
+- Should the catalog include any advanced exercises? Currently 0.
+- The LLM model and library (OpenRouter vs the `anthropic` SDK) are open until Step 6.
+- The first document for ingestion (Step 12) is not chosen. The U.S. Physical Activity Guidelines for Americans is the candidate.
+- The LangSmith account and API key are not set up yet (needed at Step 11).
+- The Step 4 open question about ID gaps (seeded rows starting past `id` 4) was not checked in this step.
+
+**Developer questions.** Q1 to Q4, answered in [Before we started](#before-we-started-four-questions-and-a-plan-change).
+
+**Minor choices (no separate decision record).**
+- Seed data lives in a JSON file in the repo, so any machine can rebuild the table from git.
+- Slugs are the upsert key (`ON CONFLICT (slug)`), consistent with [Slug vs id](concepts.md#slug-vs-id).
+- API keys are optional in `Settings`; each step checks for its own key, so early steps don't fail for a missing key they don't use.
+
+**Learned.**
+- New: [Seeding](concepts.md#seeding), [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate), [Upsert](concepts.md#upsert), [Stale embeddings](concepts.md#stale-embeddings), [Validate before write](concepts.md#validate-before-write), [Pydantic model and Literal types](concepts.md#pydantic-model-and-literal-types), [Config module (pydantic-settings)](concepts.md#config-module-pydantic-settings), [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by), [OpenRouter](concepts.md#openrouter), [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (planned for Step 11)
+- Extended: [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge), [Chunking](concepts.md#chunking), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag), [Metadata filtering](concepts.md#metadata-filtering), [Content licensing in RAG](concepts.md#content-licensing-in-rag), [Idempotent script](concepts.md#idempotent-script), [Transaction (BEGIN and ROLLBACK)](concepts.md#transaction-begin-and-rollback), [Why .env stays out of git](concepts.md#why-env-stays-out-of-git)
+
+**Decisions.**
+- [0011. Phase 1 plan revision: ingestion and LangSmith get concrete steps](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (new)
+- Updated [0003. LLM: Claude Opus 5](decisions/0003-llm-claude-opus-5.md): status now "under review", resolved at Step 6.
+- Updated [0006. Interface](decisions/0006-interface-cli-first.md): minimal local UI at Step 10, FastAPI moved to Step 16.
+- Updated [0010](decisions/0010-exercise-table-check-constraints.md): the allowed values are now mirrored in `models.py`; Phase 1F renumbered.

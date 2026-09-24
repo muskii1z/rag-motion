@@ -1,5 +1,5 @@
 # 0003. LLM: Claude Opus 5
-**Date:** 2026-09-23 · **Step:** 0 · **Status:** accepted
+**Date:** 2026-09-23 · **Step:** 0 · **Status:** under review: developer prefers OpenRouter; to be resolved at Step 6
 
 ## Context
 The app needs an LLM (large language model) to read text and write answers. Claude Code offered three Claude models. The developer deferred the choice.
@@ -19,3 +19,12 @@ Opus 5 is the most expensive of the three options. Volume in this project is tin
 
 ## Revisit when
 Running evals many times makes cost noticeable. Then try Sonnet 5.
+
+## Note (2026-09-24, Step 5): under review
+In Step 5 the developer said they probably won't use Claude's model and would prefer to reach the LLM through [OpenRouter](../concepts.md#openrouter), a service that gives one API key for many models from different providers.
+- **Why:** one key for many models, which makes comparing models easy later.
+- **Tradeoffs:** an extra middleman between the app and the model provider, and support for structured output (the model returning data in an exact shape) varies by model. The `client.messages.parse` plan above is specific to the `anthropic` SDK and may not apply.
+- **What changed already:** `.env.example` now has `OPENROUTER_API_KEY` (needed from Step 6); `ANTHROPIC_API_KEY` is kept but marked optional. `CLAUDE.md` says the LLM is "likely via OpenRouter", confirmed at Step 6.
+- **Still open:** which model, and which Python library to call it with. Both will be chosen and recorded at Step 6. No new decision record has been created yet; this one stays under review until then.
+
+See [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).

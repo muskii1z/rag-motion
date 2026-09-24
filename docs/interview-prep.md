@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: between Steps 4 and 5.
+Last updated: Step 5.
 
 ---
 
@@ -30,7 +30,7 @@ The developer explains what has been built in their own words, gets corrections,
 
 > I used uv to set up the Python project and its dependencies, and pushed it to a private GitHub repo with secrets git-ignored. I run PostgreSQL in Docker, with a volume so the data persists. I created an exercise table with regular columns for things like equipment and difficulty, plus a vector column from the pgvector extension. Each exercise's description gets turned into a 1,024-number embedding, so exercises with similar meanings sit close together, and I can search by meaning and filter by the regular columns in the same query.
 
-Note: the last sentence describes the design. Embeddings are created in Step 8 and search is built in Step 9; neither exists yet.
+Note: the last sentence describes the design. Embeddings are created in Step 8 and search is built in Step 9; neither exists yet. (As of Step 5 the table holds 20 seeded exercises, all with empty embeddings.)
 
 ---
 
@@ -41,6 +41,8 @@ Evidence so far:
 - Planned only, not built yet. Structured outputs will use `client.messages.parse` with a Pydantic model (a Python class defining the exact output shape). See [0003. LLM: Claude Opus 5](decisions/0003-llm-claude-opus-5.md).
 - First structured Claude call is planned for Step 6 (prose to structured client profile).
 - [Step 1](build-log.md#step-1-install-uv-create-the-python-project-add-dependencies): pydantic 2.13.5 and the anthropic SDK 1.8.0 are installed and import cleanly. See [What each library is for](concepts.md#what-each-library-is-for).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the provider is now open. The developer prefers [OpenRouter](concepts.md#openrouter) (one key, many models), so 0003 is "under review" until Step 6. Point to make: structured-output support varies by model on OpenRouter, so the model choice has to be checked against the output shape we need. The `client.messages.parse` plan may not apply.
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the same technique already works on input data. The `Exercise` [Pydantic model](concepts.md#pydantic-model-and-literal-types) with `Literal` types validates every seed entry and names the failing field. A structured LLM output would be checked against a model like this.
 
 ## RAG
 
@@ -52,7 +54,11 @@ Evidence so far:
 - Supporting pieces already built in [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the required `source` column (point 1), the constrained `equipment` and `difficulty` columns (point 2), and the unique `slug` used for citations and eval tests (points 1 and 4).
 - [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge): a strong answer needs both an exercise catalog (rows) and training principles (document text). Only the catalog exists so far.
 - [Content licensing in RAG](concepts.md#content-licensing-in-rag): part of point 3. The knowledge must be content we have permission to use, so copyrighted textbooks can't go in the public repo. Source choice is still open.
-- Full answer still needs Step 10 (retrieved evidence to Claude, cited answer) and Step 11 (eval baseline).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate). A clear breakdown to say out loud: retrieve evidence from your own data, augment the prompt with it, generate a cited answer. Seeding and a single LLM call are pieces of RAG, not RAG. Step 5 gives R something to search; Step 6 is G alone; Steps 7 to 9 are R alone; Step 10 connects them.
+- [Step 5](build-log.md#before-we-started-four-questions-and-a-plan-change): why a structured catalog **and** documents. Documents answer "why and how to train"; the catalog answers "what exists". An agent that builds programs needs filterable rows ("3 lower-body power exercises that only need a box"), which can't be pulled reliably from paragraphs. See [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge) (extended).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): why clean data first. [Seeding](concepts.md#seeding) is the simplest ingestion; document ingestion (Steps 12 to 14) adds failure points (garbled PDF text, chunks cut mid-sentence, wrong chunk sizes, lost metadata). Building it first would make failures impossible to locate. Good story: the developer challenged the order, and the plan was revised ([0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): provenance is honest. Every exercise's `source` is "Drafted with AI assistance; pending coach review" until the developer reviews it.
+- Full answer still needs Step 10 (retrieved evidence to the LLM, cited answer), Steps 12 to 14 (documents), and Step 15 (eval baseline).
 
 ## Embeddings
 
@@ -67,6 +73,7 @@ Evidence so far:
   - [Semantic search](concepts.md#semantic-search): embeddings match by meaning ("hip hinge" finds "Romanian deadlift") but are weak on exact terms ("RDL" is just three letters to the model).
   - [Embedding](concepts.md#embedding) (extended with the exact-terms weakness).
 - [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): how embeddings are compared. On toy 3-number vectors, pgvector's `<=>` gave 0 for identical, 0.024 for very similar, 1 for unrelated, and 2 for opposite. See [pgvector](concepts.md#pgvector). No real embeddings yet (Step 7).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): [Stale embeddings](concepts.md#stale-embeddings). An embedding describes the text as it was when embedded. The seed script clears an exercise's vector whenever its content changes, so it gets recomputed instead of silently matching old meaning. Also: each description was written to say what the exercise is, what it trains, and where it's useful, because the description is the text that gets embedded.
 
 ## Retrieval
 
@@ -83,6 +90,11 @@ Evidence so far:
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the filter columns now exist, ready for Phase 1F. `equipment`, `difficulty`, `movement_pattern`, `laterality`, and `body_region` are separate columns with [CHECK constraints](concepts.md#check-constraints), so a filter like "dumbbells only, beginner" will be a trustworthy `WHERE` clause. See [Metadata filtering](concepts.md#metadata-filtering) (extended) and [0010](decisions/0010-exercise-table-check-constraints.md).
   - Point to make: filters are only as good as the data. A typo like "Dumbell" in a free-text column would silently drop an exercise from filtered results; the CHECK rejects it on insert.
   - Design rule from Step 4: anything you want to filter on gets its own column; everything else stays in the description for the embedding. See [Schema](concepts.md#schema).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the first hand-run filters, and a real insight. See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by) and [Metadata filtering](concepts.md#metadata-filtering) (extended).
+  - `'dumbbell' = ANY(equipment)` ("uses dumbbells") for beginner lower-body returned 5 rows, including Dumbbell Hip Thrust `{dumbbell,bench}` and Dumbbell Step-Up `{dumbbell,box}`. Wrong for a client who owns only dumbbells.
+  - `equipment <@ ARRAY['dumbbell','bodyweight']` ("only needs what I own") returned 11 rows across the catalog. That is the client's actual question.
+  - Point to make: a filter can be valid SQL and still answer the wrong question. This feeds Phase 1F filtering and Phase 2 program building.
+  - Why only 20 exercises: results can be judged by eye. A push-up in "unilateral lower-body" results is instantly wrong; with 2,000 rows it wouldn't be.
 
 ## PostgreSQL
 
@@ -113,15 +125,22 @@ Evidence so far:
   - [Dedicated vector database (Pinecone)](concepts.md#dedicated-vector-database-pinecone): Pinecone is vector-only, so it would sit next to Postgres and need syncing on every exercise change. Pinecone does support metadata filters, so the real argument is one source of truth: rows and vectors joinable in one query and updated in one transaction.
   - [Hosted Postgres (Supabase, Neon, etc.)](concepts.md#hosted-postgres-supabase-neon-etc): the same stack is available hosted, so the local choice carries into deployment.
   - Full reasoning in the [0004 note](decisions/0004-database-postgres-pgvector.md#note-2026-09-24-between-steps-4-and-5-deployment-path-and-why-not-pinecone).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): loading data safely. Commit `408130e`.
+  - [Upsert](concepts.md#upsert): `INSERT ... ON CONFLICT (slug) DO UPDATE`, only when `IS DISTINCT FROM` shows a real change, reporting inserted vs updated with `RETURNING (xmax = 0)`. Run 1: 20 inserted. Run 2: 0, 0, 20 unchanged. [Idempotent](concepts.md#idempotent-script) by proof.
+  - [Transaction](concepts.md#transaction-begin-and-rollback) and [Validate before write](concepts.md#validate-before-write): whole file validated first, all rows written in one transaction, so the table is never half-loaded.
+  - Array operators `= ANY` vs `<@` on a `text[]` column, run by hand in psql. See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by).
+  - `db.py` calls `register_vector` so psycopg understands pgvector's type ([0005](decisions/0005-database-access-psycopg-raw-sql.md): hand-written SQL, no ORM).
 
 ## Evaluation
 
 ### How do you know your RAG system works?
 Evidence so far:
 - Planned, not done. See [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag), discussed [between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types).
-  - Step 11 builds an evaluation set (questions paired with the exercises that should come back) and runs it against basic semantic search to record a baseline score.
-  - In Phase 1F (after Step 12), hybrid search, metadata filters, and reranking are added one at a time, with the same eval rerun after each, so each improvement is a number ("hits went from X to Y"), not a claim.
+  - Step 15 (was Step 11 before the [Step 5 plan change](build-log.md#before-we-started-four-questions-and-a-plan-change)) builds an evaluation set (questions paired with the exercises, and now also document passages, that should come back) and records a baseline score. It moved after document ingestion (Steps 12 to 14) so the baseline measures the whole system, not just the catalog. See [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
+  - Our own scoring script comes first; results are then viewed in LangSmith. Writing the scorer by hand means knowing exactly what the number measures. See [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals).
+  - In Phase 1F (after Step 16), hybrid search, metadata filters, and reranking are added one at a time, with the same eval rerun after each, so each improvement is a number ("hits went from X to Y"), not a claim.
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): each exercise has a unique, stable `slug` (e.g. `goblet-squat`), which eval cases will use to name the expected exercises. See [Slug vs id](concepts.md#slug-vs-id).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the catalog is kept to 20 exercises so results can be judged by eye before a formal eval exists. Hand queries already checked the data: 20 rows, lower 11 / upper 5 / core 2 / full 2; difficulty beginner 14 / intermediate 6 / advanced 0 (a gap flagged for review).
 - No eval set or scores exist yet.
 
 ## Agents
@@ -147,7 +166,12 @@ Evidence so far:
 ## Observability
 
 ### How do you debug an agent that made a bad decision?
-*Not yet covered.*
+Evidence so far:
+- No agent exists yet (Phase 2). The debugging approach is being set up on the RAG pipeline first.
+- [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals): planned for **Step 11**, right after basic RAG and before document ingestion. A trace records every stage of one request: the question, the embedding call, retrieved rows and scores, the exact prompt, the answer, tokens, and latency. That answers the key debugging question: was the right evidence never retrieved, or retrieved and ignored? Decided in [Step 5](build-log.md#before-we-started-four-questions-and-a-plan-change) ([0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)).
+- Until Step 11, manual tracing: our scripts print every stage, so the developer knows what a trace should contain before relying on a dashboard.
+- Tradeoff to mention: traces, including prompts, are stored on LangSmith's servers. Acceptable here because only fictional client data is used.
+- Nothing traced yet.
 
 ## Production
 
@@ -155,7 +179,7 @@ Evidence so far:
 Evidence so far:
 - [0004. Database in Docker](decisions/0004-database-postgres-pgvector.md): reproducible database setup with docker-compose.
 - [0001. Packaging with uv](decisions/0001-packaging-uv.md): lockfile means identical installs on another machine.
-- [0006. Interface: CLI first, thin FastAPI at Step 12](decisions/0006-interface-cli-first.md)
+- [0006. Interface: CLI first, thin FastAPI at Step 12](decisions/0006-interface-cli-first.md) (amended in Step 5: FastAPI is now Step 16, minimal local UI at Step 10)
 - [Step 1](build-log.md#step-1-install-uv-create-the-python-project-add-dependencies): reproducible environment built. `pyproject.toml` declares minimum versions; `uv.lock` (2,217 lines) pins the exact versions of all 62 packages. See [pyproject.toml](concepts.md#pyprojecttoml) and [Lockfile](concepts.md#lockfile).
 - [Runtime vs dev dependencies](concepts.md#runtime-vs-dev-dependencies): pytest sits in a dev group, so a production install can skip it.
 - [Virtual environment](concepts.md#virtual-environment): isolation checked by hand (project anthropic 1.8.0 vs global 0.86.0; voyageai only inside the project).
@@ -173,6 +197,7 @@ Evidence so far:
   - Database: [Hosted Postgres (Supabase, Neon, etc.)](concepts.md#hosted-postgres-supabase-neon-etc). Enable pgvector, run `db/schema.sql` unchanged, change `DATABASE_URL`, rerun the seed and embedding scripts. No code changes. Neon, Railway, Render, and AWS are alternatives.
   - Rest of the app: backend on Render, Fly.io, or Railway; frontend on Netlify or Vercel; API keys move from `.env` into the host's secret settings. Phase 6 in the master context document.
   - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project): code travels through GitHub, the database doesn't. Any machine rebuilds it from the repo (clone, start Docker, apply the schema, seed). That is why schema and seed data are files in git.
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the rebuild recipe is now complete for the data too. `uv run python scripts/seed_exercises.py` loads `data/exercises.json` from git and is safe to re-run ([Upsert](concepts.md#upsert)). Configuration comes from one [config module](concepts.md#config-module-pydantic-settings): `DATABASE_URL` has a local default and would be overridden in production; keys are read from the environment.
 - Actual deployment not yet done.
 
 ## Security
@@ -195,17 +220,28 @@ Evidence so far:
 - [Step 3](build-log.md#step-3-docker-compose-start-postgres-confirm-pgvector): the database password, and network exposure.
   - [Binding the database to localhost only](concepts.md#binding-the-database-to-localhost-only): the port is `127.0.0.1:5434`, so only this Mac can connect, not other devices on the network. Docker's default would listen on all interfaces.
   - The password `postgres` is in plain text in `docker-compose.yml`. That's acceptable only because it is a local development credential for a database bound to 127.0.0.1. In production it would come from a secret manager. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): keys wired up. See [Why .env stays out of git](concepts.md#why-env-stays-out-of-git) (extended).
+  - `.env` created from `.env.example` and confirmed ignored with `git check-ignore`. `.env.example` now lists `OPENROUTER_API_KEY`, `VOYAGE_API_KEY`, and `ANTHROPIC_API_KEY` (optional).
+  - The developer pastes keys into `.env` in an editor, never into the chat with the AI coding assistant. Point to make: a key typed into a chat is a key shared with another system.
+  - Keys are read in one place, the [config module](concepts.md#config-module-pydantic-settings) (pydantic-settings), and are optional until the step that uses them.
+  - Planned third-party data flow: LangSmith (Step 11) stores traces, including prompts, on its servers. Acceptable because client data is fictional only.
 
 ## Architecture
 
 ### What happens from the moment a user submits a request until they receive an answer?
 Evidence so far:
 - [LLM vs embedding model](concepts.md#llm-vs-embedding-model): the question is embedded, the database finds relevant exercises, then Claude answers.
-- [0006. Interface](decisions/0006-interface-cli-first.md): requests come through CLI scripts, then a FastAPI `/ask` endpoint at Step 12.
+- [0006. Interface](decisions/0006-interface-cli-first.md): requests come through CLI scripts, then a minimal local UI at Step 10, then a FastAPI endpoint at Step 16 (renumbered from Step 12 in Step 5).
 - [Package layout](concepts.md#package-layout): all app code lives in one importable package, `src/ragmotion/`, so CLI scripts, tests, and the future API share it.
 - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (extended in Step 3): the storage layer is built. Python code connects to `localhost:5434`, which reaches container `rag-motion-db-1`, whose data sits in volume `rag-motion_pgdata`.
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the `exercise` table exists, holding each exercise's text, filterable metadata, provenance (`source`), and an empty `embedding` column in one row. Discussed but not built: a second table of document chunks for training principles ([Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge), [Chunking](concepts.md#chunking)).
 - [Teach-back 1](#teach-back-1-after-step-4-2026-09-24): the developer's polished interview version covers the storage layer (uv project, private GitHub repo, Postgres in Docker with a volume, exercise table with metadata columns and a pgvector column). Partial answer; it stops before the request path.
+- [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the first application code, split into small modules in `src/ragmotion/`:
+  - `config.py`: one [config module](concepts.md#config-module-pydantic-settings) that reads `.env`.
+  - `db.py`: `get_connection()`, which also registers pgvector's type with psycopg.
+  - `models.py`: the `Exercise` [Pydantic model](concepts.md#pydantic-model-and-literal-types), mirroring the database's CHECK constraints.
+  - Seed pipeline (`scripts/seed_exercises.py`): read JSON, validate everything, reject duplicate slugs, upsert in one transaction, clear stale embeddings, report inserted/updated/unchanged. See [Validate before write](concepts.md#validate-before-write), [Upsert](concepts.md#upsert), [Stale embeddings](concepts.md#stale-embeddings).
+- The planned request path, from [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate): question → embedding (Voyage) → pgvector similarity over exercises (and from Step 14, document chunks) → prompt with the retrieved evidence → LLM (likely via OpenRouter) → answer citing slugs. Shown in a minimal local UI at Step 10, traced in LangSmith from Step 11, and exposed through FastAPI at Step 16.
 - The full request path is not built yet.
 
 ## Tradeoffs
@@ -222,4 +258,7 @@ Evidence so far:
 - [0010](decisions/0010-exercise-table-check-constraints.md) (Step 4): CHECK constraints with fixed lists vs lookup tables with foreign keys. CHECKs are simple and visible in one file, but adding a new equipment type means editing the schema. Revisit signal: vocabularies grow large or need their own attributes.
 - [Schema](concepts.md#schema) (Step 4): schema changes are cheap now, while the table is empty. Once real data and code depend on it, changes go through migrations. [0005](decisions/0005-database-access-psycopg-raw-sql.md) already plans a migration tool (Alembic) for when the schema changes often.
 - [Dedicated vector database (Pinecone)](concepts.md#dedicated-vector-database-pinecone) (between Steps 4 and 5): at large scale (tens or hundreds of millions of vectors, very high search traffic) a dedicated vector database becomes a real option, at the cost of running and syncing two systems. At 50 to 5,000 exercises it is not worth it. See the [0004 note](decisions/0004-database-postgres-pgvector.md#note-2026-09-24-between-steps-4-and-5-deployment-path-and-why-not-pinecone).
+- [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Step 5): plan revision. Catalog first, then RAG, then LangSmith tracing, then ingestion, then evaluation. Tradeoff: ingestion starts about six steps later than "ingestion first", in exchange for failures that can be located. Revisit if the catalog steps drag.
+- [Validate before write](concepts.md#validate-before-write) (Step 5): two validation layers (Pydantic and CHECK constraints) give clearer errors plus a safety net, at the cost of keeping two lists of allowed values in sync. See the [0010 note](decisions/0010-exercise-table-check-constraints.md).
+- [OpenRouter](concepts.md#openrouter) (Step 5): one key for many models vs an extra middleman and uneven structured-output support. Decided at Step 6.
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).

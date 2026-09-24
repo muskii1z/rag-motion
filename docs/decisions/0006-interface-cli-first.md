@@ -1,5 +1,5 @@
 # 0006. Interface: CLI first, thin FastAPI at Step 12
-**Date:** 2026-09-23 · **Step:** 0 · **Status:** accepted
+**Date:** 2026-09-23 · **Step:** 0 · **Status:** accepted (amended in Step 5: minimal local UI at Step 10, FastAPI moved to Step 16)
 
 ## Context
 The project needs some way to run and demo the system. The master context document says not to build a polished UI early; the AI and backend are the focus.
@@ -17,3 +17,10 @@ No visual demo until after Phase 1. The FastAPI endpoint at Step 12 keeps the do
 
 ## Revisit when
 After Phase 1, when a UI is needed to demo.
+
+## Amendment (2026-09-24, Step 5)
+- **Renumbered.** The Phase 1 plan was revised ([0011](0011-phase-1-plan-revision-ingestion-and-langsmith.md)). The FastAPI endpoint, tests, and README are now **Step 16**, not Step 12.
+- **A minimal local UI at Step 10.** The developer asked for a small page to interact with the app on localhost (this computer). Agreed: a small local page is added at Step 10, when RAG first works. It shows a question box, the answer, and the retrieved exercises with their scores. This matches the master context document's "first major demo" (an answer shown next to its evidence). It is deliberately minimal, not a polished frontend, so it stays within the context document's rule. Before Step 10, the terminal is faster.
+- This replaces "No frontend in Phase 1" with "a minimal local evidence page only, at Step 10". The revisit signal above still applies to anything beyond that.
+
+See [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).

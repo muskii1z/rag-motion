@@ -21,8 +21,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 2 | .gitignore, .env.example, git init, first commit, private GitHub repo | done |
 | 3 | Docker Compose, start Postgres, confirm pgvector | done |
 | 4 | Exercise schema, create the table, inspect it in psql | done |
-| 5 | Write 20 exercises, seed script, query by hand | next |
-| 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | |
+| 5 | Write 20 exercises, seed script, query by hand | done (coach review pending) |
+| 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | next |
 | 7 | First embedding: embed one sentence, look at the numbers | |
 | 8 | Embed all exercises, store vectors, compare two by hand | |
 | 9 | Similarity search CLI, judge results by eye | |
