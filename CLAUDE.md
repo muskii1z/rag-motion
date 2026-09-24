@@ -19,8 +19,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 0 | Documentation setup: this file, build-scribe agent, docs/ | done |
 | 1 | Install uv, create the Python project, add dependencies | done |
 | 2 | .gitignore, .env.example, git init, first commit, private GitHub repo | done |
-| 3 | Docker Compose, start Postgres, confirm pgvector | next |
-| 4 | Exercise schema, create the table, inspect it in psql | |
+| 3 | Docker Compose, start Postgres, confirm pgvector | done |
+| 4 | Exercise schema, create the table, inspect it in psql | next |
 | 5 | Write 20 exercises, seed script, query by hand | |
 | 6 | First Claude call: prose to structured client profile | |
 | 7 | First embedding: embed one sentence, look at the numbers | |
@@ -37,7 +37,7 @@ Update the Status column as steps complete.
 ## Stack decisions (see docs/decisions/ for the reasoning)
 
 - Python 3.12, managed with **uv** (`pyproject.toml` + `uv.lock`)
-- **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`)
+- **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), key in `VOYAGE_API_KEY`
 - **Claude Opus 5** (`claude-opus-5`) via the `anthropic` SDK, key in `ANTHROPIC_API_KEY`

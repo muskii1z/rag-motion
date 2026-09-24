@@ -1,0 +1,28 @@
+# Local PostgreSQL 16 with the pgvector extension available.
+# Start:  docker compose up -d
+# Stop:   docker compose down        (data is kept in the volume)
+# Wipe:   docker compose down -v     (deletes the volume and ALL data)
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      # Local development credentials only. Not a real secret.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ragmotion
+    ports:
+      # Mac port 5434 -> container port 5432.
+      # 127.0.0.1 means only this Mac can connect, not other devices on the network.
+      # 5434 avoids clashing with other local projects that use 5432 / 5433.
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ragmotion"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
