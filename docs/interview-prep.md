@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 3.
+Last updated: Step 4.
 
 ---
 
@@ -20,7 +20,11 @@ Evidence so far:
 Evidence so far:
 - [LLM vs embedding model](concepts.md#llm-vs-embedding-model): the database finds relevant exercises before Claude ever sees the question.
 - [0002. Embeddings with Voyage AI](decisions/0002-embeddings-voyage-4-lite.md)
-- Full answer still needs Step 10 (retrieved evidence to Claude, cited answer).
+- [Why RAG beats a plain chatbot here](concepts.md#why-rag-beats-a-plain-chatbot-here) (discussed before [Step 4](build-log.md#before-we-started-how-much-does-the-table-lock-us-in)): the honest four-point answer. A general chatbot already knows training principles and would write a decent program, so the advantage is not that the model knows more. It is: (1) every claim has a source a coach can check; (2) it only uses catalog exercises that fit the client's equipment and level; (3) the knowledge is controlled and vetted by the developer, not whatever the model absorbed from the internet; (4) it is measurable through evaluation.
+- Supporting pieces already built in [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the required `source` column (point 1), the constrained `equipment` and `difficulty` columns (point 2), and the unique `slug` used for citations and eval tests (points 1 and 4).
+- [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge): a strong answer needs both an exercise catalog (rows) and training principles (document text). Only the catalog exists so far.
+- [Content licensing in RAG](concepts.md#content-licensing-in-rag): part of point 3. The knowledge must be content we have permission to use, so copyrighted textbooks can't go in the public repo. Source choice is still open.
+- Full answer still needs Step 10 (retrieved evidence to Claude, cited answer) and Step 11 (eval baseline).
 
 ## Embeddings
 
@@ -48,6 +52,9 @@ Evidence so far:
   - [Hybrid search](concepts.md#hybrid-search): keyword plus semantic, merged, so each covers the other's blind spot.
   - [Reranking](concepts.md#reranking): retrieve 20 cheaply, let a more careful model pick the best 5.
   - [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag): the full pipeline diagram, and the plan to add each technique one at a time against an eval baseline. Planned, not built.
+- [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the filter columns now exist, ready for Phase 1F. `equipment`, `difficulty`, `movement_pattern`, `laterality`, and `body_region` are separate columns with [CHECK constraints](concepts.md#check-constraints), so a filter like "dumbbells only, beginner" will be a trustworthy `WHERE` clause. See [Metadata filtering](concepts.md#metadata-filtering) (extended) and [0010](decisions/0010-exercise-table-check-constraints.md).
+  - Point to make: filters are only as good as the data. A typo like "Dumbell" in a free-text column would silently drop an exercise from filtered results; the CHECK rejects it on insert.
+  - Design rule from Step 4: anything you want to filter on gets its own column; everything else stays in the description for the embedding. See [Schema](concepts.md#schema).
 
 ## PostgreSQL
 
@@ -67,6 +74,13 @@ Evidence so far:
   - [pgvector](concepts.md#pgvector): the `<=>` cosine distance scale checked by hand (0 identical, 1 unrelated, 2 opposite).
   - [Docker volume](concepts.md#docker-volume): persistence proven. Deleted the container, started a new one, and pgvector was still enabled.
   - [Port mapping](concepts.md#port-mapping) and [0009](decisions/0009-local-db-port-5434-localhost-only.md): checked what other projects used before picking a port, and chose 5434 to avoid a collision. A small story about looking before building.
+- [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): a schema with constraints, tested by trying to break it. Commit `46e9b11`.
+  - [Schema](concepts.md#schema) in `db/schema.sql`: 14 columns, one [idempotent](concepts.md#idempotent-script) file that also enables pgvector.
+  - [NOT NULL, DEFAULT, UNIQUE, PRIMARY KEY](concepts.md#not-null-default-unique-primary-key) and [CHECK constraints](concepts.md#check-constraints): four bad inserts, four rejections, each naming the rule that failed (`exercise_difficulty_check`, `exercise_equipment_check1`, the not-null on `source`, and pgvector's `expected 1024 dimensions, not 3`).
+  - Structured metadata and the `vector(1024)` embedding sit in the same row, which is the payoff of pgvector described above. The vector column also rejects the wrong size, which would catch a mismatched embedding model.
+  - [Transaction (BEGIN and ROLLBACK)](concepts.md#transaction-begin-and-rollback): a valid insert was tested and undone, leaving the table empty for seeding.
+  - [Identity column and ID gaps](concepts.md#identity-column-and-id-gaps) and [Slug vs id](concepts.md#slug-vs-id): the test row got id 4 because failed inserts used up numbers. A concrete story for why citations use a slug.
+  - [0010](decisions/0010-exercise-table-check-constraints.md): why CHECK constraints over free text or lookup tables.
 
 ## Evaluation
 
@@ -75,6 +89,7 @@ Evidence so far:
 - Planned, not done. See [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag), discussed [between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types).
   - Step 11 builds an evaluation set (questions paired with the exercises that should come back) and runs it against basic semantic search to record a baseline score.
   - In Phase 1F (after Step 12), hybrid search, metadata filters, and reranking are added one at a time, with the same eval rerun after each, so each improvement is a number ("hits went from X to Y"), not a claim.
+- [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): each exercise has a unique, stable `slug` (e.g. `goblet-squat`), which eval cases will use to name the expected exercises. See [Slug vs id](concepts.md#slug-vs-id).
 - No eval set or scores exist yet.
 
 ## Agents
@@ -121,7 +136,7 @@ Evidence so far:
   - [Healthcheck (started vs ready)](concepts.md#healthcheck-started-vs-ready): `pg_isready` every 5 seconds, and `--wait` returns only once Postgres can accept connections. Point to make: "started" is not "ready".
   - [Docker volume](concepts.md#docker-volume): tested, not assumed. The container was deleted and rebuilt, and the data survived. `down -v` would delete it.
   - `DATABASE_URL` in `.env.example` now points at `localhost:5434`. Deploying means replacing that one setting with a hosted database's URL ([0009](decisions/0009-local-db-port-5434-localhost-only.md) revisit signal).
-  - Planned for Step 4: `db/schema.sql` starts with `CREATE EXTENSION IF NOT EXISTS vector;`, so a fresh database doesn't depend on a manual command.
+- [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): `db/schema.sql` starts with `CREATE EXTENSION IF NOT EXISTS vector;` and is [idempotent](concepts.md#idempotent-script), so a fresh database is set up by one re-runnable file, applied with `-v ON_ERROR_STOP=1` so it stops at the first error.
 - Actual deployment not yet covered.
 
 ## Security
@@ -153,6 +168,7 @@ Evidence so far:
 - [0006. Interface](decisions/0006-interface-cli-first.md): requests come through CLI scripts, then a FastAPI `/ask` endpoint at Step 12.
 - [Package layout](concepts.md#package-layout): all app code lives in one importable package, `src/ragmotion/`, so CLI scripts, tests, and the future API share it.
 - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project) (extended in Step 3): the storage layer is built. Python code connects to `localhost:5434`, which reaches container `rag-motion-db-1`, whose data sits in volume `rag-motion_pgdata`.
+- [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): the `exercise` table exists, holding each exercise's text, filterable metadata, provenance (`source`), and an empty `embedding` column in one row. Discussed but not built: a second table of document chunks for training principles ([Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge), [Chunking](concepts.md#chunking)).
 - The full request path is not built yet.
 
 ## Tradeoffs
@@ -166,3 +182,6 @@ Evidence so far:
 - [0005](decisions/0005-database-access-psycopg-raw-sql.md) revisit signal: add SQLAlchemy and Alembic when the schema changes often.
 - [0006](decisions/0006-interface-cli-first.md): no frontend yet.
 - [0002](decisions/0002-embeddings-voyage-4-lite.md) tradeoff added in Step 1: the voyageai SDK pulls in LangChain core and LangSmith as [transitive dependencies](concepts.md#transitive-dependencies), which means a bigger install and more packages to keep patched.
+- [0010](decisions/0010-exercise-table-check-constraints.md) (Step 4): CHECK constraints with fixed lists vs lookup tables with foreign keys. CHECKs are simple and visible in one file, but adding a new equipment type means editing the schema. Revisit signal: vocabularies grow large or need their own attributes.
+- [Schema](concepts.md#schema) (Step 4): schema changes are cheap now, while the table is empty. Once real data and code depend on it, changes go through migrations. [0005](decisions/0005-database-access-psycopg-raw-sql.md) already plans a migration tool (Alembic) for when the schema changes often.
+- Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).

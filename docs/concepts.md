@@ -52,7 +52,9 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview:** "Similarity is a ranking, not a guarantee. If a client only has dumbbells, that has to be a WHERE clause, because a barbell RDL is semantically almost identical to a dumbbell one."
 
-*First seen: between Steps 2 and 3.*
+*Step 4 update:* The filter columns now exist in the exercise table: `equipment`, `difficulty`, `movement_pattern`, `laterality`, `body_region`, and `primary_muscles`. All but `primary_muscles` have [CHECK constraints](#check-constraints), so their values are consistent enough to filter on. No filtered queries have been written yet (planned for Phase 1F).
+
+*First seen: between Steps 2 and 3. Extended: Step 4.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -85,6 +87,38 @@ The reason is measurement. Step 11 builds an evaluation set: questions paired wi
 **In an interview:** "The plan is to build basic semantic RAG first and measure it against an eval set as a baseline, then add hybrid search, filters, and reranking one at a time and rerun the same eval, so every improvement has a number behind it." (Update this line with real numbers once Step 11 and Phase 1F are done.)
 
 *First seen: between Steps 2 and 3.*
+
+---
+
+## RAG design
+
+### Structured vs unstructured knowledge
+Structured knowledge is stored as rows with fixed columns, like the exercise table: each exercise has a name, an equipment list, a difficulty. Unstructured knowledge is paragraphs of text, like a textbook section explaining how to train for power (low reps, maximal intent, full rest, plyometrics). RAG systems often need both. For a request like "an explosive lower-body workout", the principles would come from documents and the concrete exercises from the table, and the answer would cite both. In Step 4 we built only the structured side; the document side is deferred.
+
+**In an interview:** "The app needs two kinds of knowledge: a structured exercise catalog I can filter by equipment and level, and unstructured training principles from documents. I built the catalog first, because it's needed whichever documents I end up using."
+
+*First seen: Step 4.*
+
+### Chunking
+Chunking means splitting long documents into passages of a few paragraphs each, so each passage can be embedded and retrieved on its own. A whole textbook chapter is too long and covers too many ideas for one [embedding](#embedding) to represent well, and too long to hand to the LLM in full. The chunks would be stored with their embeddings in a second table, next to the exercise table. The master context document calls this the knowledge ingestion pipeline. **Not built yet**; suggested for after Step 10.
+
+**In an interview:** "Documents get split into chunks of a few paragraphs, each embedded and stored separately, so retrieval can return just the passage that answers the question instead of a whole chapter."
+
+*First seen: Step 4.*
+
+### Content licensing in RAG
+Whatever text you ingest into a RAG system ends up stored in your database, and possibly in your repo. Copyrighted textbooks, such as NASM's materials or the NSCA's *Essentials of Strength Training and Conditioning*, can't go into a repo meant to become a public portfolio. Three options came up in Step 4: (a) write your own notes summarizing principles in your own words, citing the original source for each, and ingest the notes; (b) use openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) or open-access research papers; (c) keep copyrighted material local only, out of git and unpublished, which is fine for learning but can't be shown. This matches the master context document's rule: only use content we have permission to use or redistribute. No source has been chosen yet.
+
+**In an interview:** "Licensing is a design constraint in RAG, because the retrieved text lives in your system. I can't ingest a copyrighted textbook into a public repo, so the options were my own cited notes, openly licensed guidelines, or keeping copyrighted material local only."
+
+*First seen: Step 4.*
+
+### Why RAG beats a plain chatbot here
+A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 11 are where points 1 and 4 get real evidence.
+
+**In an interview:** "The model already knows training theory, so RAG isn't about making it smarter. It's about citations a coach can check, only recommending exercises the client can actually do, knowledge I've vetted myself, and quality I can measure."
+
+*First seen: Step 4.*
 
 ---
 
@@ -237,9 +271,11 @@ A container being "started" doesn't mean Postgres is ready to accept connections
 ### Extension available vs enabled
 A Postgres extension (an add-on that gives the database new abilities) goes through two stages. **Available** means the extension's code is installed on the server; the `pgvector/pgvector:pg16` image ships it. **Enabled** means a specific database has switched it on with `CREATE EXTENSION vector;`. Each database opts in separately. In Step 3, `pg_available_extensions` listed `vector` 0.8.6 with an empty `installed_version`, and `\dx` (the psql command that lists enabled extensions) showed only `plpgsql` (Postgres's built-in procedural language, present in every database). After `CREATE EXTENSION`, `\dx` listed `vector 0.8.6`. Writing it as `CREATE EXTENSION IF NOT EXISTS` makes it safe to run again.
 
-**In an interview:** "The pgvector image only makes the extension available. Each database has to run CREATE EXTENSION to turn it on. I put that line at the top of the schema file so a fresh database sets itself up." (The schema file is planned for Step 4.)
+**In an interview:** "The pgvector image only makes the extension available. Each database has to run CREATE EXTENSION to turn it on. I put that line at the top of the schema file so a fresh database sets itself up."
 
-*First seen: Step 3.*
+*Step 4 update:* Built. `db/schema.sql` now starts with `CREATE EXTENSION IF NOT EXISTS vector;`, so a fresh database no longer depends on the manual command from Step 3. See [Idempotent script](#idempotent-script).
+
+*First seen: Step 3. Extended: Step 4.*
 
 ### Docker volume
 A volume is a storage area Docker keeps on the Mac where the database files are actually saved. It lives outside the container. So stopping or deleting the container does not delete the data; a new container can pick up the same volume.
@@ -317,7 +353,70 @@ So the scale runs from 0 (identical) to 2 (opposite), and smaller means more sim
 
 **In an interview (with evidence):** "Cosine distance in pgvector runs from 0 for identical to 2 for opposite, with 1 meaning unrelated. I checked that on toy vectors before trusting it on real embeddings."
 
-*First seen: between Steps 2 and 3. Extended: Step 3.*
+*Step 4 update:* The exercise table now has an `embedding vector(1024)` column, empty until Step 8. The size is enforced: inserting `'[1,2,3]'` failed with `ERROR: expected 1024 dimensions, not 3`. So if the wrong embedding model (one with a different number of dimensions) were ever used, the database would catch it on the first insert.
+
+*First seen: between Steps 2 and 3. Extended: Steps 3 and 4.*
+
+### Schema
+A schema is the definition of a table: its columns, each column's type, and the rules each value must follow. It is a contract the database enforces, so bad data is rejected at the door instead of discovered later. In this project it lives in `db/schema.sql`. Changing a schema is cheap while the table is empty (drop it and recreate it in seconds). Once real data and code depend on it, changes are done through migrations: scripted, versioned changes to a live database's structure. One design rule came out of Step 4: anything you want to filter on must be its own column; everything else can live in the description text, where the embedding captures its meaning.
+
+**In an interview:** "The schema is a contract the database enforces. I put anything I need to filter on, like equipment and difficulty, in its own constrained column, and left the rest as descriptive text for the embedding."
+
+*First seen: Step 4.*
+
+### Column types
+The types used in the exercise table:
+- **text:** any length of text.
+- **text[]:** a list of text values, for example `{dumbbell,bench}`. Used for `equipment` and `primary_muscles`, because an exercise can have several.
+- **integer:** a whole number. Used for `id`.
+- **timestamptz:** a timestamp with time zone (a date and time pinned to an exact moment). Used for `created_at`.
+- **vector(1024):** pgvector's type, exactly 1,024 numbers. Used for `embedding`. See [pgvector](#pgvector).
+
+**In an interview:** "I used Postgres arrays for multi-valued fields like equipment, so an exercise that needs a dumbbell and a bench is one row, and a fixed-size vector column for the embedding."
+
+*First seen: Step 4.*
+
+### NOT NULL, DEFAULT, UNIQUE, PRIMARY KEY
+Four basic column rules. **NOT NULL:** the value is required; an empty (null) value is rejected. In Step 4, a row with no `source` failed with a not-null error. **DEFAULT:** a value filled in automatically when none is given, for example `created_at` defaults to `now()` and `primary_muscles` to an empty list. **UNIQUE:** no two rows may share the value; `slug` is unique, and Postgres built an index called `exercise_slug_key` to enforce it. **PRIMARY KEY:** the row's main identifier, both required and unique; here that is `id`, enforced by the index `exercise_pkey`.
+
+**In an interview:** "Required fields are NOT NULL, including the source, so nothing enters without provenance. The slug is UNIQUE so it can serve as a stable citation key."
+
+*First seen: Step 4.*
+
+### CHECK constraints
+A CHECK constraint is a rule on which values a column may hold, enforced on every insert and update. For example, `difficulty` must be one of beginner, intermediate, or advanced; `equipment` must be non-empty and use only known items. This keeps filter columns clean, so a filter like `difficulty = 'beginner'` can be trusted. Postgres names each constraint and reports which one failed: `difficulty = 'expert'` failed on `exercise_difficulty_check`, and `equipment = {trx}` failed on `exercise_equipment_check1` (the second check on that column, so Postgres added a `1`). See [0010](decisions/0010-exercise-table-check-constraints.md).
+
+**In an interview:** "Filters are only as good as the data. I used CHECK constraints on equipment, difficulty, and movement pattern, so a typo like 'Dumbell' is rejected on insert instead of silently dropping out of search results."
+
+*First seen: Step 4.*
+
+### Identity column and ID gaps
+An identity column is a number Postgres assigns automatically to each new row: `integer GENERATED ALWAYS AS IDENTITY`. It is the modern replacement for the older `serial` type. Numbers are handed out even when an insert then fails, and are not given back. In Step 4, four inserts were rejected, and the next valid row got `id` 4, not 1. Gaps like this are normal in Postgres, so an id should never be treated as meaningful or as a count of rows.
+
+**In an interview:** "Identity IDs can have gaps, since failed inserts still use up numbers. I saw it happen while testing constraints, and it's one reason I cite exercises by slug, not id."
+
+*First seen: Step 4.*
+
+### Transaction (BEGIN and ROLLBACK)
+A transaction is a group of database statements that succeed or fail together. `BEGIN` starts one. `COMMIT` keeps the changes; `ROLLBACK` undoes them all, as if they never happened. In Step 4 a valid test exercise was inserted and selected inside `BEGIN ... ROLLBACK`, which proved the insert works without leaving the row behind. `SELECT count(*)` afterwards returned 0.
+
+**In an interview:** "I tested a valid insert inside a transaction and rolled it back, so I could prove the schema accepts good data without polluting the table before seeding."
+
+*First seen: Step 4.*
+
+### Idempotent script
+An idempotent script gives the same result no matter how many times it is run. `db/schema.sql` uses `CREATE EXTENSION IF NOT EXISTS` and `CREATE TABLE IF NOT EXISTS`, so running it again skips what already exists instead of failing. When it was applied in Step 4, Postgres printed `NOTICE: extension "vector" already exists, skipping` (it had been enabled by hand in Step 3). Applying it with `-v ON_ERROR_STOP=1` makes psql stop at the first real error instead of carrying on through the rest of the file.
+
+**In an interview:** "The schema script is idempotent, so it's safe to run on a fresh database or an existing one, and it stops at the first error rather than half-applying."
+
+*First seen: Step 4.*
+
+### Slug vs id
+A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.
+
+**In an interview:** "Every exercise has a unique slug like goblet-squat. Citations and eval cases use it, because internal IDs have gaps and aren't stable across reloads."
+
+*First seen: Step 4.*
 
 ---
 

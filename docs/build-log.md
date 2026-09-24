@@ -400,3 +400,118 @@ SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
 **Decisions.**
 - [0009. Local database on port 5434, bound to 127.0.0.1](decisions/0009-local-db-port-5434-localhost-only.md) (new)
 - Updated [0004. Database: PostgreSQL 16 + pgvector in Docker](decisions/0004-database-postgres-pgvector.md) with an "Implemented in Step 3" note.
+
+---
+
+## Step 4: Exercise schema, create the table, inspect it in psql
+**Date:** 2026-09-24 · **Commit:** `46e9b11` feat: add exercise table schema
+
+**Goal.** Define the exercise table: its columns, their types, and the rules that keep bad data out.
+
+### Before we started: how much does the table lock us in?
+
+Before any SQL was written, the developer stepped back and asked a bigger question. No code or files changed during this discussion.
+
+**The question (paraphrased).** *"How much does the table actually define things? I don't know yet what material we'll do RAG on. I'm thinking of official documentation, maybe from NASM or similar. My vision: a list of exercises with what they do and what they're for. But if I asked regular ChatGPT, it would also give me a workout structure. This should be better because it uses official documentation. For example, if I ask for 'a functional athletic lower-body workout to make me more explosive and run faster', it should fetch all the relevant things and build a really good, complete program or protocol. How much does the table matter?"*
+
+**The answer, in five parts.**
+
+1. **How much the table locks you in.** A table is a contract: every exercise has a name, an equipment list, a difficulty, and so on, and Postgres enforces it. Right now changing it is cheap, because the table is empty and can be dropped and recreated in seconds. Changes only get costly once real data and code depend on the table, and even then there is a standard process for it, called migrations (scripted, versioned changes to a live database's structure). The one rule that matters now: anything you want to filter on must be its own column. "Only dumbbells" needs an `equipment` column. Everything else, like coaching cues or why an exercise works, can be text in the description, and the embedding captures its meaning. See [Schema](concepts.md#schema).
+2. **The vision needs two kinds of knowledge.** See [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge).
+   - *Principles:* how to train for power (low reps, maximal intent, full rest, plyometrics, sequencing, progression). These come from textbooks and guidelines. They are paragraphs of text, not rows. They would be stored by splitting documents into passages, embedding each passage, and saving them in a second table. The master context document calls this the knowledge ingestion pipeline. See [Chunking](concepts.md#chunking).
+   - *Exercises:* box jumps, broad jumps, kettlebell swings, split squats, each with equipment and difficulty. That is the exercise table.
+   - A strong answer to the "explosive lower body" example would pull principles from documents and matching exercises from the catalog, and cite both. The exercise catalog is needed whichever documents are chosen, so Step 4 is not wasted work. A document table would be a later step, suggested after Step 10.
+3. **Sources.** The organization the developer had in mind is NASM, the National Academy of Sports Medicine. For explosiveness and speed, the NSCA (National Strength and Conditioning Association) and its textbook *Essentials of Strength Training and Conditioning* is probably the better fit. Both are copyrighted textbooks, and the repo is meant to become a public portfolio, so their text cannot go in it. Three options were laid out: (a) the developer writes their own notes summarizing principles in their own words, citing NSCA or NASM for each, and we ingest the notes; this is the cleanest and uses their kinesiology background; (b) openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) and open-access research papers; (c) keep copyrighted material local only, out of git and unpublished; fine for learning, but it can't be shown in the portfolio. This matches the master context document's rule: only use content we have permission to use or redistribute. See [Content licensing in RAG](concepts.md#content-licensing-in-rag).
+4. **What makes this better than ChatGPT, answered honestly.** ChatGPT already knows general training principles and would write a decent explosive lower-body program. The advantage is not that the model knows more. It is that: every claim has a source a coach can check; it only uses exercises from the catalog that fit the client's equipment and level; the developer controls and vetted the knowledge instead of trusting whatever the model absorbed from the internet; and it is measurable through evaluation. See [Why RAG beats a plain chatbot here](concepts.md#why-rag-beats-a-plain-chatbot-here).
+5. **Scope.** Building a complete multi-week program is Phase 2 (the agent). Phase 1 is the foundation: ask a question, retrieve the right exercises (and later principles), and get a cited answer.
+
+**The developer's call.** *"I'm trying to think too far ahead. Let's just continue with version one. Real simple."* This was a deliberate scoping decision: build the exercise table now, and defer both the choice of knowledge sources and the document table. It is recorded here, not as a decision record, because nothing was chosen between options yet; the options were only parked.
+
+### Step 4 itself
+
+**What we did.**
+- The developer asked, *"What do you want to have on that table?"* Claude proposed the columns as a table, with an example value and a reason for each. The developer accepted: *"you can build that table."*
+- Wrote `db/schema.sql`. It does two things, and both are safe to run again (see [Idempotent script](concepts.md#idempotent-script)):
+  - `CREATE EXTENSION IF NOT EXISTS vector;` So a fresh database no longer depends on the manual command typed in [Step 3](#step-3-docker-compose-start-postgres-confirm-pgvector). This was planned in Step 3 and is now built.
+  - `CREATE TABLE IF NOT EXISTS exercise (...)`.
+  - The file header documents the command to apply it.
+- The 14 columns and why each exists (types explained in [Column types](concepts.md#column-types)):
+
+| Column | Type and rules | Why |
+|---|---|---|
+| `id` | `integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY` | Auto-numbered row ID managed by Postgres. The modern replacement for `serial`. See [Identity column and ID gaps](concepts.md#identity-column-and-id-gaps). |
+| `slug` | `text NOT NULL UNIQUE` | Stable human-readable ID, e.g. `'goblet-squat'`. Used by citations and eval tests. See [Slug vs id](concepts.md#slug-vs-id). |
+| `name` | `text NOT NULL` | Display name. |
+| `description` | `text NOT NULL` | What the exercise is and what it trains. The main text we embed; semantic search matches against it. |
+| `instructions` | `text`, optional | How to perform it. |
+| `primary_muscles` | `text[] NOT NULL DEFAULT '{}'` | Filterable list of muscles. |
+| `movement_pattern` | `text NOT NULL`, CHECK in (squat, hinge, lunge, push, pull, carry, core, jump) | Filterable. `jump` was included with the developer's explosiveness example in mind. |
+| `equipment` | `text[] NOT NULL`, two CHECKs: non-empty (`cardinality(equipment) > 0`) and every item in (bodyweight, dumbbell, band, kettlebell, barbell, bench, box) | A list, because some exercises need two things (dumbbell + bench). |
+| `difficulty` | `text NOT NULL`, CHECK in (beginner, intermediate, advanced) | Filterable. |
+| `laterality` | `text NOT NULL`, CHECK in (bilateral, unilateral) | Filterable: both sides at once, or one side at a time. |
+| `body_region` | `text NOT NULL`, CHECK in (lower, upper, core, full) | Filterable. |
+| `source` | `text NOT NULL` | Provenance (where the information came from) is required. Nothing enters without a source. |
+| `embedding` | `vector(1024)`, nullable | Empty until Step 8, then filled with Voyage `voyage-4-lite` embeddings. |
+| `created_at` | `timestamptz NOT NULL DEFAULT now()` | When the row was added, filled automatically. |
+
+- Applied the schema and inspected it with `\dt` and `\d exercise`.
+- Tested the rules with four bad inserts (all rejected) and one good insert inside a [transaction](concepts.md#transaction-begin-and-rollback) that was rolled back, so the table stays empty for Step 5.
+- Marked Step 4 done and Step 5 next in `CLAUDE.md`.
+
+**Commands.**
+
+```bash
+# Apply the schema (runs psql inside the db container, reading the file from the Mac)
+docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 < db/schema.sql
+# CREATE EXTENSION   (NOTICE: extension "vector" already exists, skipping)
+# CREATE TABLE
+# ON_ERROR_STOP=1 makes psql stop at the first error instead of carrying on through the file.
+
+docker compose exec -T db psql -U postgres -d ragmotion -c "\dt"
+# \dt lists tables. One table: exercise.
+
+docker compose exec -T db psql -U postgres -d ragmotion -c "\d exercise"
+# \d describes one table: all 14 columns with types, nullability, and defaults;
+# indexes exercise_pkey (id) and exercise_slug_key (the unique slug);
+# and six named check constraints.
+```
+
+Rule tests. The brief recorded the result of each test, not the exact SQL typed.
+
+| Test | Result |
+|---|---|
+| `difficulty` = `'expert'` | `ERROR: ... violates check constraint "exercise_difficulty_check"` |
+| `equipment` = `{trx}` | `ERROR: ... violates check constraint "exercise_equipment_check1"` |
+| no `source` | `ERROR: null value in column "source" ... violates not-null constraint` |
+| `embedding` = `'[1,2,3]'` | `ERROR: expected 1024 dimensions, not 3` |
+| valid `goblet-squat` row inside `BEGIN ... ROLLBACK` | Inserted and selected fine: `embedding` empty, `created_at` filled automatically. Then undone. `SELECT count(*)` afterwards: 0. |
+
+**What we saw.**
+- **Postgres names every constraint and reports which one failed**, for example `exercise_difficulty_check`. The equipment column has two checks, so Postgres numbered the second one `exercise_equipment_check1` (the "must be a known item" rule). This will help when debugging seed data in Step 5.
+- **`vector(1024)` enforces the exact size.** A 3-number vector was rejected. So if the wrong embedding model (one with a different number of dimensions) were ever used, the database would catch it on the first insert.
+- **The valid test row got `id` 4, not 1.** Each rejected insert still used up an ID number. Gaps in identity IDs are normal in Postgres, which is one reason citations use the slug, not the id. See [Identity column and ID gaps](concepts.md#identity-column-and-id-gaps).
+- The table is empty and ready for Step 5.
+
+**Problems and fixes.** None.
+
+**Open questions.**
+- Which knowledge sources to use for training principles: the developer's own notes citing NSCA or NASM, openly licensed sources, or local-only copyrighted material. Deferred by the developer's scoping decision above.
+- Whether to add a document-ingestion step (a document/chunk table plus chunking and embedding) after Step 10. Not yet in the Phase 1 step table.
+- The ID counter now starts past 4 because of the tests, so seeded exercises in Step 5 will not start at `id` 1. This does not matter if citations use the slug, but it will be visible when inspecting the table. (Inferred from the observation above; not checked.)
+
+**Developer questions.**
+- *"How much does the table actually define things?"* Answered in [Before we started](#before-we-started-how-much-does-the-table-lock-us-in).
+- *"What do you want to have on that table?"* Answered with the column proposal above, which the developer accepted.
+
+**Minor choices (no separate decision record).**
+- Scope kept to the exercise table only. Knowledge sources and a document table are deferred (the developer's "version one, real simple" call).
+- `CREATE EXTENSION` moved into `db/schema.sql`, so the database setup lives in one re-runnable file.
+- `source` is required, which supports the master context document's provenance rule.
+
+**Learned.**
+- RAG design: [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge), [Chunking](concepts.md#chunking) (not built yet), [Content licensing in RAG](concepts.md#content-licensing-in-rag), [Why RAG beats a plain chatbot here](concepts.md#why-rag-beats-a-plain-chatbot-here) (all new)
+- Databases: [Schema](concepts.md#schema), [Column types](concepts.md#column-types), [NOT NULL, DEFAULT, UNIQUE, PRIMARY KEY](concepts.md#not-null-default-unique-primary-key), [CHECK constraints](concepts.md#check-constraints), [Identity column and ID gaps](concepts.md#identity-column-and-id-gaps), [Transaction (BEGIN and ROLLBACK)](concepts.md#transaction-begin-and-rollback), [Idempotent script](concepts.md#idempotent-script), [Slug vs id](concepts.md#slug-vs-id) (all new)
+- Extended: [Extension available vs enabled](concepts.md#extension-available-vs-enabled) (the schema file now enables pgvector), [pgvector](concepts.md#pgvector) (dimension check), [Metadata filtering](concepts.md#metadata-filtering) (the filter columns now exist)
+
+**Decisions.**
+- [0010. Exercise table: metadata columns with CHECK constraints](decisions/0010-exercise-table-check-constraints.md) (new)
