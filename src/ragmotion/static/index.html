@@ -44,6 +44,8 @@
   .cite { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 4px; background: var(--accent-soft);
     color: var(--accent); cursor: pointer; text-decoration: none; }
   .gaps { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); font-size: 14px; }
+  .general { margin-top: 14px; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--muted); font-size: 14px; color: var(--muted); }
+  .general p { margin: 6px 0 0; color: var(--text); }
   .problems { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 14px; }
   .ok { margin-top: 14px; font-size: 13px; color: var(--good); }
   .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; transition: box-shadow .2s; }
@@ -137,6 +139,7 @@ async function ask(question) {
           <span class="badge ${esc(data.evidence_coverage)}">evidence coverage: ${esc(data.evidence_coverage)}</span>
           <div class="answer">${renderAnswer(data.answer)}</div>
           ${data.gaps ? `<div class="gaps"><strong>What the evidence doesn't cover:</strong> ${esc(data.gaps)}</div>` : ""}
+          ${data.general_guidance ? `<div class="general"><strong>General guidance: not from your sources.</strong> From the model's general training knowledge, not verified against your database.<p>${esc(data.general_guidance)}</p></div>` : ""}
           ${checks}
           <div class="footer">retrieval ${t.retrieval} ms · generation ${t.generation} ms · ${esc(u.model)} · ${u.prompt_tokens} in / ${u.completion_tokens} out tokens · ${cost}</div>
         </section>

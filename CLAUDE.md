@@ -26,11 +26,11 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 7 | First embedding: embed one sentence, look at the numbers | done |
 | 8 | Embed all exercises, store vectors, compare two by hand | done |
 | 9 | Similarity search CLI, judge results by eye | done |
-| 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | done |
-| 11 | LangSmith tracing on the RAG pipeline | next |
-| 12 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | |
-| 13 | Chunking: split into passages, store in a second table with metadata | |
-| 14 | Embed chunks, search exercises + documents together, answers cite both | |
+| 10 | RAG: retrieved evidence to the LLM, cited answer, labeled general guidance, plus a minimal local UI | done |
+| 11 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | next (document to be chosen) |
+| 12 | Chunking: split into passages, store in a second table with metadata | |
+| 13 | Embed chunks, search exercises + documents together, answers cite both | |
+| 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | |
 | 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | |
 | 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | |
 
@@ -53,6 +53,7 @@ Update the Status column as steps complete.
 - Exercise data is original, author-written content. No scraped material.
 - Use fictional client data only. No medical or diagnostic claims.
 - Don't add frameworks, services, or abstractions before a step needs them.
+- Answers: facts only from retrieved evidence, cited. General LLM knowledge only in the separate, labeled `general_guidance` field, never blended into the answer.
 
 ## build-scribe brief template
 

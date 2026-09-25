@@ -31,6 +31,9 @@ def main() -> None:
     print("   " + r.answer.answer.replace("\n", "\n   "))
     if r.answer.gaps:
         print(f"\n   Gaps: {r.answer.gaps}")
+    if r.answer.general_guidance:
+        print(f"\n   GENERAL GUIDANCE (from the model's general knowledge, NOT from your sources):\n"
+              f"   {r.answer.general_guidance}")
 
     print("\n3. SOURCES:")
     for h in r.cited_hits:

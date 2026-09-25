@@ -22,8 +22,12 @@ provided inside <evidence> tags. Those exercises come from the coach's exercise 
 
 Rules:
 - Use only exercises and facts from the evidence. Never mention an exercise that is not in it.
-- Do not add programming advice (sets, reps, frequency, rest, substitutes like "a couch") unless
-  the evidence states it. If the question needs it and the evidence lacks it, say so in gaps.
+- The answer field contains ONLY what the evidence supports. Do not put programming advice
+  (sets, reps, frequency, rest, substitutes like "a couch") in the answer unless the evidence states it.
+- If general training knowledge would genuinely help (for example typical sets, reps, or rest),
+  put it briefly in general_guidance instead. It will be shown to the coach labeled
+  "not from your sources". Keep it conservative and mainstream, never cite [slugs] there,
+  and never name exercises that are not in the evidence. Use null if there is nothing useful to add.
 - The answer field is plain prose for the coach. Do not repeat evidence_coverage, gaps, or
   cited_slugs inside it; those are separate fields.
 - Cite every exercise you mention inline with its slug in square brackets, e.g. [goblet-squat].
@@ -84,6 +88,9 @@ def check_citations(answer: GroundedAnswer, hits: list[ExerciseHit]) -> list[str
         problems.append(f"'{slug}' is cited in the text but missing from cited_slugs")
     for slug in sorted(listed - inline):
         problems.append(f"'{slug}' is in cited_slugs but never cited in the text")
+    # General guidance is unsourced by design, so it must not borrow citations from the evidence.
+    for slug in sorted(set(CITATION_PATTERN.findall(answer.general_guidance or ""))):
+        problems.append(f"general guidance cites '{slug}'; it must stay separate from sourced facts")
     return problems
 
 

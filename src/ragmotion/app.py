@@ -45,6 +45,7 @@ def ask(req: AskRequest) -> dict:
         "answer": r.answer.answer,
         "evidence_coverage": r.answer.evidence_coverage,
         "gaps": r.answer.gaps,
+        "general_guidance": r.answer.general_guidance,
         "citation_problems": r.citation_problems,
         "evidence": [
             {**h.model_dump(exclude={"source"}), "source": h.source, "rank": i, "cited": h.slug in cited}

@@ -81,3 +81,7 @@ class GroundedAnswer(BaseModel):
     gaps: str | None = Field(
         description="If coverage is partial or none, what the evidence is missing, in one sentence. Otherwise null."
     )
+    general_guidance: str | None = Field(
+        description="Optional, brief practical guidance from general training knowledge that is NOT in the evidence "
+        "(e.g. typical sets, reps, rest, progression). No [slug] citations here. Null if nothing useful to add."
+    )
