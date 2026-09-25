@@ -496,7 +496,7 @@ Rule tests. The brief recorded the result of each test, not the exact SQL typed.
 
 **Open questions.**
 - Which knowledge sources to use for training principles: the developer's own notes citing NSCA or NASM, openly licensed sources, or local-only copyrighted material. Deferred by the developer's scoping decision above.
-- Whether to add a document-ingestion step (a document/chunk table plus chunking and embedding) after Step 10. Not yet in the Phase 1 step table. *Resolved in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand): ingestion is now Steps 12 to 14 ([0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)).*
+- Whether to add a document-ingestion step (a document/chunk table plus chunking and embedding) after Step 10. Not yet in the Phase 1 step table. *Resolved in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand): ingestion is now Steps 12 to 14 (renumbered to Steps 11 to 13 after Step 10) ([0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)).*
 - The ID counter now starts past 4 because of the tests, so seeded exercises in Step 5 will not start at `id` 1. This does not matter if citations use the slug, but it will be visible when inspecting the table. (Inferred from the observation above; not checked.)
 
 **Developer questions.**
@@ -584,12 +584,12 @@ Before any data was written, the developer asked four questions. Together they c
 - Not yet, because there is nothing to trace until the first full pipeline exists (Step 10).
 - Best placement: right after basic RAG and before ingestion. Then, when answers built from document chunks go wrong, the trace shows whether the right chunk was never retrieved, or was retrieved and ignored.
 - LangSmith is already installed as a [transitive dependency](concepts.md#transitive-dependencies) of voyageai (found in [Step 1](#step-1-install-uv-create-the-python-project-add-dependencies)). It works without LangChain by wrapping our own API calls.
-- Order matters. Until Step 11, our scripts print every stage themselves (manual tracing), so the developer knows what a trace should contain before using a dashboard. Likewise, we write our own eval scoring first, then view it in LangSmith.
+- Order matters. Until Step 11 (LangSmith; moved to Step 14 after Step 10), our scripts print every stage themselves (manual tracing), so the developer knows what a trace should contain before using a dashboard. Likewise, we write our own eval scoring first, then view it in LangSmith.
 - It needs a free account and an API key. Traces, including prompts, are stored on LangSmith's servers. That is acceptable because the project only uses fictional client data.
 
 **Q3. "I'm not understanding the point of seeding data. 20 exercises and an LLM call, what does that do for me? That's not RAG."**
 - Correct: those are pieces of RAG, not RAG.
-- "Seeding" means loading the first data into a database. It is the simplest form of ingestion. The exercise data is already clean, so we just insert it. Documents (Steps 12 to 14) add "extract the text" and "chunk it" before inserting. See [Seeding](concepts.md#seeding).
+- "Seeding" means loading the first data into a database. It is the simplest form of ingestion. The exercise data is already clean, so we just insert it. Documents (Steps 12 to 14; now Steps 11 to 13) add "extract the text" and "chunk it" before inserting. See [Seeding](concepts.md#seeding).
 - RAG means **R**etrieve from your data, **A**ugment the prompt with it, **G**enerate the answer:
 
 ```
@@ -691,7 +691,7 @@ Hand queries, all run with `docker compose exec -T db psql ...` from `~/rag-moti
 - Should the catalog include any advanced exercises? Currently 0.
 - The LLM model and library (OpenRouter vs the `anthropic` SDK) are open until Step 6.
 - The first document for ingestion (Step 12) is not chosen. The U.S. Physical Activity Guidelines for Americans is the candidate.
-- The LangSmith account and API key are not set up yet (needed at Step 11).
+- The LangSmith account and API key are not set up yet (needed at Step 11; LangSmith moved to Step 14 after Step 10).
 - The Step 4 open question about ID gaps (seeded rows starting past `id` 4) was not checked in this step.
 
 **Developer questions.** Q1 to Q4, answered in [Before we started](#before-we-started-four-questions-and-a-plan-change).
@@ -935,7 +935,7 @@ This is the heart of the step. In order:
 **Conclusions.**
 - Model choice affects reliability, not just price. The same prompt held on two models and failed on the cheapest.
 - No model is a real defense against prompt injection. The dependable defenses are design: LLM output has no authority on its own, deterministic code checks what it can, and a human (the coach) reviews before anything is used.
-- This matters even more at Steps 12 to 14, when retrieved documents become untrusted input. Here the coach writes the text, so injection risk is low in practice, but the pattern matters.
+- This matters even more at Steps 12 to 14 (now Steps 11 to 13), when retrieved documents become untrusted input. Here the coach writes the text, so injection risk is low in practice, but the pattern matters.
 
 **What we saw.**
 - An LLM call can be treated like a function: text in, typed object out. See [LLM as a software component](concepts.md#llm-as-a-software-component).
@@ -1312,7 +1312,7 @@ Extra lessons from this one result:
   - `format_evidence()`: writes each retrieved exercise as an `<exercise slug="...">` block with name, description, pattern, region, laterality, difficulty, equipment, primary muscles, and instructions. **Similarity scores are not sent to the LLM.**
   - `check_citations()`: deterministic Python checks (same input, same exactly-correct result, no LLM). It flags (1) any cited slug that was not retrieved (a possible invented source), (2) slugs cited in the text but missing from `cited_slugs`, and (3) slugs listed in `cited_slugs` but never cited in the text. See [Citation validation](concepts.md#citation-validation).
   - `answer_question(question, k=5)`: search → evidence and question in tags → `structured_completion(..., GroundedAnswer, max_tokens=1500, temperature=0.2)` → `RAGResult` with the question, answer, all hits, usage, citation problems, and timings in milliseconds for retrieval, generation, and total.
-- **New `scripts/ask.py`.** Prints every stage, as manual tracing until LangSmith arrives in Step 11: (1) retrieved exercises with scores, each marked cited or not used; (2) the answer with coverage and gaps; (3) sources, with each exercise's `source` field; (4) citation checks; (5) cost and time. See [Manual tracing](concepts.md#manual-tracing).
+- **New `scripts/ask.py`.** Prints every stage, as manual tracing until LangSmith arrives in Step 11 (moved to Step 14 after Step 10, see [Renumbering note](#renumbering-note)): (1) retrieved exercises with scores, each marked cited or not used; (2) the answer with coverage and gaps; (3) sources, with each exercise's `source` field; (4) citation checks; (5) cost and time. See [Manual tracing](concepts.md#manual-tracing).
 - **Local web app.** Added fastapi 0.141.1 and uvicorn 0.54.0.
   - `src/ragmotion/app.py`: `GET /` serves one static HTML page. `POST /api/ask` takes `{question, k}`, validated by a Pydantic model (question 3 to 500 characters, k 1 to 10), calls `answer_question`, and returns JSON: answer, coverage, gaps, citation problems, evidence (each with rank, similarity, a cited flag, and source), usage, and timings. Any error comes back as HTTP 502 with the reason, so the page shows it instead of failing blank.
   - `src/ragmotion/static/index.html`: a question box, example-question buttons, an answer panel with a coverage badge, clickable `[slug]` citation chips that scroll to and highlight the matching evidence card, a gaps box, the citation-check result, and a footer with timings, model, tokens, and cost. Evidence cards show a similarity bar and a cited / not-used badge. Light and dark mode; single column on narrow screens.
@@ -1320,7 +1320,7 @@ Extra lessons from this one result:
   - **All user and model text is HTML-escaped** before it is shown. See [HTML escaping](concepts.md#html-escaping).
   - **Port 8010, bound to 127.0.0.1.** Port 8000 was free, but the developer's stopped vh_technology project maps 8000, so it would collide when that project runs again. Same reasoning as the database's port 5434 in [Step 3](#step-3-docker-compose-start-postgres-confirm-pgvector).
   - Added `.claude/launch.json` so Claude Code's browser pane can start the server.
-- **`CLAUDE.md`:** Step 10 marked done, Step 11 next. Step 16 reworded to "Harden the FastAPI app (built in Step 10): tests, error handling, README". The stack section now has the run command.
+- **`CLAUDE.md`:** Step 10 marked done, Step 11 next (LangSmith at the time; after Step 10, Step 11 became document ingestion). Step 16 reworded to "Harden the FastAPI app (built in Step 10): tests, error handling, README". The stack section now has the run command.
 - **Default LLM switched** from Qwen to `google/gemini-2.5-flash-lite` in `config.py`, `.env.example`, and `CLAUDE.md`, by the developer's choice (see [Test runs and fixes](#test-runs-and-fixes), items 6 and 7).
 - Resolves the Step 9 open question "should the Step 10 LLM drop or flag poor matches?": the prompt says to leave out exercises that don't fit, and the answer marks which were used.
 
@@ -1431,3 +1431,103 @@ Run each more than once, since coverage labels varied between runs.
 - The explosive question's coverage flip ("partial" then "full") came from runs with *different prompt versions*, so it is not a clean example of run-to-run variation. Repeating identical questions is still planned for Step 15.
 - The Gemini comparison runs used the fixed prompt (after the two new rules).
 - Follow-up: Gemini 2.5 Flash-Lite passed both Step 6 hard extraction tests, including resisting the prompt injection that Qwen fell for. Details in [decision 0013](decisions/0013-llm-openrouter-openai-sdk-qwen.md).
+
+## After Step 10: grounding mode, labeled general guidance, and moving documents earlier
+**Date:** 2026-09-25 · **Commit:** `6e90764` feat: add labeled general guidance to RAG answers; reorder steps (this docs update is committed and pushed right after)
+
+**Goal.** Answer three developer questions, let answers carry clearly labeled general training knowledge next to the cited facts, and move document ingestion ahead of LangSmith.
+
+### Three questions from the developer
+
+**1. "What have we built so far?"** A complete, working RAG system (retrieval-augmented generation: look up relevant data first, then have the LLM answer from it) over the exercise catalog:
+- **Storage:** Postgres + pgvector, 20 exercises with embeddings.
+- **Retrieval:** question → vector → closest exercises.
+- **Generation:** the LLM answers only from those exercises, cites them, and names gaps.
+- **Checks:** Python verifies the citations.
+- **Interfaces:** a web page and terminal scripts.
+- Plus structured client-profile extraction ([Step 6](#step-6-first-llm-call-via-openrouter-prose-to-structured-client-profile)) and documentation of every step.
+
+**2. "When is the actual chunking and real information going to be added?"** In the ingestion steps: extract text from a real PDF; chunk it and store each chunk with its source and page; then search exercises and chunks together and cite both. The document has to be chosen first. The suggestion is unchanged: the U.S. Physical Activity Guidelines for Americans (a government publication, free to use and redistribute), with the developer's own NSCA power-training notes as a possible second document. Claude said the order was the developer's call. LangSmith had been placed first so chunking problems could be traced, but tracing is less useful before there is any chunking to debug. The developer chose documents first (see [Developer decisions](#developer-decisions)).
+
+**3. "Is it strictly giving answers from the database, or can it combine the LLM's general ability with the database exercises to make informed decisions?"** Strictly from the database, by design. The prompt forbade exercises that weren't retrieved and, since Step 10, advice not in the evidence. The LLM still used its general ability to understand the question, choose what fits, and explain why (for example, reasoning that a lateral bound helps change of direction), but every fact came from the data. Unmarked blending of the model's own knowledge is what RAG exists to prevent. Three approaches were laid out:
+
+| Approach | What you get | Tradeoff |
+|---|---|---|
+| Strict (the Step 10 behavior) | Every statement traceable | Less helpful: no programming advice until documents supply it |
+| Grounded + labeled general knowledge | Cited database facts, plus a separate, clearly marked "General guidance, not from your sources" section | More useful; the coach sees what's verified and what isn't |
+| Free blend | Most fluent | You can't tell what's grounded; defeats the point |
+
+The middle option matches the master context document's principle of separating observed facts from AI interpretation. It is also partly temporary: once documents are ingested, advice like "power work: low reps, full rest" can come from a cited source instead. See [Grounding modes](concepts.md#grounding-modes-strict-vs-labeled-general-knowledge-vs-free-blend).
+
+### Developer decisions
+- **Grounding mode: grounded + labeled general knowledge** (the recommended option). See [0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md).
+- **Order: documents first, then LangSmith** (the recommended option). See the [0011 update](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith).
+
+**What we did.**
+- **`src/ragmotion/models.py`:** `GroundedAnswer` gains `general_guidance` (a string, or null). Its description: optional, brief practical guidance from general training knowledge that is NOT in the evidence (for example typical sets, reps, rest, progression); no `[slug]` citations; null if there is nothing useful to add.
+- **`src/ragmotion/rag.py` system prompt:** the `answer` field contains ONLY what the evidence supports. General training knowledge, if it genuinely helps, goes briefly in `general_guidance`, which is shown to the coach labeled "not from your sources". Keep it conservative and mainstream, never cite slugs there, and never name exercises that aren't in the evidence.
+- **`check_citations()` in `rag.py`:** a new deterministic check (plain code, same input gives the same result, no LLM). Any `[slug]` inside `general_guidance` is flagged with "it must stay separate from sourced facts". See [Citation validation](concepts.md#citation-validation) (extended).
+- **`scripts/ask.py`:** prints a section headed "GENERAL GUIDANCE (from the model's general knowledge, NOT from your sources)" when the field is not null.
+- **`src/ragmotion/app.py`:** the `/api/ask` response now includes `general_guidance`.
+- **`src/ragmotion/static/index.html`:** shows it in a dashed box labeled "General guidance: not from your sources. From the model's general training knowledge, not verified against your database." The text is HTML-escaped like the rest. See [Separating sourced facts from model knowledge in the UI](concepts.md#separating-sourced-facts-from-model-knowledge-in-the-ui).
+- **`CLAUDE.md`:**
+  - The Step 10 row now mentions labeled general guidance.
+  - New rule: "Answers: facts only from retrieved evidence, cited. General LLM knowledge only in the separate, labeled `general_guidance` field, never blended into the answer."
+  - Steps renumbered: **11** document ingestion (next; document to be chosen), **12** chunking, **13** embed chunks + combined search, **14** LangSmith tracing (moved after ingestion by developer choice), **15** evaluation, **16** harden the FastAPI app.
+- **Docs renumbered** to match (this update). See [Renumbering note](#renumbering-note).
+
+**Commands.** The exact commands were not recorded in the brief. The tests used the terminal script and the web page, the same way as in [Step 10](#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui):
+
+```bash
+# Terminal: prints retrieval, answer, sources, checks, cost, and now the general guidance section
+uv run python scripts/ask.py "explosive exercises to help me run faster"
+# Also asked in the terminal: the beginner question with dumbbells and resistance bands
+# (exact wording not recorded here; Step 10's version is in that entry)
+
+# Web page, then open http://127.0.0.1:8010
+uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload
+```
+
+**What we saw.** Model: Gemini 2.5 Flash-Lite (the default).
+
+| Question | Answer | General guidance | Checks and cost |
+|---|---|---|---|
+| "explosive exercises to help me run faster" (terminal) | Cited broad jump, lateral bound, kettlebell swing, box jump. No programming advice in the answer. Coverage full. | "For explosive exercises, a common approach is 3-5 sets of 3-6 repetitions. Rest periods typically range from 60-120 seconds between sets to allow for full recovery and maximal power output." | Citations valid. 1,170 in / 225 out tokens, $0.000207, generation 1,260 ms |
+| Beginner with dumbbells and bands (terminal) | Cited the five retrieved exercises. Gap: "no exercises using resistance bands". | null (allowed) | $0.000205, generation 1,071 ms |
+| Browser check (question not stated in the brief) | Not recorded | Shown in its own dashed box. This run's rest advice said "60-90 seconds". | Not recorded |
+
+- **The separation works.** The cited answer stayed free of programming advice, and the advice appeared only in the labeled section.
+- **General knowledge also varies between runs:** 60–120 seconds in the terminal, 60–90 seconds in the browser.
+- **The equipment-constraint issue from Step 10 is still there, as expected.** The beginner answer again includes exercises that need a box (step-up) and a bench (hip thrust). That is for code to enforce later (a metadata filter in Phase 1F, validation in Phase 2), not this change.
+
+**The key observation: the general guidance was questionable.** Claude flagged it. Power training is usually programmed with longer rest (often 2–5 minutes) precisely to allow full recovery, so "60–120 seconds ... to allow for full recovery and maximal power output" is doubtful. The developer, a kinesiology graduate, is better placed to judge. This is exactly why general knowledge is labeled rather than blended: the unverified part is visible, so a coach can catch it. Once documents are ingested, programming advice can come from a cited source instead. This is a good interview story, and a new eval check (below).
+
+**Evaluation candidates (added to the [Step 10 list](#test-runs-and-fixes)).**
+
+| Check | Expected | Why it's a good test |
+|---|---|---|
+| General-guidance accuracy, judged by the domain expert (the developer) | Advice is mainstream and correct for the question, e.g. rest for power work | The first real output (60–120 s rest for power) looked plausible and was doubtful. Code can't judge this; a coach can. |
+| "explosive exercises to help me run faster", updated | No programming advice in the `answer` field; any advice only in `general_guidance`, with no `[slug]` citations | Replaces the Step 10 expectation "no programming advice at all" now that a labeled place exists. |
+
+**Problems and fixes.** No code errors. One content problem, deliberately not "fixed" in the prompt: the doubtful rest-period advice. The label did its job by making it visible; the real fix is cited programming principles from ingested documents (Steps 11 to 13) and an expert-judged eval check (Step 15).
+
+**Open questions.**
+- The developer's verdict on the 60–120 s (and 60–90 s) rest advice for power work is not recorded yet.
+- The Step 10 prompt clause that sent missing programming advice to `gaps` is no longer in the prompt (checked in `rag.py`), and the explosive answer now reports coverage "full". Is that intended, now that advice has its own field?
+- `check_citations()` catches `[slug]` citations inside `general_guidance`, but not an exercise named in plain words there. The "never name exercises not in the evidence" rule for that field is enforced only by the prompt.
+- How the eval will score general guidance (who judges, on what scale) is not defined yet.
+- Which document to ingest in Step 11 is still not chosen.
+- Carried over from Step 10: Gemini's gap honesty, the untested evidence-as-data rule, the retrieval timer not split, no tests for `app.py` or `rag.py`, the developer review of `data/exercises.json` (including adding curls), the unused `voyageai` library, and optionally lowering the OpenRouter key limit.
+
+**Developer questions.** The three above, with the answers given.
+
+### Renumbering note
+From here on, the plan is: 11 document ingestion, 12 chunking, 13 embed chunks + combined search, 14 LangSmith tracing, 15 evaluation, 16 harden FastAPI. Before this change, LangSmith was Step 11 and ingestion was Steps 12 to 14 (set in [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand), [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md)). Earlier entries in this log keep their original wording; inline notes such as "(now Steps 11 to 13)" were added where an old number would mislead. Living documents ([concepts](concepts.md), [interview prep](interview-prep.md), decisions 0011 and 0012) now use the new numbers, with the old ones noted.
+
+**Learned.**
+- New: [Grounding modes: strict vs labeled general knowledge vs free blend](concepts.md#grounding-modes-strict-vs-labeled-general-knowledge-vs-free-blend), [Separating sourced facts from model knowledge in the UI](concepts.md#separating-sourced-facts-from-model-knowledge-in-the-ui)
+- Extended: [Groundedness vs relevance](concepts.md#groundedness-vs-relevance) (the ban narrowed to the answer field), [Citation validation](concepts.md#citation-validation) (fourth check), [Grounding (grounded answers)](concepts.md#grounding-grounded-answers) (pointer to the modes), [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (moved to Step 14), [Chunking](concepts.md#chunking) (now Steps 11 to 13), [Content licensing in RAG](concepts.md#content-licensing-in-rag) (candidate document now for Step 11)
+
+**Decisions.**
+- New: [0016. Answer grounding: evidence-only answer plus labeled general guidance](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)
+- Updated: [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (ingestion moved before LangSmith), [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (note: its step numbers are unaffected)

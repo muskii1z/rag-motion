@@ -19,3 +19,7 @@ The third option, approved by the developer. Semantic search stays the main path
 
 ## Revisit when
 Keyword-only search matches or beats semantic search in the Step 15 results. Then simplify: consider dropping or demoting the embedding path for this data.
+
+## Note (2026-09-25, after Step 10)
+
+The plan was reordered: document ingestion is now Steps 11 to 13 and LangSmith tracing Step 14 (see the [0011 update](0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith)). The step numbers in this record are unaffected: evaluation is still Step 15 and Phase 1F still comes after Step 16. LangSmith still arrives before the Step 15 eval.
