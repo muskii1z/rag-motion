@@ -159,7 +159,9 @@ A vector's length (its norm) is the square root of the sum of its squared number
 
 **In an interview:** "Voyage returns unit-length vectors, so cosine similarity is just the dot product, and pgvector's cosine distance is one minus that. I checked the norm on the first real vector rather than assume it."
 
-*First seen: Step 7.*
+*Step 9 update: in the search query.* `SEARCH_SQL` computes `1 - (embedding <=> query) AS similarity` for display, but sorts by the distance itself, `ORDER BY embedding <=> query`, smallest first. Both give the same ranking, since smallest distance means highest similarity.
+
+*First seen: Step 7. Extended: Step 9.*
 
 ### Query vs document embeddings (input_type)
 Some embedding models, Voyage included, are asymmetric: they embed a question differently from the stored text that answers it. The setting is `input_type`: `"query"` for a user's question, `"document"` for text we store and search over (exercises, later document chunks). Voyage adds a different hidden instruction for each mode, so a short question lands near the passage that answers it. It matters a lot. In Step 7 the same sentence embedded three ways gave: no setting vs query 0.907, no setting vs document 0.905, query vs document 0.780. That also proved OpenRouter passes the setting through; if it didn't, all three would have been identical. Mixing the modes up gives no error; search just gets quietly worse. So the rule is enforced in code: `embed_documents()` always uses `"document"`, `embed_query()` always uses `"query"`, and callers can't choose.
@@ -175,7 +177,9 @@ A similarity score only means something next to other scores for the same questi
 
 *Step 8 update: ranges on the real catalog.* Comparing the 20 stored exercises with each other (document vs document, a different setting from Step 7's question vs document), related pairs scored about 0.83 to 0.91 and unrelated pairs about 0.63. So even "unrelated" is far from 0 here: all 20 texts are about exercise, and they share the same labeled lines. The gap between related and unrelated is what carries information, not the number itself.
 
-*First seen: Step 7. Extended: Step 8.*
+*Step 9 update: compressed scores.* For "beginner glute exercises with dumbbells", the top five scored 0.725 down to 0.682, a spread of only 0.04. With gaps that small, a slight change in wording could reorder the list. Top scores also varied a lot between questions: 0.725 for question 1 but 0.533 for "explosive exercises to help me run faster", which was one of the best result lists. Another reason not to use a fixed cutoff.
+
+*First seen: Step 7. Extended: Steps 8 and 9.*
 
 ### Keyword search
 Keyword search finds rows that contain the actual words in the question. Using the running example "beginner RDL variations with dumbbells", the word "RDL" (Romanian deadlift) matches an exercise named "Dumbbell RDL" exactly. It fails when the wording differs: "hip hinge" won't find "Romanian deadlift" unless those words appear in the exercise text. PostgreSQL has keyword search built in, called full-text search.
@@ -202,7 +206,13 @@ Semantic search compares [embeddings](#embedding) instead of words, using [pgvec
 
 **In an interview (with evidence):** "I measured the jargon problem on my own data. 'Beginner RDL' found the right exercise with a score of 0.15 and a tiny lead; spelling out 'Romanian deadlift' took it to 0.61. That's why query rewriting with an abbreviation glossary is on my experiment list."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 7.*
+*Step 9 update: end to end on the real catalog.* `scripts/search.py` now takes a question, embeds it in query mode, and asks pgvector for the 5 closest exercises (`src/ragmotion/retrieval.py`). Five test questions, judged by eye:
+- Strong on meaning: "unilateral lower-body exercises" returned five single-leg lower-body exercises; "explosive exercises to help me run faster" put all three jumps on top. Caveat: the embedded text contains labels like `Laterality: unilateral` and some descriptions use the word "explosive", so part of this is word overlap. Lateral Bound ranking 3rd for "run faster", with no "explosive" in its text, is the cleaner example of matching meaning.
+- Weak on hard rules: "exercises that need no equipment" found only 3 of the 5 bodyweight exercises and added two that need equipment. See [Hard constraints and negation](#hard-constraints-and-negation).
+
+**In an interview (with evidence):** "On my own catalog, semantic search nailed 'unilateral lower-body' and 'explosive exercises to help me run faster', but 'exercises that need no equipment' returned an inverted row that needs a barbell. It's great at meaning and bad at yes/no facts, which is why filters are next on the list."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 7 and 9.*
 
 ### Metadata filtering
 Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
@@ -215,7 +225,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview (with evidence):** "My first equipment filter used 'contains dumbbell', and it returned a hip thrust that also needs a bench. The client's real question is 'what can I do with only what I own', which is a contained-by check. Getting the filter's meaning right matters as much as getting the SQL right."
 
-*First seen: between Steps 2 and 3. Extended: Steps 4 and 5.*
+*Step 9 update: the failure filters fix, seen for real.* Semantic search for "exercises that need no equipment" returned Push-Up, Dead Bug, Glute Bridge, then Inverted Row (needs a barbell) and Pallof Press (needs a band), and missed Broad Jump and Lateral Bound. In `data/exercises.json`, exactly five exercises list only `bodyweight`. The filter `equipment <@ ARRAY['bodyweight']` would return exactly those five, because it checks the fact instead of guessing it from wording. Also, "beginner glute exercises with dumbbells" again returned Hip Thrust and Step-Up, which need a bench or a box: the Step 5 "uses X" vs "only needs X" issue, now coming out of search instead of a hand-written filter. Filtering is still planned for Phase 1F.
+
+**In an interview (with evidence):** "My weakest search was 'exercises that need no equipment': the top five included a barbell exercise and a band exercise. A one-line contained-by filter on the equipment column answers that question exactly. Vectors rank, filters enforce."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4, 5, and 9.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -338,21 +352,41 @@ Provenance means "where did this come from". Here it is a text column, `embeddin
 
 **In an interview:** "Every vector carries the name of the model that made it. Vectors from two models look the same but can't be compared, so the column turns a model switch into a query for stale rows instead of a guess."
 
-*First seen: Step 8.*
+*Step 9 update: guard at search time.* The search query only considers rows `WHERE embedding IS NOT NULL AND embedding_model = <current model>`. If a model switch were half finished, rows with old-model vectors would be skipped instead of being compared with a new-model question vector, which would give meaningless scores with no error.
+
+*First seen: Step 8. Extended: Step 9.*
 
 ### Nearest neighbors
 An item's nearest neighbors are the other items whose vectors are closest to it. With pgvector: order by `<=>` (cosine distance, smallest first) and keep the top few. Similarity, as reported in Step 8, is 1 minus that distance. Listing the three nearest neighbors of every exercise is a quick way to see whether the vectors make sense before building search on them. In Step 8 they mostly did (jumps, hinges, single-leg, pulls, and core each grouped together), with a few odd ones worth explaining: Farmer Carry, the only carry, landed next to Dumbbell Overhead Press (0.82). The same operation with a question's vector instead of an exercise's is semantic search (Step 9). The query used a [LATERAL join](#lateral-join).
 
 **In an interview:** "Before building search, I listed each exercise's three nearest neighbors in SQL and checked them as a coach. Most groupings were right, and the odd ones told me something about the data and about what text I was embedding."
 
-*First seen: Step 8.*
+*Step 9 update: with a question.* Search is the same operation with a question's vector (embedded in query mode) in place of an exercise's: `ORDER BY embedding <=> <question vector> LIMIT k`. Built in `src/ragmotion/retrieval.py`.
+
+*First seen: Step 8. Extended: Step 9.*
 
 ### Search always returns something
 Nearest-neighbor search ranks everything and hands back the top results, whether or not any of them is truly relevant. It never says "nothing matches". In Step 8, Farmer Carry has no real sibling in the catalog (it is the only carry), yet its three neighbors still came back with scores of 0.79 to 0.82, close to the scores of genuinely related pairs. So a top result is not proof of relevance. Results still need judging: by the LLM step that uses them (Step 10), by metadata filters, and by evaluation.
 
 **In an interview:** "Vector search always returns a top five, even when nothing fits. My only carry exercise still got neighbors scoring 0.8, so I never treat 'retrieved' as 'relevant'; filters, the prompt, and the eval have to catch that."
 
-*First seen: Step 8.*
+*Step 9 update: filler in real search results.* "upper-body pulling exercises with bands" has one true answer in the catalog, Band Pull-Apart (0.722). Search still returned five: two pulls without bands (0.584, 0.560), a push (0.541), and a core exercise (0.537). A score cutoff looks tempting here, but scores are relative, so a cutoff that works for this question could cut good answers from another. The plan: the LLM in Step 10 judges which results are useful, and evaluation checks it. See [Top-k retrieval](#top-k-retrieval).
+
+*First seen: Step 8. Extended: Step 9.*
+
+### Top-k retrieval
+Top-k retrieval means "return the k best-ranked results", where k is a number you pick (here 5 by default; `--k` changes it). In SQL it is `ORDER BY <distance> LIMIT k`. It always returns exactly k results when there are at least k rows, whether or not k good answers exist. Choosing k is a tradeoff: a larger k is more likely to include the right answer (better recall) but hands more filler to the next step. In Step 9, question 2 had one real answer and four fillers.
+
+**In an interview:** "Top-k returns k results no matter what. So k is a recall knob, not a relevance guarantee, and the step after retrieval has to be ready to ignore some of what it gets."
+
+*First seen: Step 9.*
+
+### Hard constraints and negation
+A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner only". Negation is a rule phrased as "not" or "no". Embeddings are bad at both. They place texts by overall meaning, so "exercises that need no equipment" lands near texts about equipment and simple exercises, and cannot check that an exercise's equipment list is empty. In Step 9 that question returned Inverted Row (barbell) and Pallof Press (band) and missed two bodyweight jumps. The fix is a [metadata filter](#metadata-filtering) on the column that stores the fact: `equipment <@ ARRAY['bodyweight']`.
+
+**In an interview:** "Embeddings measure similarity, not truth. 'No equipment' is a fact about a column, so it belongs in a WHERE clause. My weakest search result was exactly that question, and it's the headline case for adding filters."
+
+*First seen: Step 9.*
 
 ---
 
@@ -429,6 +463,15 @@ The terminal always has a current folder, often shown in the prompt (`~` means y
 **In an interview:** "Docker Compose and uv are project-aware: they find the project by looking in the current folder. When a command says it can't find its config, the first thing I check is which folder I'm in."
 
 *First seen: between Steps 4 and 5.*
+
+### Opening Terminal and two common Docker errors
+Terminal is the Mac app where commands are typed: press Cmd+Space, type "Terminal", press Enter. Paste a command and press Enter to run it. Two errors came up as likely when running this project's database commands:
+- `Cannot connect to the Docker daemon`: the Docker program in the background isn't running. Open Docker Desktop and wait for it to finish starting.
+- `service "db" is not running`: Docker is running, but the database container is stopped. From `~/rag-motion`, run `docker compose up -d --wait`.
+
+**In an interview:** "When a database command fails locally, I check two layers: is Docker itself running, and is the database container up. The error message tells you which one."
+
+*First seen: Step 9 (asked after Step 8).*
 
 ---
 
@@ -848,7 +891,9 @@ CROSS JOIN LATERAL (
 
 **In an interview:** "To get the top three neighbors for every exercise in one query, I used a LATERAL join: a per-row subquery that orders the other exercises by vector distance and keeps three."
 
-*First seen: Step 8.*
+*Update after Step 8:* the query is now saved in the repo as `db/queries/embedding_neighbors.sql` (commit `a957122`), and the developer re-ran it before Step 9.
+
+*First seen: Step 8. Extended: after Step 8.*
 
 ---
 
@@ -920,6 +965,13 @@ When an API call fails, the `openai` library raises a different error type for e
 **In an interview:** "I handle auth, rate-limit, connection, and other status errors separately, because each needs a different fix, and I also check successful replies for truncation, refusals, and parse failures before using them."
 
 *First seen: Step 6.*
+
+### Latency: where the time goes
+Latency is how long a request takes, from asking to getting the answer back. Step 9 searches took 180 to 380 ms each (milliseconds; 1,000 ms is one second). Almost all of that is the embedding call: the question travels over the internet to OpenRouter and Voyage and back. The database part, ranking 20 vectors on this machine, takes milliseconds. So speeding up the database would barely help; the network call dominates. `scripts/search.py` reports only the total time.
+
+**In an interview:** "My search takes 180 to 380 ms, and almost all of it is the network call to embed the question; the pgvector query itself is milliseconds at this size. If I needed it faster, I'd look at the embedding call first, not the database."
+
+*First seen: Step 9.*
 
 ---
 

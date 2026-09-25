@@ -1170,3 +1170,108 @@ None.
 **Decisions.**
 - [0014. Embedded text: name + description + labeled facts, no instructions](decisions/0014-embedded-text-name-description-labels.md) (new)
 - [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): Step 8 note on the `embedding_model` provenance column.
+
+---
+
+## Step 9: Similarity search from the command line, judge results by eye
+**Date:** 2026-09-24 · **Commit:** `1366148` feat: add semantic search over exercises (pgvector)
+
+**Goal.** Ask a natural-language question and get the most relevant exercises back from Postgres, ranked by semantic similarity.
+
+### Before we started: where to type, and how to ask a question
+
+- **"Where should I type?"** After Step 8 the developer asked where to run the commands. Answer: in the Terminal app (Cmd+Space, type "Terminal", press Enter), paste the command, press Enter. Two common errors and their fixes:
+  - `Cannot connect to the Docker daemon`: Docker Desktop isn't running. Open it and wait for it to start.
+  - `service "db" is not running`: the database container is stopped. Run `docker compose up -d --wait` from the project folder.
+  - See [Opening Terminal and two common Docker errors](concepts.md#opening-terminal-and-two-common-docker-errors).
+- The developer then ran the saved Step 8 inspection queries, `db/queries/embedding_neighbors.sql`, successfully and saw the result tables. (Those queries were saved in the repo in commit `a957122`, which resolves a Step 8 open question.)
+- **"How do I ask a question?"** Answer: there was no way yet. That is exactly what Step 9 builds, so Claude built it right away.
+
+### Step 9 itself
+
+**What we did.**
+- **New `src/ragmotion/retrieval.py`:**
+  - `ExerciseHit`: an `Exercise` plus a `similarity` field. Similarity is 1 minus cosine distance, so higher means more similar. It is relative, not absolute (see [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers)).
+  - `SEARCH_SQL`: selects the exercise columns plus `1 - (embedding <=> query) AS similarity`. It keeps only rows `WHERE embedding IS NOT NULL AND embedding_model = <the current model>`, because vectors from different models must never be compared. It sorts by `embedding <=> query` (smallest distance first, so the nearest neighbors come first) and stops at `LIMIT k`.
+  - `search_exercises(question, k=5)`: embeds the question with `embed_query` (query mode, see [Query vs document embeddings](concepts.md#query-vs-document-embeddings-input_type)), runs the SQL, and returns validated `ExerciseHit` objects.
+- **New `scripts/search.py`:** `uv run python scripts/search.py "question" [--k N]`. Prints the rank, score, name, movement pattern, difficulty, equipment, and the total time taken.
+- **`CLAUDE.md`:** Step 9 marked done, Step 10 next.
+
+This is the first end-to-end question path: question → embedding (query mode) → pgvector nearest neighbors → ranked exercises. See [Semantic search](concepts.md#semantic-search) and [Top-k retrieval](concepts.md#top-k-retrieval).
+
+**Commands.**
+
+```bash
+# Before the step (developer, in Terminal, from ~/rag-motion):
+docker compose up -d --wait        # only needed if the db service isn't running
+docker compose exec -T db psql -U postgres -d ragmotion < db/queries/embedding_neighbors.sql
+# Printed the Step 8 pair and nearest-neighbor tables.
+
+# Step 9: five questions modeled on the project brief's examples (default k = 5)
+uv run python scripts/search.py "beginner glute exercises with dumbbells"
+uv run python scripts/search.py "upper-body pulling exercises with bands"
+uv run python scripts/search.py "unilateral lower-body exercises"
+uv run python scripts/search.py "exercises that need no equipment"
+uv run python scripts/search.py "explosive exercises to help me run faster"
+# Each printed 5 ranked exercises; 180 to 380 ms per search.
+```
+
+**What we saw.**
+
+| # | Question | Results (similarity) | Verdict |
+|---|---|---|---|
+| 1 | "beginner glute exercises with dumbbells" | Dumbbell Hip Thrust 0.725, Goblet Squat 0.696, Dumbbell RDL 0.691, Dumbbell Reverse Lunge 0.686, Dumbbell Step-Up 0.682 | Good, one miss |
+| 2 | "upper-body pulling exercises with bands" | Band Pull-Apart 0.722, Inverted Row 0.584, One-Arm Dumbbell Row 0.560, Dumbbell Overhead Press 0.541, Pallof Press 0.537 | Mixed |
+| 3 | "unilateral lower-body exercises" | Single-Leg RDL 0.705, Dumbbell Reverse Lunge 0.694, Bulgarian Split Squat 0.666, Lateral Bound 0.652, Dumbbell Step-Up 0.624 | Perfect |
+| 4 | "exercises that need no equipment" | Push-Up 0.574, Dead Bug 0.549, Glute Bridge 0.533, Inverted Row 0.533, Pallof Press 0.527 | Weakest |
+| 5 | "explosive exercises to help me run faster" | Broad Jump 0.533, Box Jump 0.510, Lateral Bound 0.481, Dumbbell Reverse Lunge 0.450, Kettlebell Swing 0.439 | Very good |
+
+Notes on each:
+1. All five are beginner dumbbell exercises, which is right. But Glute Bridge, the most glute-focused beginner exercise in the catalog, is missing, because it is bodyweight and the question said dumbbells. A coach might still want it offered, or flagged. The top 5 are separated by only 0.04. Hip Thrust and Step-Up also need a bench or a box: the "uses X" vs "only needs X" issue from [Step 5](#step-5-write-20-exercises-seed-script-query-by-hand) again.
+2. The only band pull in the catalog is first, by a clear margin (0.722 vs 0.584). The other four are filler: two pulls without bands, a push (Overhead Press), and a core exercise (Pallof Press, which does use a band).
+3. All five are single-leg lower-body exercises. Two upper-body or core exercises also labeled unilateral (One-Arm Dumbbell Row, Pallof Press) were correctly left out, because the question said lower-body.
+4. Missed Broad Jump and Lateral Bound, which are bodyweight. Returned Inverted Row (needs a barbell) and Pallof Press (needs a band). In `data/exercises.json`, exactly five exercises list only bodyweight: Push-Up, Dead Bug, Glute Bridge, Broad Jump, Lateral Bound. Search found three of them.
+5. All three jumps on top, the kettlebell swing 5th. The question named no exercise and no category.
+
+*Scribe's check against the repo (added while writing this entry):* the embedded text is not label-free. `exercise_to_text` writes a line like `Laterality: unilateral.` for each exercise ([0014](decisions/0014-embedded-text-name-description-labels.md)), and seven exercises are labeled unilateral in `data/exercises.json`: the five returned for question 3 are exactly the five lower-body ones. The word "explosive" appears in the descriptions of Box Jump, Broad Jump, and Kettlebell Swing, but not Lateral Bound, which still ranked 3rd. So question 3 was likely helped by an exact label, and question 5 partly by a shared word; "run faster" matched with no shared label. This refines the "matched without exact labels" lesson below.
+
+Latency: 180 to 380 ms per search. Almost all of it is the embedding API call over the network; the database part takes milliseconds. See [Latency: where the time goes](concepts.md#latency-where-the-time-goes).
+
+**Lessons.**
+1. **Semantic search is good at meaning.** "Unilateral" and "explosive, run faster" matched the right exercises, with no exercise names or category filters in the question. Caveat from the check above: the embedded text contains a `Laterality: unilateral` label and, for two of the jumps, the word "explosive", so part of this is word overlap, not pure meaning. Lateral Bound (no "explosive" in its text) ranking 3rd for question 5 is the cleaner example. See [Semantic search](concepts.md#semantic-search).
+2. **It is bad at hard constraints, especially negation.** "Need no equipment" is a yes/no fact about each exercise. Embeddings measure how similar two texts are, not whether a fact is true, so the search returned exercises that sound like "no equipment" questions but need a barbell or a band. Metadata filtering (Phase 1F) fixes this: `equipment <@ ARRAY['bodyweight']` would answer question 4 exactly. See [Hard constraints and negation](concepts.md#hard-constraints-and-negation) and [Metadata filtering](concepts.md#metadata-filtering).
+3. **It always returns k results, even when fewer fit.** Question 2 had one true match and four fillers. The LLM in Step 10 must judge which results are actually useful. A score cutoff is not a reliable fix, because scores are relative (Step 7). See [Search always returns something](concepts.md#search-always-returns-something) and [Top-k retrieval](concepts.md#top-k-retrieval).
+4. **Scores are compressed.** Question 1's top 5 sit within 0.04, so small changes in wording could reorder them. See [Similarity scores are relative](concepts.md#similarity-scores-are-relative).
+5. **These misses are the first evaluation cases** for Step 15 (below).
+
+**Evaluation candidates (for Step 15).** Recorded here so the eval set can pick them up. Slugs are from `data/exercises.json`.
+
+| Question | Expected | Why it's a good test |
+|---|---|---|
+| "beginner glute exercises with dumbbells" | Should include `glute-bridge`, or the answer should flag the equipment mismatch. `dumbbell-hip-thrust` and `dumbbell-step-up` also need a bench or box. | Tests equipment wording and "uses X" vs "only needs X". |
+| "upper-body pulling exercises with bands" | Only true match: `band-pull-apart`. | Tests whether the system admits there is one answer instead of padding to five. |
+| "exercises that need no equipment" | `push-up`, `dead-bug`, `glute-bridge`, `broad-jump`, `lateral-bound` | Tests negation / a hard constraint. Search found 3 of 5 and added 2 that need equipment. |
+| "unilateral lower-body exercises" | Five single-leg lower-body exercises (Step 9 result: `single-leg-romanian-deadlift`, `dumbbell-reverse-lunge`, `bulgarian-split-squat`, `lateral-bound`, `dumbbell-step-up`) | A case that works: guards against regressions. |
+| "explosive exercises to help me run faster" | `broad-jump`, `box-jump`, `lateral-bound` on top | A case that works: meaning without labels. |
+
+The last two are not misses; they are listed as positive controls (cases that should keep passing). Whether to include them was not discussed.
+
+**Problems and fixes.**
+None.
+
+**Open questions.**
+- `scripts/search.py` times the whole search. The split between the embedding call and the database query was not printed separately; the "almost all of it is the embedding call" statement was not shown with a separate timer in this step.
+- How much the labeled lines in the embedded text (for example `Laterality: unilateral`) helped questions 3 and 5 was not tested. The Step 15 description-only vs description-plus-labels comparison ([0014](decisions/0014-embedded-text-name-description-labels.md)) would measure it.
+- Whether the Step 10 LLM should be told to drop poor matches, or flag them, was not decided. Step 10 will need a rule.
+- Carried over: developer review of `data/exercises.json` (no advanced exercises yet); optionally lower the OpenRouter key limit from $10 to $5; the unused `voyageai` library and the `VOYAGE_API_KEY` entry in `.env.example` (Step 7).
+
+**Developer questions.**
+- "Where should I type?" Answered in [Before we started](#before-we-started-where-to-type-and-how-to-ask-a-question): the Terminal app, plus the two common Docker errors.
+- "How do I ask a question?" Answered by building Step 9: `uv run python scripts/search.py "your question"`.
+
+**Learned.**
+- New: [Top-k retrieval](concepts.md#top-k-retrieval), [Hard constraints and negation](concepts.md#hard-constraints-and-negation), [Latency: where the time goes](concepts.md#latency-where-the-time-goes), [Opening Terminal and two common Docker errors](concepts.md#opening-terminal-and-two-common-docker-errors)
+- Extended: [Semantic search](concepts.md#semantic-search) (end to end on the real catalog), [Metadata filtering](concepts.md#metadata-filtering) (the negation failure), [Search always returns something](concepts.md#search-always-returns-something) (question 2), [Similarity scores are relative](concepts.md#similarity-scores-are-relative) (compressed scores), [Nearest neighbors](concepts.md#nearest-neighbors) (with a question), [Normalized vectors and cosine similarity](concepts.md#normalized-vectors-and-cosine-similarity) (similarity = 1 - distance in SQL), [Embedding provenance (embedding_model column)](concepts.md#embedding-provenance-embedding_model-column) (guard in the search query), [LATERAL join](concepts.md#lateral-join) (query now saved)
+
+**Decisions.**
+None new. The results strengthen the case for Phase 1F metadata filtering (planned alongside keyword search and query rewriting in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md)), and repeat the Step 5 [ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by) finding.
