@@ -13,7 +13,9 @@ The app uses two different AI models. The LLM (large language model, here Claude
 
 *Step 6 update:* The LLM is no longer Claude by default. It is reached through [OpenRouter](#openrouter), and the default model is Qwen3 235B (`qwen/qwen3-235b-a22b-2507`), switchable in one setting. See [0013](decisions/0013-llm-openrouter-openai-sdk-qwen.md). The two-model split is unchanged, but both models may now be reached through the same OpenRouter key (to be confirmed at Step 7).
 
-*First seen: Step 0. Extended: Step 6.*
+*Step 7 update:* Confirmed. One OpenRouter key and one client reach both models: `llm.py` for the LLM and `embeddings.py` for `voyageai/voyage-4-lite`. They still do different jobs.
+
+*First seen: Step 0. Extended: Steps 6 and 7.*
 
 ### Why Anthropic doesn't sell embeddings
 Anthropic's API only offers LLMs, not embedding models. So a RAG system (retrieval-augmented generation: look up relevant data first, then give it to the LLM) built on Claude needs a second provider or a local model for embeddings. Anthropic recommends Voyage AI.
@@ -39,7 +41,11 @@ OpenRouter is a service that sits between your code and many LLM providers. With
 
 **In an interview:** "OpenRouter gave me one key for the LLM and, it turned out, embeddings too. Because it speaks OpenAI's format, I used the standard openai library, and I required hosts to support every parameter I send, since open models are served by several hosts with different defaults."
 
-*First seen: Step 5. Extended: between Steps 5 and 6, Step 6.*
+*Step 7 update: embeddings confirmed.* The same key and the same `openai` client call `client.embeddings.create` with model `voyageai/voyage-4-lite`. Voyage's `input_type` setting, sent through `extra_body`, is passed through (the query and document versions of one sentence differed, cosine 0.780). Cost is reported per call here too: 7 tokens, $0.00000014. See [Query vs document embeddings (input_type)](#query-vs-document-embeddings-input_type).
+
+**In an interview:** "One OpenRouter key covers both my LLM and my embeddings. I didn't assume a provider-specific setting would survive the middleman; I tested it by comparing vectors."
+
+*First seen: Step 5. Extended: between Steps 5 and 6, Steps 6 and 7.*
 
 ### LLM as a software component
 Instead of a chat window, the LLM is used like a function in the code. It has inputs (a system message with standing instructions, plus a user message with the data) and a typed output (here, a `ClientProfile` object). The rest of the program treats the result like any other data. In Step 6, `extract_profile(text)` takes a coach's plain-English description and returns a validated `ClientProfile` plus a usage record (tokens and cost).
@@ -93,9 +99,11 @@ Temperature controls how random the model's word choices are. Higher values give
 ### Tokens and cost per call
 A token is a small chunk of text, roughly part of a word. APIs charge separately for input tokens (what you send: instructions plus data) and output tokens (what the model writes), and output usually costs more. Different models split text differently (different tokenizers) and add their own overhead: the same Step 6 prompt was about 364 input tokens on Qwen and about 1,440 on Claude Haiku 4.5. A longer prompt costs more input tokens: the brief example went from 170 to 364 after the prompt rules were added. OpenRouter's usage accounting reports dollars per call, and `extract_profile.py` prints model, input tokens, output tokens, and cost for every run. Measured examples: Qwen about $0.0001 per call; Haiku 4.5 about $0.002; Kimi K2.5 about $0.003 to $0.005.
 
+*Step 7 update: embedding cost.* Embeddings are priced per token too; the usage shows only prompt (input) tokens, since the model returns numbers, not text. voyage-4-lite lists $0.02 per million tokens. Measured: the 7-token sentence "hip hinge exercise with dumbbells" cost $0.00000014, about 14 millionths of a cent. At this project's scale, embedding cost is negligible next to LLM calls.
+
 **In an interview:** "Every call prints its model, input and output tokens, and dollar cost, so experiments are priced as they run. Comparing three models on the same tests cost under half a cent in total."
 
-*First seen: Step 6.*
+*First seen: Step 6. Extended: Step 7.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -136,7 +144,32 @@ An embedding is a list of numbers that represents the meaning of a piece of text
 
 **In an interview:** "An embedding isn't a label, it's a set of 1,024 coordinates describing meaning. Voyage produces it from the exercise description, and pgvector stores it and measures distance, so similar exercises end up close together."
 
-*First seen: Step 0. Extended: between Steps 2 and 3, between Steps 4 and 5.*
+*Step 7 update: a real one.* The first real embedding, of the sentence "hip hinge exercise with dumbbells", came back from voyage-4-lite (through OpenRouter) as 1,024 numbers. The first 8: `[0.0307, -0.0139, -0.0134, -0.005, -0.0322, 0.0499, -0.1019, -0.0204]`. They are small decimals, mostly between about -0.1 and 0.1, and the whole vector has length 1 ([normalized](#normalized-vectors-and-cosine-similarity)). Meaning showed up in the demo: that sentence names no exercise, yet among five short exercise descriptions the Romanian deadlift ranked first and the kettlebell swing (also a hip hinge) second.
+
+**In an interview (with evidence):** "A real embedding is just 1,024 small decimals with length 1. On their own they mean nothing to a person, but compared with each other they worked: 'hip hinge exercise with dumbbells' named no exercise, and it still ranked the Romanian deadlift first and the kettlebell swing second."
+
+*First seen: Step 0. Extended: between Steps 2 and 3, between Steps 4 and 5, Step 7.*
+
+### Normalized vectors and cosine similarity
+A vector's length (its norm) is the square root of the sum of its squared numbers. Voyage returns every vector with length 1.0; that is what "normalized" means. Cosine similarity measures how alike two vectors' directions are: 1 means the same direction, 0 means unrelated. It is normally the dot product (multiply matching numbers pairwise, then add them all up) divided by the two lengths. When both lengths are 1, that division changes nothing, so cosine similarity is just the dot product. pgvector's `<=>` returns cosine distance, which is 1 minus cosine similarity (0 for identical, as in the [Step 3 table](#pgvector)). Because Voyage's vectors are already normalized, they can go into pgvector as they are. `cosine_similarity()` in `embeddings.py` computes it in plain Python for demos; in the database, pgvector does it.
+
+**In an interview:** "Voyage returns unit-length vectors, so cosine similarity is just the dot product, and pgvector's cosine distance is one minus that. I checked the norm on the first real vector rather than assume it."
+
+*First seen: Step 7.*
+
+### Query vs document embeddings (input_type)
+Some embedding models, Voyage included, are asymmetric: they embed a question differently from the stored text that answers it. The setting is `input_type`: `"query"` for a user's question, `"document"` for text we store and search over (exercises, later document chunks). Voyage adds a different hidden instruction for each mode, so a short question lands near the passage that answers it. It matters a lot. In Step 7 the same sentence embedded three ways gave: no setting vs query 0.907, no setting vs document 0.905, query vs document 0.780. That also proved OpenRouter passes the setting through; if it didn't, all three would have been identical. Mixing the modes up gives no error; search just gets quietly worse. So the rule is enforced in code: `embed_documents()` always uses `"document"`, `embed_query()` always uses `"query"`, and callers can't choose.
+
+**In an interview:** "Voyage embeds questions and stored passages differently. I tested that the setting survived going through OpenRouter: the same sentence as query versus document had a cosine of only 0.78. Getting it wrong fails silently, so I made two functions that fix the mode instead of a parameter anyone can get wrong."
+
+*First seen: Step 7 (mentioned in [0002](decisions/0002-embeddings-voyage-4-lite.md) at Step 0).*
+
+### Similarity scores are relative
+A similarity score only means something next to other scores for the same question. In Step 7, the unrelated band pull-apart scored 0.459 for "hip hinge exercise with dumbbells", while the correct Romanian deadlift scored only 0.150 for "beginner RDL". Scores shift with the question's wording, so there is no universal "relevant above 0.5" cutoff. What to read is the ranking and the gap between first and second place. Any score cutoff added later would have to be tested on this project's own data.
+
+**In an interview:** "I don't treat a similarity score as a confidence level. An unrelated exercise scored 0.46 on one question and the right one scored 0.15 on another, so I read rankings and gaps, and any threshold has to earn its place on the eval set."
+
+*First seen: Step 7.*
 
 ### Keyword search
 Keyword search finds rows that contain the actual words in the question. Using the running example "beginner RDL variations with dumbbells", the word "RDL" (Romanian deadlift) matches an exercise named "Dumbbell RDL" exactly. It fails when the wording differs: "hip hinge" won't find "Romanian deadlift" unless those words appear in the exercise text. PostgreSQL has keyword search built in, called full-text search.
@@ -156,7 +189,14 @@ Semantic search compares [embeddings](#embedding) instead of words, using [pgvec
 
 *Between Steps 5 and 6 update: coaching jargon.* Coaches write in abbreviations: RDL, BSS, SL RDL, Pallof. A general-purpose embedding model was trained on general text and may not know that BSS means Bulgarian split squat, so a question written in coach shorthand can land far from the right exercise. Two planned counters: keyword search (measured at Step 15) and [query rewriting](#query-rewriting) with a glossary (Phase 1F).
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
+*Step 7 update: measured.* The first real test, on five short exercise descriptions:
+- "hip hinge exercise with dumbbells" ranked the Romanian deadlift first (0.640) and the kettlebell swing second (0.584). The paraphrase strength, confirmed: no exercise name was in the question.
+- "beginner RDL" still ranked the Romanian deadlift first, but at 0.150, only 0.04 ahead of second place. Barely above guessing.
+- "beginner Romanian deadlift" scored it 0.614 (about 4x), 0.12 ahead (about 3x the lead).
+
+**In an interview (with evidence):** "I measured the jargon problem on my own data. 'Beginner RDL' found the right exercise with a score of 0.15 and a tiny lead; spelling out 'Romanian deadlift' took it to 0.61. That's why query rewriting with an abbreviation glossary is on my experiment list."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 7.*
 
 ### Metadata filtering
 Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
@@ -235,7 +275,9 @@ Query rewriting means an LLM rewrites the user's question into better search ter
 
 **In an interview:** "Coaches write in abbreviations that a general embedding model may not understand, so I planned an LLM query-rewriting step with an abbreviation glossary. It's tuned by editing a prompt instead of re-embedding the catalog, and it only stays if it beats the eval baseline."
 
-*First seen: between Steps 5 and 6.*
+*Step 7 update: first evidence.* Spelling out one abbreviation by hand, which is what query rewriting would do automatically, raised the correct exercise's score from 0.150 ("beginner RDL") to 0.614 ("beginner Romanian deadlift"), and its lead over second place from 0.04 to 0.12. Five documents is a tiny test; the Phase 1F experiment will measure it on the full eval set.
+
+*First seen: between Steps 5 and 6. Extended: Step 7.*
 
 ### Query decomposition (multi-intent questions)
 A multi-intent question asks for several things at once. "Explosive lower-body program to run faster" is really several searches: power training principles, jump exercises, single-leg strength, and how to progress. One embedding of the whole question blends those meanings together and may retrieve a bit of each and not enough of any. Query decomposition means splitting the question into sub-questions, searching for each one separately, and combining the results. This fits Phase 2, where an agent builds whole programs. Not built yet.
@@ -263,7 +305,9 @@ Choosing an embedding model is a commitment. Each model places meaning in its ow
 
 **In an interview:** "The embedding model is the one choice that's expensive to reverse, because every stored vector depends on it. So I picked on context length, data policy, and a vector size matching my table, not on the price, which is fractions of a cent at this scale."
 
-*First seen: Step 6.*
+*Step 7 update: guarded in code.* `config.py` holds `embedding_model` and `embedding_dimensions` (1024), with a comment that they must match the `vector(1024)` column and that changing the model means re-embedding every stored row. `embeddings.py` checks every returned vector has 1,024 numbers and fails with "Model and database column no longer match." otherwise. The measured price matched the estimate's basis: 7 tokens cost $0.00000014, which is $0.02 per million.
+
+*First seen: Step 6. Extended: Step 7.*
 
 ---
 
@@ -442,7 +486,9 @@ The one dev library is **pytest**, which runs tests.
 
 *Step 6 update:* Added **openai** 3.19.2 (`uv add openai`). It talks to OpenRouter, which accepts OpenAI's request format (see [OpenAI-compatible APIs](#openai-compatible-apis)); used in `llm.py`. **anthropic** stays installed but unused ([0003](decisions/0003-llm-claude-opus-5.md) is superseded by [0013](decisions/0013-llm-openrouter-openai-sdk-qwen.md)). **voyageai** is still unused and may not be needed if embeddings go through OpenRouter (Step 7).
 
-*First seen: Step 1. Extended: Steps 5 and 6.*
+*Step 7 update:* **openai** now also does embeddings (`client.embeddings.create` in `embeddings.py`), since Voyage is reached through OpenRouter. **voyageai** is still installed but unused. Whether to remove it (and the transitive dependencies it brings) is an open question.
+
+*First seen: Step 1. Extended: Steps 5, 6, and 7.*
 
 ### Pydantic model and Literal types
 A Pydantic model is a Python class that describes the exact shape of some data: which fields exist, their types, and which values are allowed. Handing it bad data raises an error that names the field. A `Literal` type lists the only values a field may take, for example `Literal["beginner", "intermediate", "advanced"]`. In Step 5, `src/ragmotion/models.py` defines an `Exercise` model whose `Literal` lists mirror the CHECK constraints in `db/schema.sql`. It also requires `slug` to be lowercase words joined by hyphens and `equipment` to be non-empty. The seed script validates all 20 entries against it before touching the database.
@@ -458,7 +504,9 @@ A config module is the one place in the code that knows where settings come from
 
 **In an interview:** "Configuration lives in one Settings class that reads .env. Non-secrets have sensible defaults; secrets are optional at load time and checked by the code that needs them, so the app fails with a clear message at the right place instead of on startup."
 
-*First seen: Step 5.*
+*Step 7 update:* Added `embedding_model` (`"voyageai/voyage-4-lite"`) and `embedding_dimensions` (1024), next to the Step 6 `llm_model`. The comment ties them to the database's `vector(1024)` column. See [Embedding model lock-in](#embedding-model-lock-in).
+
+*First seen: Step 5. Extended: Step 7.*
 
 ### uv vs pip and venv
 pip (installs libraries) and venv (creates virtual environments) ship with Python, but they are two separate tools and don't lock exact versions. uv is a newer single tool that creates the environment, installs libraries, and writes a lockfile automatically. It is also much faster.
@@ -627,7 +675,9 @@ So the scale runs from 0 (identical) to 2 (opposite), and smaller means more sim
 
 *Between Steps 4 and 5 update:* pgvector does not create vectors; it only stores and compares them. Voyage AI turns each description into 1,024 numbers (Step 8), and pgvector keeps them in the `embedding` column and measures distance with `<=>`. A vector is 1,024 coordinates of meaning, not a label; the labels are `id` and `slug`. This split of jobs was a first-time confusion in the developer's teach-back. See [Embedding](#embedding).
 
-*First seen: between Steps 2 and 3. Extended: Steps 3 and 4, between Steps 4 and 5.*
+*Step 7 update:* Real Voyage vectors have length 1, so `<=>` (cosine distance) works on them directly, with no extra preparation. See [Normalized vectors and cosine similarity](#normalized-vectors-and-cosine-similarity). The `embedding` column is still empty until Step 8.
+
+*First seen: between Steps 2 and 3. Extended: Steps 3 and 4, between Steps 4 and 5, Step 7.*
 
 ### Schema
 A schema is the definition of a table: its columns, each column's type, and the rules each value must follow. It is a contract the database enforces, so bad data is rejected at the door instead of discovered later. In this project it lives in `db/schema.sql`. Changing a schema is cheap while the table is empty (drop it and recreate it in seconds). Once real data and code depend on it, changes are done through migrations: scripted, versioned changes to a live database's structure. One design rule came out of Step 4: anything you want to filter on must be its own column; everything else can live in the description text, where the embedding captures its meaning.
@@ -734,7 +784,9 @@ API keys and passwords go in a local `.env` file. That file is listed in `.gitig
 
 *Step 6 update:* `.env.example` now also documents an optional `LLM_MODEL` override (default `qwen/qwen3-235b-a22b-2507`, set in `config.py`). `VOYAGE_API_KEY` may not be needed if embeddings go through OpenRouter; to be confirmed at Step 7. `llm.py` raises a clear error if `OPENROUTER_API_KEY` is missing.
 
-*First seen: Step 0. Extended: Steps 2, 5, and 6.*
+*Step 7 update:* Confirmed: `VOYAGE_API_KEY` is not needed. Embeddings use `OPENROUTER_API_KEY`, so the app needs one model key, not two. `.env.example` keeps a blank `VOYAGE_API_KEY`, commented as only needed for calling Voyage directly.
+
+*First seen: Step 0. Extended: Steps 2, 5, 6, and 7.*
 
 ### Secret check before the first commit
 Before the first commit, three checks: preview what git would track (`git add -A --dry-run`), confirm the sensitive paths are ignored (`git check-ignore -v .venv .env`, which also names the matching rule), and search the files about to be committed for key-shaped text (for example `sk-ant-` for Anthropic keys, `ghp_` or `gho_` for GitHub tokens). This matters because once a secret is pushed to GitHub it must be treated as leaked and rotated (replaced with a new key), even if it is deleted later. Git history keeps old versions, and public repos get scanned by bots.
@@ -785,6 +837,17 @@ When an API call fails, the `openai` library raises a different error type for e
 **In an interview:** "I handle auth, rate-limit, connection, and other status errors separately, because each needs a different fix, and I also check successful replies for truncation, refusals, and parse failures before using them."
 
 *First seen: Step 6.*
+
+---
+
+## Code design
+
+### One module per provider
+Every call to an outside AI service goes through one module: `llm.py` for the LLM, `embeddings.py` for embeddings (which reuses `llm.py`'s client). Swapping the provider or model is then a change in one place, not a hunt through the code; for embeddings it also means re-embedding stored rows. The module is also the one place for checks every caller needs. In `embeddings.py`: results are sorted by their `index` (APIs may return items out of order); the number of vectors and their size (1,024) are checked; and the query/document mode is fixed by two public functions, `embed_documents()` and `embed_query()`, wrapped around one private `_embed()`. A leading underscore marks a Python function as internal, not for other code to call.
+
+**In an interview:** "All embedding calls go through one small module. It hides the provider, sorts results back into input order, checks the vector size against the database column, and exposes two functions so nobody can embed a question as a document by mistake."
+
+*First seen: Step 7.*
 
 ---
 

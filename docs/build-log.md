@@ -607,7 +607,7 @@ Question: "beginner lower-body exercises with dumbbells"
 - Developer's response: *"It's clear to me. Let's do it quickly."*
 
 **Q4. "What do you need me to do meanwhile? Grab an API key from OpenRouter? I probably won't use Claude's model. And we'll need a little UI to interact with it on localhost, right?"**
-- **Developer tasks.** Get an OpenRouter key (for the LLM) and a Voyage key (for embeddings; OpenRouter does not replace Voyage). Paste both into `.env` yourself, in an editor, never into the chat. Review the 20 exercises. *Correction (Step 6): "OpenRouter does not replace Voyage" was wrong. OpenRouter offers 33 embedding models, including `voyageai/voyage-4-lite`, so a Voyage key may not be needed. To be confirmed at Step 7. See [Step 6](#before-we-started-choosing-models).*
+- **Developer tasks.** Get an OpenRouter key (for the LLM) and a Voyage key (for embeddings; OpenRouter does not replace Voyage). Paste both into `.env` yourself, in an editor, never into the chat. Review the 20 exercises. *Correction (Step 6): "OpenRouter does not replace Voyage" was wrong. OpenRouter offers 33 embedding models, including `voyageai/voyage-4-lite`, so a Voyage key may not be needed. To be confirmed at Step 7. See [Step 6](#before-we-started-choosing-models).* *Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): confirmed. Embeddings go through OpenRouter with the same key; no Voyage key needed.*
 - **LLM provider change.** The plan ([0003](decisions/0003-llm-claude-opus-5.md)) said Claude Opus 5 through the `anthropic` library. The developer now prefers OpenRouter: one key for many models, handy for comparing models later. Tradeoffs: an extra middleman, and support for structured output varies by model. The model and library will be chosen and recorded at Step 6. Decision 0003 is now marked "under review". See [OpenRouter](concepts.md#openrouter).
 - **UI.** Yes: a small local page added at Step 10, when RAG first works. It shows a question box, the answer, and the retrieved exercises with scores. This matches the master context document's "first major demo" (the answer shown next to its evidence). Before Step 10, the terminal is faster.
 
@@ -726,7 +726,7 @@ Hand queries, all run with `docker compose exec -T db psql ...` from `~/rag-moti
 ### A. API keys and OpenRouter setup
 
 **Developer questions.**
-- *"What do I do with OpenRouter and Voyage? I've never used Voyage."* Both are websites where you create an account and copy a key into `.env`. OpenRouter gives the code access to many LLMs (Claude, GPT, Llama, and others) through one key. Voyage is a separate company that provides the embedding model; OpenRouter doesn't replace it. OpenRouter: sign in, add a few dollars of credit, create a key named `rag-motion` on the Keys page (optionally with a spending limit), and copy it immediately. Voyage: sign up at dashboard.voyageai.com and create a key under API Keys. New Voyage accounts get free usage, but Voyage may keep request rate limits (how many calls you may make per minute) very low until a payment method is added. *Correction (Step 6): OpenRouter does offer embeddings (33 models, including `voyageai/voyage-4-lite`), so it may replace a separate Voyage account after all. To be confirmed at Step 7. See [Step 6](#before-we-started-choosing-models).*
+- *"What do I do with OpenRouter and Voyage? I've never used Voyage."* Both are websites where you create an account and copy a key into `.env`. OpenRouter gives the code access to many LLMs (Claude, GPT, Llama, and others) through one key. Voyage is a separate company that provides the embedding model; OpenRouter doesn't replace it. OpenRouter: sign in, add a few dollars of credit, create a key named `rag-motion` on the Keys page (optionally with a spending limit), and copy it immediately. Voyage: sign up at dashboard.voyageai.com and create a key under API Keys. New Voyage accounts get free usage, but Voyage may keep request rate limits (how many calls you may make per minute) very low until a payment method is added. *Correction (Step 6): OpenRouter does offer embeddings (33 models, including `voyageai/voyage-4-lite`), so it may replace a separate Voyage account after all. To be confirmed at Step 7. See [Step 6](#before-we-started-choosing-models).* *Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): confirmed, no Voyage account needed.*
 - *"Is a $5 limit cool?"* Yes. Claude's rough Phase 1 cost estimate with a mid-priced model: Step 6 extraction about half a cent per call; one RAG answer 1 to 2 cents (maybe 100 answers while building); one eval run 30 to 60 cents (a few runs). Total roughly $2 to $4; a top-tier model roughly doubles it. These are estimates, not measured. The limit also protects against bugs, for example a loop that calls the model over and over. When the limit is hit, calls fail with an error and nothing is charged beyond it. The time to raise it is Phase 1F, when the eval is rerun after every change. Claude committed to giving a cost estimate before any step that makes many calls.
 - *"Where do I paste it / how do I get to .env?"* `.env` is in `~/rag-motion`. Finder hides files whose names start with a dot. Open it with `open -e ~/rag-motion/.env` (opens in TextEdit), paste each key right after its `=` with no quotes or spaces, and save. Alternative: in Finder, press Cmd+Shift+Period to show hidden files. Never paste keys into the chat, a screenshot, or any file other than `.env`.
 - *"How do I choose a model on OpenRouter for the key?"* You don't choose it on the key. One key works with every model. The model is chosen in the code, per request, with an ID like `"provider/model-name"`. So switching models is a one-line change, and the eval step can compare models. The model will be picked at the start of Step 6 from OpenRouter's live model list, comparing price, speed, and structured-output support (the feature that forces the reply into an exact data format). Not every model has it, and Step 6 depends on it.
@@ -753,7 +753,7 @@ The exact Python code for both checks is not recorded here.
 
 **What we saw.**
 - `OPENROUTER_API_KEY`: set, 73 characters, correct `sk-or-` prefix, no stray spaces or quotes.
-- `VOYAGE_API_KEY`: not set yet. It is needed at Step 7, so nothing is blocked. *(Step 6: may not be needed at all if embeddings go through OpenRouter; to be confirmed at Step 7.)*
+- `VOYAGE_API_KEY`: not set yet. It is needed at Step 7, so nothing is blocked. *(Step 6: may not be needed at all if embeddings go through OpenRouter; to be confirmed at Step 7.)* *(Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): not needed.)*
 - Key-info endpoint: key accepted. `limit` 10, `limit_remaining` 10, `usage` 0, `is_free_tier` False. No model was called, so nothing was spent.
 - The key's spending limit is $10, not the $5 the developer mentioned. See Open questions.
 
@@ -788,7 +788,7 @@ The exact Python code for both checks is not recorded here.
 
 **Open questions.**
 - The key's spending limit is $10, but the developer mentioned $5. If $5 was meant, change it on OpenRouter's Keys page.
-- `VOYAGE_API_KEY` is not set yet (needed at Step 7).
+- `VOYAGE_API_KEY` is not set yet (needed at Step 7). *(Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): not needed; embeddings use the OpenRouter key.)*
 - The LLM model is chosen at the start of Step 6 from OpenRouter's live model list (price, speed, structured-output support). [0003](decisions/0003-llm-claude-opus-5.md) stays "under review" until then.
 - Step 5's open questions (coach review, advanced exercises, first document, LangSmith key, ID gaps) are unchanged.
 
@@ -809,14 +809,14 @@ The exact Python code for both checks is not recorded here.
 
 ### Before we started: choosing models
 
-**A correction first.** Earlier ([Step 5](#before-we-started-four-questions-and-a-plan-change) and [between Steps 5 and 6](#a-api-keys-and-openrouter-setup)), Claude said OpenRouter doesn't do embeddings and doesn't replace Voyage. That was wrong. The developer found an Embeddings category on OpenRouter's Models page. OpenRouter offers 33 embedding models, including `voyageai/voyage-4-lite` ($0.02 per million tokens, 32K context), the exact model planned. So one OpenRouter key may cover both the LLM and embeddings, and a separate Voyage account may not be needed. To be confirmed at Step 7. The earlier entries now carry a correction note.
+**A correction first.** Earlier ([Step 5](#before-we-started-four-questions-and-a-plan-change) and [between Steps 5 and 6](#a-api-keys-and-openrouter-setup)), Claude said OpenRouter doesn't do embeddings and doesn't replace Voyage. That was wrong. The developer found an Embeddings category on OpenRouter's Models page. OpenRouter offers 33 embedding models, including `voyageai/voyage-4-lite` ($0.02 per million tokens, 32K context), the exact model planned. So one OpenRouter key may cover both the LLM and embeddings, and a separate Voyage account may not be needed. To be confirmed at Step 7. The earlier entries now carry a correction note. *Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): confirmed.*
 
 **Live lookups.** Free, read-only calls to OpenRouter's model-list endpoints with the developer's key: 33 embedding models; 353 text models support structured outputs.
 
 **Embedding guidance given (for Step 7).**
 - Price barely matters at this scale. Embedding all 20 exercises is about 2,500 tokens, about $0.00005 with voyage-4-lite. A 100-page PDF is about 60,000 tokens, about $0.001. Estimates.
 - Skip the free embedding models. The free LiquidAI one says requests may be used to train its models. It and several others stop at 512 tokens, too short for document chunks later.
-- Possible catch: Voyage normally embeds queries and documents slightly differently (`input_type`). OpenRouter doesn't list whether that setting passes through. To test at Step 7.
+- Possible catch: Voyage normally embeds queries and documents slightly differently (`input_type`). OpenRouter doesn't list whether that setting passes through. To test at Step 7. *Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): it does pass through; the query and document vectors of the same sentence differed (cosine 0.780).*
 - Picking an embedding model is a commitment. Vectors from different models can't be compared, so switching means re-embedding everything. A different vector size (for example OpenAI's 1,536) would also need a table change. See [Embedding model lock-in](concepts.md#embedding-model-lock-in).
 - OpenRouter also has a Rerank category (7 models), relevant to Phase 1F. See [Reranking](concepts.md#reranking).
 
@@ -947,7 +947,7 @@ This is the heart of the step. In order:
 
 **Open questions.**
 - **Keep Qwen as the default?** It is the cheapest, but it was the weakest at resisting injection and at not inferring. Alternatives: Haiku 4.5 (~$0.002 per call) or Kimi K2.5 (~$0.003–0.005, slower). The default is still Qwen. The developer has not decided.
-- Can embeddings go through OpenRouter (`voyageai/voyage-4-lite`), and does `input_type` pass through? Step 7. If yes, `VOYAGE_API_KEY` may not be needed. `CLAUDE.md` and `.env.example` still describe a Voyage key as needed from Step 7.
+- Can embeddings go through OpenRouter (`voyageai/voyage-4-lite`), and does `input_type` pass through? Step 7. If yes, `VOYAGE_API_KEY` may not be needed. `CLAUDE.md` and `.env.example` still describe a Voyage key as needed from Step 7. *Resolved at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): yes to both; no Voyage key needed. `CLAUDE.md` updated.*
 - The first successful call cost $0.000137 for 170 in / 121 out; the rerun cost $0.000064 with 364 input tokens (its output count was not recorded). At Qwen's listed $0.09 / $0.35 per million, 170 in / 121 out works out to about $0.00006. Why the first call cost more was not investigated (a different host is one possibility).
 - Step 5's open questions (coach review, advanced exercises, first document, LangSmith key, ID gaps) are unchanged.
 
@@ -960,4 +960,91 @@ This is the heart of the step. In order:
 **Decisions.**
 - [0013. LLM via OpenRouter with the openai SDK; default Qwen3 235B](decisions/0013-llm-openrouter-openai-sdk-qwen.md) (new)
 - [0003. LLM: Claude Opus 5](decisions/0003-llm-claude-opus-5.md): status now superseded by 0013.
-- [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): note added. Likely accessed through OpenRouter as `voyageai/voyage-4-lite`; to be confirmed at Step 7, including whether `input_type` passes through.
+- [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): note added. Likely accessed through OpenRouter as `voyageai/voyage-4-lite`; to be confirmed at Step 7, including whether `input_type` passes through. *(Confirmed at [Step 7](#step-7-first-embedding-embed-one-sentence-look-at-the-numbers).)*
+
+---
+
+## Step 7: First embedding: embed one sentence, look at the numbers
+**Date:** 2026-09-24 · **Commit:** `4370ce7` feat: add Voyage embeddings through OpenRouter
+
+**Goal.** Get real embeddings from voyage-4-lite through OpenRouter, see what they look like, and see how similarity ranks text.
+
+**What we did.**
+- **Probe.** Called OpenRouter's embeddings endpoint (the web address that turns text into vectors) with the `openai` library: `client.embeddings.create`, model `"voyageai/voyage-4-lite"`. Same OpenRouter key and same client as Step 6.
+- **`input_type` test.** Voyage can embed text in two modes, `"query"` (a question) and `"document"` (stored text). Embedded the same sentence three ways (no setting, `"query"`, `"document"`) and compared the three vectors, to find out whether OpenRouter passes the setting through to Voyage. See [Query vs document embeddings (input_type)](concepts.md#query-vs-document-embeddings-input_type).
+- **`config.py`.** Added `embedding_model` (`"voyageai/voyage-4-lite"`) and `embedding_dimensions` (1024). A comment says they must match the `vector(1024)` column in `db/schema.sql`, and that changing the model means re-embedding every stored row.
+- **`src/ragmotion/embeddings.py`** (new). Every embedding call in the project goes through this one module. See [One module per provider](concepts.md#one-module-per-provider).
+  - A private `_embed(texts, input_type)` calls OpenRouter, passing `input_type` in `extra_body` (the `openai` library's way to send a setting it doesn't know about).
+  - It sorts results by their `index`, because APIs may return items out of order.
+  - It checks that it got one vector per text, and that each has 1,024 numbers. If not, it raises a clear error ("Model and database column no longer match.").
+  - Public `embed_documents(texts)` and `embed_query(text)`, so callers never choose the mode themselves and can't pick the wrong one.
+  - `cosine_similarity(a, b)` in plain Python, for inspection and demos only. In the database, pgvector computes this.
+- **`scripts/embedding_demo.py`** (new). Embeds five short exercise-like descriptions as documents: Romanian deadlift, kettlebell swing, goblet squat, overhead press, band pull-apart. Then embeds each question as a query and prints the five scores, highest first, with a bar for each. Questions can be passed on the command line; otherwise two defaults run.
+- **`CLAUDE.md`.** Step 7 done, Step 8 next. The stack line now says Voyage is reached through OpenRouter with the same key (verified at Step 7), and states the rule: store text with `embed_documents()`, embed questions with `embed_query()`.
+
+**Commands.**
+
+The probe and the `input_type` test were run as short Python snippets. Their exact code was not recorded.
+
+```bash
+uv run python scripts/embedding_demo.py
+# Embeds the five descriptions as documents, prints the first numbers of one embedding,
+# then ranks the five against two default questions embedded as queries:
+# "hip hinge exercise with dumbbells" and "beginner RDL".
+
+uv run python scripts/embedding_demo.py "beginner Romanian deadlift"
+# Same, with the abbreviation spelled out.
+```
+
+**What we saw.**
+
+*The probe* (sentence: "hip hinge exercise with dumbbells"):
+- The response named the model `voyage-4-lite` and held 1 vector of 1,024 numbers.
+- First 8 numbers: `[0.0307, -0.0139, -0.0134, -0.005, -0.0322, 0.0499, -0.1019, -0.0204]`. Small decimals, mostly between about -0.1 and 0.1.
+- Usage: 7 prompt tokens, cost $0.00000014 (1.4e-7 dollars, about 14 millionths of a cent). OpenRouter reports cost per call for embeddings too, as it does for the LLM. That matches the listed $0.02 per million tokens. See [Tokens and cost per call](concepts.md#tokens-and-cost-per-call).
+- The vector's length (its norm) is 1.0. Voyage normalizes its vectors, so cosine similarity equals the plain dot product, and pgvector's `<=>` works on them directly. See [Normalized vectors and cosine similarity](concepts.md#normalized-vectors-and-cosine-similarity).
+- Result: no separate Voyage account or `VOYAGE_API_KEY` needed.
+
+*The `input_type` test* (same sentence, three modes):
+
+| Compared | Cosine similarity |
+|---|---|
+| no setting vs `"query"` | 0.907 |
+| no setting vs `"document"` | 0.905 |
+| `"query"` vs `"document"` | 0.780 |
+
+No two versions were identical. If OpenRouter dropped the setting, all three would have come back the same. So OpenRouter **does** pass `input_type` through, and it changes the vector a lot. Voyage adds a different hidden instruction for each mode, so that questions line up with the stored passages that answer them. Rule adopted: stored text is always embedded as `"document"`, questions always as `"query"`. The two public functions enforce it.
+
+*The demo* (cosine similarity, rank in brackets):
+
+| Exercise | "hip hinge exercise with dumbbells" | "beginner RDL" | "beginner Romanian deadlift" |
+|---|---|---|---|
+| romanian deadlift | **0.640** (1) | **0.150** (1) | **0.614** (1) |
+| kettlebell swing | 0.584 (2) | 0.073 (5) | 0.412 (4) |
+| goblet squat | 0.555 (3) | 0.111 (2) | 0.491 (2) |
+| overhead press | 0.498 (4) | 0.083 (4) | 0.415 (3) |
+| band pull-apart | 0.459 (5) | 0.092 (3) | 0.364 (5) |
+| Lead of 1st over 2nd | 0.056 | 0.039 | 0.123 |
+
+Three lessons:
+1. **Embeddings capture meaning.** "hip hinge exercise with dumbbells" names no exercise. The Romanian deadlift still ranked first, and the kettlebell swing, also a hip hinge, ranked second. Keyword search can't do that: those words aren't in the question. See [Semantic search](concepts.md#semantic-search).
+2. **Embeddings struggle with jargon, now measured.** With "RDL", the right answer still ranked first, but at 0.150 with a 0.04 lead, barely above guessing. Spelling it out ("Romanian deadlift") raised the score to 0.614, about 4x, and widened the lead to 0.12, about 3x. This measures, on this project's own data, the claim from the article reviewed [between Steps 5 and 6](#b-article-review-rag-is-simpler-than-you-think) that abbreviations weaken general embeddings. It is direct evidence for the planned Phase 1F experiment: [query rewriting](concepts.md#query-rewriting) with an abbreviation glossary ([0012](decisions/0012-keyword-baseline-and-query-rewriting.md)).
+3. **Read rankings, not raw scores.** The unrelated band pull-apart still scored 0.459 on the first question, higher than the correct answer scored for "beginner RDL". There is no universal "relevant above 0.5" cutoff. Scores mean something relative to each other, and they shift with the question's wording. See [Similarity scores are relative](concepts.md#similarity-scores-are-relative).
+
+The demo used five short stand-in descriptions written into the script, not the 20 seeded exercises. Embedding the real catalog is Step 8.
+
+**Problems and fixes.** None. The open question from [Step 6](#before-we-started-choosing-models) is resolved: OpenRouter does serve `voyageai/voyage-4-lite` with the same key, and it passes `input_type` through.
+
+**Open questions.**
+- The `voyageai` library is still listed in `pyproject.toml`, unused, and it brings in LangChain core and LangSmith as [transitive dependencies](concepts.md#transitive-dependencies). Whether to remove it was not discussed.
+- `.env.example` still has a blank `VOYAGE_API_KEY`, with a comment that it is only needed for calling Voyage directly instead of through OpenRouter "(decided at Step 7)". Whether to reword or remove that entry now that the question is decided was not discussed.
+- The exact code of the probe and the `input_type` test was not saved in the repo.
+
+**Developer questions.** None new. The developer approved the probe with "yea try it".
+
+**Learned.**
+- New: [Normalized vectors and cosine similarity](concepts.md#normalized-vectors-and-cosine-similarity), [Query vs document embeddings (input_type)](concepts.md#query-vs-document-embeddings-input_type), [Similarity scores are relative](concepts.md#similarity-scores-are-relative), [One module per provider](concepts.md#one-module-per-provider)
+- Extended: [Embedding](concepts.md#embedding) (a real vector), [Semantic search](concepts.md#semantic-search) (RDL numbers), [Query rewriting](concepts.md#query-rewriting) (first evidence), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (embedding cost), [Embedding model lock-in](concepts.md#embedding-model-lock-in) (guarded in config and code), [pgvector](concepts.md#pgvector) (normalized vectors), [OpenRouter](concepts.md#openrouter) (embeddings confirmed), [LLM vs embedding model](concepts.md#llm-vs-embedding-model) (one key), [What each library is for](concepts.md#what-each-library-is-for) (`openai` now does embeddings), [Config module (pydantic-settings)](concepts.md#config-module-pydantic-settings) (embedding settings), [Why .env stays out of git](concepts.md#why-env-stays-out-of-git) (no Voyage key needed)
+
+**Decisions.**
+- [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): Step 7 update. Confirmed: `voyage-4-lite` through OpenRouter with the same key, `input_type` passed through, no Voyage account needed. No new decision record.

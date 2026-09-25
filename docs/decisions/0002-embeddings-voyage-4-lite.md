@@ -23,10 +23,21 @@ A second API key and a network dependency.
 Retrieval evals show embedding quality is the bottleneck (try `voyage-4` or `voyage-4-large`), or cost matters at scale.
 
 ## Note (2026-09-24, Step 6): likely accessed through OpenRouter
-Correction: earlier docs said OpenRouter doesn't do embeddings, so Voyage needed its own account and key. That was wrong. OpenRouter lists 33 embedding models, including `voyageai/voyage-4-lite` ($0.02 per million tokens, 32K context), the model chosen here. So this decision's model likely stays the same, but it would be reached through the OpenRouter key instead of `VOYAGE_API_KEY` and the `voyageai` library. **To be confirmed at Step 7.**
+Correction: earlier docs said OpenRouter doesn't do embeddings, so Voyage needed its own account and key. That was wrong. OpenRouter lists 33 embedding models, including `voyageai/voyage-4-lite` ($0.02 per million tokens, 32K context), the model chosen here. So this decision's model likely stays the same, but it would be reached through the OpenRouter key instead of `VOYAGE_API_KEY` and the `voyageai` library. **To be confirmed at Step 7.** *(Confirmed at Step 7; see the update below.)*
 - **Open check:** Voyage normally embeds queries and documents slightly differently (`input_type`, described above). OpenRouter doesn't list whether that setting passes through. Test at Step 7.
 - **Alternatives ruled out for now:** free embedding models on OpenRouter. The free LiquidAI one says requests may be used to train its models, and it and several others stop at 512 tokens, too short for document chunks later.
 - **Lock-in reminder:** vectors from different models can't be compared, so switching models means re-embedding everything, and a different vector size (for example OpenAI's 1,536) would also need a table change. See [Embedding model lock-in](../concepts.md#embedding-model-lock-in).
 - If this is confirmed, the "second API key" tradeoff above goes away, and the `voyageai` library (with its large set of transitive dependencies) may no longer be needed.
 
 See [Step 6](../build-log.md#before-we-started-choosing-models).
+
+## Update (2026-09-24, Step 7): confirmed through OpenRouter
+Both open checks from the Step 6 note are resolved.
+- **Access.** `voyage-4-lite` works through OpenRouter as `voyageai/voyage-4-lite`, with the same OpenRouter key and the same `openai` client as the LLM. No Voyage account and no `VOYAGE_API_KEY` needed. The Decision section's "the key goes in `VOYAGE_API_KEY`" no longer applies; it stays above as history.
+- **`input_type` passes through.** The same sentence embedded three ways gave cosine similarities of 0.907 (no setting vs query), 0.905 (no setting vs document), and 0.780 (query vs document). If the setting were dropped, all three would match. See [Query vs document embeddings (input_type)](../concepts.md#query-vs-document-embeddings-input_type).
+- **Implemented** in `src/ragmotion/embeddings.py`, as planned: one module for all embedding calls. `embed_documents()` always sends `"document"` and `embed_query()` always sends `"query"`, so callers can't mix them up. Every vector is checked for 1,024 numbers. Model and size live in `config.py` (`embedding_model`, `embedding_dimensions`).
+- **Measured.** Vectors are normalized (length 1.0). A 7-token sentence cost $0.00000014, matching the listed $0.02 per million tokens.
+- **Tradeoffs now.** The "second API key" tradeoff is gone. In its place: both models now depend on one provider, OpenRouter. If it has an outage, the LLM and embeddings stop together, and `input_type` works only because OpenRouter passes it through. The `voyageai` library is still installed but unused; whether to remove it is open.
+- **Extra revisit signal.** OpenRouter stops offering `voyageai/voyage-4-lite` or stops passing `input_type` through. Direct Voyage access with `VOYAGE_API_KEY` is the fallback. It is the same model, so stored vectors should stay usable, but that has not been tested.
+
+See [Step 7](../build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers).

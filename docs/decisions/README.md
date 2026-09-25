@@ -3,7 +3,7 @@
 One file per real decision, numbered in order. Each records the context, options, choice, tradeoffs, and when to revisit.
 
 - [0001. Packaging with uv](0001-packaging-uv.md) (Step 0)
-- [0002. Embeddings with Voyage AI voyage-4-lite](0002-embeddings-voyage-4-lite.md) (Step 0, note in Step 6: likely accessed through OpenRouter, to be confirmed at Step 7)
+- [0002. Embeddings with Voyage AI voyage-4-lite](0002-embeddings-voyage-4-lite.md) (Step 0, note in Step 6: likely accessed through OpenRouter; confirmed in Step 7, same key, `input_type` passes through)
 - [0003. LLM: Claude Opus 5](0003-llm-claude-opus-5.md) (Step 0, superseded by 0013 in Step 6)
 - [0004. Database: PostgreSQL 16 + pgvector in Docker](0004-database-postgres-pgvector.md) (Step 0, deployment and Pinecone note added between Steps 4 and 5)
 - [0005. Database access: psycopg 3 with raw SQL](0005-database-access-psycopg-raw-sql.md) (Step 0)
