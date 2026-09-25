@@ -34,3 +34,6 @@ Call the LLM through OpenRouter with the `openai` SDK (3.19.2). Default model `q
 - Step 15, when models can be compared on the evaluation set instead of two hand tests.
 - Injection or inference errors show up in real use.
 - Open question already raised in Step 6: whether to switch the default now to Haiku 4.5 or Kimi K2.5. The developer has not decided; the default stays Qwen until they do.
+
+## Update 2026-09-24: default confirmed
+After seeing the three-model comparison, the developer chose to keep `qwen/qwen3-235b-a22b-2507` as the default. Reason: it is by far the cheapest, the coach writes the input during development so injection risk is low in practice, and its weak spots (inferring unstated facts, following injected instructions) become test cases. Models are compared properly on the Step 15 evaluation. Claude Haiku 4.5 and Kimi K2.5 remain the comparison candidates.
