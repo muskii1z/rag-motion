@@ -1,5 +1,5 @@
 # 0003. LLM: Claude Opus 5
-**Date:** 2026-09-23 · **Step:** 0 · **Status:** under review: developer prefers OpenRouter; to be resolved at Step 6
+**Date:** 2026-09-23 · **Step:** 0 · **Status:** superseded by [0013](0013-llm-openrouter-openai-sdk-qwen.md) (Step 6)
 
 ## Context
 The app needs an LLM (large language model) to read text and write answers. Claude Code offered three Claude models. The developer deferred the choice.
@@ -28,3 +28,6 @@ In Step 5 the developer said they probably won't use Claude's model and would pr
 - **Still open:** which model, and which Python library to call it with. Both will be chosen and recorded at Step 6. No new decision record has been created yet; this one stays under review until then.
 
 See [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).
+
+## Note (2026-09-24, Step 6): superseded
+Resolved at Step 6 by [0013. LLM via OpenRouter with the openai SDK; default Qwen3 235B](0013-llm-openrouter-openai-sdk-qwen.md). The LLM is now reached through OpenRouter with the `openai` library, and the default model is `qwen/qwen3-235b-a22b-2507`. Claude models remain available through OpenRouter: `anthropic/claude-haiku-4.5` was one of the three models compared in Step 6. The `anthropic` package stays installed but unused, and `ANTHROPIC_API_KEY` stays optional in `.env.example`. See [Step 6](../build-log.md#step-6-first-llm-call-via-openrouter-prose-to-structured-client-profile).

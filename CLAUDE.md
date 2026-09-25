@@ -43,7 +43,7 @@ Update the Status column as steps complete.
 - Python 3.12, managed with **uv** (`pyproject.toml` + `uv.lock`)
 - **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
-- **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), key in `VOYAGE_API_KEY`
+- **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), likely through OpenRouter as `voyageai/voyage-4-lite` with the same OpenRouter key; confirmed at Step 7 (a separate `VOYAGE_API_KEY` only if we call Voyage directly)
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `qwen/qwen3-235b-a22b-2507`, set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - CLI scripts first. Minimal local UI at Step 10. FastAPI endpoint at Step 16
 

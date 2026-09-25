@@ -21,3 +21,12 @@ A second API key and a network dependency.
 
 ## Revisit when
 Retrieval evals show embedding quality is the bottleneck (try `voyage-4` or `voyage-4-large`), or cost matters at scale.
+
+## Note (2026-09-24, Step 6): likely accessed through OpenRouter
+Correction: earlier docs said OpenRouter doesn't do embeddings, so Voyage needed its own account and key. That was wrong. OpenRouter lists 33 embedding models, including `voyageai/voyage-4-lite` ($0.02 per million tokens, 32K context), the model chosen here. So this decision's model likely stays the same, but it would be reached through the OpenRouter key instead of `VOYAGE_API_KEY` and the `voyageai` library. **To be confirmed at Step 7.**
+- **Open check:** Voyage normally embeds queries and documents slightly differently (`input_type`, described above). OpenRouter doesn't list whether that setting passes through. Test at Step 7.
+- **Alternatives ruled out for now:** free embedding models on OpenRouter. The free LiquidAI one says requests may be used to train its models, and it and several others stop at 512 tokens, too short for document chunks later.
+- **Lock-in reminder:** vectors from different models can't be compared, so switching models means re-embedding everything, and a different vector size (for example OpenAI's 1,536) would also need a table change. See [Embedding model lock-in](../concepts.md#embedding-model-lock-in).
+- If this is confirmed, the "second API key" tradeoff above goes away, and the `voyageai` library (with its large set of transitive dependencies) may no longer be needed.
+
+See [Step 6](../build-log.md#before-we-started-choosing-models).
