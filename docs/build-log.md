@@ -1531,3 +1531,54 @@ From here on, the plan is: 11 document ingestion, 12 chunking, 13 embed chunks +
 **Decisions.**
 - New: [0016. Answer grounding: evidence-only answer plus labeled general guidance](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)
 - Updated: [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (ingestion moved before LangSmith), [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (note: its step numbers are unaffected)
+
+## Before Step 11: finding and license-checking knowledge sources
+**Date:** 2026-09-25 · **Commit:** not committed yet (this docs update and `docs/sources/candidates.md` are committed together right after)
+
+**Goal.** Find openly usable documents for ingestion and check each one's license before anything is downloaded.
+
+**The developer's request.** "Go with the Physical Activity Guidelines to start, then NSCA: find that and we'll rewrite it to be our notes, and then use web search for other open-source documents we could use that cover strength, conditioning, weightlifting, any other exercises, stretching, plyometrics, athletic exercises, nutrition. Find all these things now, then we'll go from there."
+
+**What we did.**
+- Claude ran three research subagents in parallel: (1) government and public-sector guidelines; (2) NSCA plus open-access research; (3) open exercise datasets plus open textbooks.
+- They used web search, page reads, and HEAD requests (a request that returns only a file's headers, such as its size, without downloading it). No files were saved for ingestion. No code was written.
+- Licenses were checked on publisher pages, or on publisher-supplied metadata (Europe PMC full-text XML, Crossref license fields) where publisher sites blocked automated reads. Anything not checked is marked UNVERIFIED.
+- Claude wrote **[docs/sources/candidates.md](sources/candidates.md)**, which holds all the tables. This entry only summarizes it:
+  - [License groups A to D](sources/candidates.md#why-licenses-decide-what-we-can-use): A free reuse (US federal public domain, UK Open Government Licence v3.0, CC BY); B reuse with conditions (NC and/or SA); C CC BY-NC-ND, don't commit processed text; D all rights reserved, study and cite only. See [Content licensing in RAG](concepts.md#content-licensing-in-rag) for what the letters mean.
+  - [Government guidelines](sources/candidates.md#1-government-and-public-sector-guidelines), [NSCA](sources/candidates.md#2-nsca-study-and-cite-only-group-d), [~26 open-access articles by topic](sources/candidates.md#3-open-access-research-license-verified-per-article), [open textbooks](sources/candidates.md#4-open-textbooks), [exercise datasets](sources/candidates.md#5-exercise-datasets-to-grow-the-exercise-table).
+  - A [recommended ingestion order](sources/candidates.md#recommended-ingestion-order) and an engineering pattern: commit a source manifest and the ingestion script, keep downloads in a git-ignored `data/raw/`, and store `source_url` and `license` on every chunk.
+
+**Commands.** No shell commands were recorded in the brief. The work was web searches, page reads, and HEAD requests made by the research subagents.
+
+**What we saw.** Key findings (details and links in [candidates.md](sources/candidates.md)):
+- **First document: Physical Activity Guidelines for Americans, 2nd ed.** (HHS/ODPHP, 2018). Public domain under ODPHP's copyright policy, which asks for a link and acknowledgment. PDF is 15,360,711 bytes (~14.7 MB). A 3rd edition is not expected before 2028. The developer chose it.
+- **Best exercise-description source: US Army ATP 7-22.02** (drills and exercises). "Approved for public release" was seen only in search snippets; confirm in the PDF itself. FM 7-22 covers programming, nutrition, and sleep.
+- **NSCA: nothing can be ingested.** NSCA's Terms of Use forbid republishing or using its material "on any other Web site or networked computer environment". The JSCR publisher (Wolters Kluwer) reserves "text and data mining and artificial intelligence training" ([TDM reservations](concepts.md#text-and-data-mining-tdm-reservations)). Many position statements and Kinetic Select excerpts are free to *read*. The plan: the developer reads them and writes original notes in their own words, with citations. Ideas and facts aren't copyrightable; wording, tables, and figures are.
+  - **A correction to the request.** The developer asked to "rewrite it to be our notes". Claude pointed out that Claude should not rewrite NSCA passages into notes: a close paraphrase of copyrighted text is still derived from it. The notes should be the developer's own synthesis of principles. The most relevant chapters of *Essentials* 5th ed. (Haff & Triplett, 2026) are 15, 18–22, and 24.
+- **Open-access research:** about 26 strong articles with checked licenses. Most are CC BY (Sports Medicine – Open, Frontiers, JISSN, MDPI, PLOS ONE). Some are CC BY-NC (BJSM) or CC BY-NC-ND (ACSM 2026 position stand, JSHS 2024). Surprise: not every JISSN (ISSN) position stand is CC BY; the 2023 female athlete and 2024 ketogenic stands are CC BY-NC. So licenses must be checked per article, not per journal.
+- **Textbooks:** the best coach-oriented CC BY 4.0 book is *Introduction to Exercise Science for Fitness Professionals* (MHCC). OpenStax Anatomy & Physiology 2e is now CC BY-NC-SA 4.0 (it used to be CC BY), another reminder that licenses change.
+- **Exercise datasets:** wger is the only large clean option (license set per exercise, mostly CC BY-SA 4.0, ~912 exercises). free-exercise-db is excluded by the no-scraped-material rule (images traced to bodybuilding.com, text origin unknown). ExerciseDB is proprietary (a mirror got a DMCA takedown in April 2026).
+- **Nutrition:** Dietary Guidelines for Americans 2025–2030 (January 2026, realfood.gov) replace 2020–2025. General-population nutrition, and the edition was contested.
+
+**Problems and fixes.** No errors. Housekeeping, recorded honestly:
+- One research agent's web fetch automatically cached a copy of an Army FM 7-22 PDF (~5.4 MB) in Claude's session folder (`~/.claude/projects/.../tool-results/`), not in the repo. Left in place; the developer can delete it.
+- Another agent's check of an NSCA PDF link triggered a download prompt in the browser pane. Nothing was saved.
+- Local DNS (the service that turns a web address into a server's IP address) didn't resolve armypubs.army.mil, so one agent reached it by looking up its IP through a public DNS server. Only HEAD requests and HTML pages, no downloads.
+- Several publisher sites blocked automated reads, which is why some licenses come from Europe PMC or Crossref metadata and some are marked UNVERIFIED.
+
+**Open questions.**
+- The developer has not yet formally approved the licensing policy ([0017](decisions/0017-knowledge-source-licensing-policy.md) is *proposed*).
+- ATP 7-22.02's and FM 7-22's public-release statements, and the other UNVERIFIED licenses, still need checking in the documents themselves.
+- `data/raw/` is not in `.gitignore` yet (checked). It needs adding before the first download in Step 11.
+- `CLAUDE.md` currently says "Exercise data is original, author-written content. No scraped material." [candidates.md](sources/candidates.md#why-licenses-decide-what-we-can-use) paraphrases it as "original or properly licensed". Using wger or Everkinetic to grow the exercise table would need that rule changed first. Not discussed yet.
+- When the developer writes NSCA-based notes, how will they be stored and labeled (license, "original notes citing X")?
+- Delete the cached FM 7-22 PDF from the session folder, or keep it?
+
+**Developer questions.** The request above, answered by the research and [candidates.md](sources/candidates.md).
+
+**Learned.**
+- Extended: [Content licensing in RAG](concepts.md#content-licensing-in-rag) (groups A to D, attribution, NC/SA/ND, "free to read is not free to reuse")
+- New: [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks), [Text and data mining (TDM) reservations](concepts.md#text-and-data-mining-tdm-reservations)
+
+**Decisions.**
+- New (proposed): [0017. Knowledge source licensing policy (groups A–D)](decisions/0017-knowledge-source-licensing-policy.md)

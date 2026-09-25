@@ -475,9 +475,33 @@ Whatever text you ingest into a RAG system ends up stored in your database, and 
 
 *After Step 10 update:* ingestion is now Step 11, so the document choice is the next decision. The suggestion is unchanged: the U.S. Physical Activity Guidelines for Americans first, the developer's own NSCA power-training notes as a possible second. Still not chosen.
 
+*Before Step 11 update: four license groups, and a chosen first document.* Research sorted every candidate source into four groups ([full tables](sources/candidates.md)):
+- **A. Free to reuse:** US federal public domain, UK Open Government Licence v3.0, CC BY. Can be ingested and processed text committed, with attribution (title, author, link, license, and a note that the text was extracted and chunked). CC BY ("Creative Commons Attribution") means anyone may reuse it if they credit the source.
+- **B. Reuse with conditions:** licenses with **NC** (NonCommercial: no commercial use) and/or **SA** (ShareAlike: anything derived must carry the same license). NC chunks need a license tag so they can be filtered out of any commercial product; SA-derived text lives in its own folder under the same license.
+- **C. CC BY-NC-ND:** **ND** (NoDerivatives) forbids sharing adapted versions, and chunked text is arguably an adaptation. Use only locally, don't commit processed text, or skip.
+- **D. All rights reserved** (NSCA, Human Kinetics, Wolters Kluwer journals): don't ingest. Read, then write original notes in your own words that cite the source.
+
+The key lesson: **free to read is not free to reuse.** Many NSCA position statements are free PDFs, yet NSCA's Terms of Use forbid using them "on any other Web site or networked computer environment." Ideas and facts aren't copyrightable; exact wording, tables, and figures are. So even when the developer asked Claude to "rewrite" NSCA material into notes, the answer was no: a close paraphrase of copyrighted text is still derived from it. The notes must be the developer's own synthesis. Licenses also vary within one journal (two JISSN position stands are CC BY-NC while others are CC BY) and change over time (OpenStax A&P 2e moved from CC BY to CC BY-NC-SA), so check per item, and record when you checked. First document chosen: the Physical Activity Guidelines for Americans, 2nd ed. (public domain). See [0017](decisions/0017-knowledge-source-licensing-policy.md) (proposed) and [TDM reservations](#text-and-data-mining-tdm-reservations).
+
 **In an interview:** "Licensing is a design constraint in RAG, because the retrieved text lives in your system. I can't ingest a copyrighted textbook into a public repo, so the options were my own cited notes, openly licensed guidelines, or keeping copyrighted material local only."
 
-*First seen: Step 4. Extended: Step 5, after Step 10.*
+**In an interview (with evidence):** "Before ingesting anything I license-checked every candidate source (government guidelines, about 26 open-access papers, open textbooks, exercise datasets) and sorted them into four groups, from public domain to all-rights-reserved. The big lesson was that free to read isn't free to reuse: NSCA's position statements are free PDFs, but their terms forbid putting them in a system like mine, so those become my own cited notes instead."
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11.*
+
+### Source manifest and provenance fields on chunks
+A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
+
+**In an interview:** "Every chunk carries its source URL and license, and a committed manifest records where each document came from. So citations are accurate, and if a license rules a source out for some use, I can filter it with one WHERE clause instead of re-ingesting."
+
+*First seen: before Step 11.*
+
+### Text and data mining (TDM) reservations
+Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
+
+**In an interview:** "Publishers increasingly reserve text and data mining and AI training rights. The journal most relevant to my domain does, so I cite it and write my own notes rather than ingesting it."
+
+*First seen: before Step 11.*
 
 ### Why RAG beats a plain chatbot here
 A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 15 are where points 1 and 4 get real evidence (evaluation moved from Step 11 to Step 15 in Step 5).

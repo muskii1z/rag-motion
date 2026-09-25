@@ -91,6 +91,7 @@ Evidence so far:
 
   - Even in strict mode, the model uses its general ability to understand the question, pick what fits, and explain why. What it may not do is add unmarked facts. That distinction answers "why not just prompt?": a plain prompt is a free blend.
   - Point to make: "Prompting alone gives you a fluent blend where you can't tell sourced facts from the model's memory. My answers keep cited facts in one field and the model's general advice in a separate, labeled field, so the reader always knows which is which. Once I ingest documents, more of that advice becomes cited."
+- **[Before Step 11](build-log.md#before-step-11-finding-and-license-checking-knowledge-sources): point 3 (vetted knowledge) made concrete.** Before ingesting anything, every candidate source was license-checked and sorted into groups A to D ([candidates.md](sources/candidates.md), [0017](decisions/0017-knowledge-source-licensing-policy.md), proposed). First document: the Physical Activity Guidelines for Americans, 2nd ed. (public domain). See [Content licensing in RAG](concepts.md#content-licensing-in-rag) (extended). Details under [Security: data provenance and licensing](#how-do-you-decide-what-content-your-rag-system-is-allowed-to-ingest-interview-material).
 
 ## Embeddings
 
@@ -336,6 +337,7 @@ Evidence so far:
   - **Latency budget:** retrieval about 0.35–0.42 s; generation 0.7 s (Gemini 2.5 Flash-Lite) to 29 s (Qwen, host-dependent). Generation is nearly all of the wait, so the model and its host are the latency decision. The default was switched to Gemini for this reason. See [Latency: where the time goes](concepts.md#latency-where-the-time-goes) (extended) and the [0013 update](decisions/0013-llm-openrouter-openai-sdk-qwen.md#update-2026-09-25-step-10-default-switched-to-gemini-25-flash-lite).
   - **Cost per answer:** $0.000141 to $0.000415 across recorded runs.
   - **Local server:** FastAPI + uvicorn on `127.0.0.1:8010` (port chosen to avoid another project's 8000). Request input validated by Pydantic; RAG errors returned as HTTP 502 with the reason. Hardening (tests, error handling, README) is Step 16. See [FastAPI and uvicorn](concepts.md#fastapi-and-uvicorn) and [0015](decisions/0015-local-web-ui-fastapi-static-html.md).
+- [Before Step 11](build-log.md#before-step-11-finding-and-license-checking-knowledge-sources): a reproducible, license-aware data pipeline, proposed not built. Commit a source manifest (URL, license, attribution) and the ingestion script; keep downloaded files in a git-ignored `data/raw/`; store `source_url` and `license` on every chunk. A fresh deployment rebuilds the documents from the manifest, and restricted chunks can be filtered by a query. See [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) and [0017](decisions/0017-knowledge-source-licensing-policy.md) (proposed).
 - Actual deployment not yet done.
 
 ## Security
@@ -377,6 +379,18 @@ Evidence so far:
   - **HTML escaping.** Every question and model answer is escaped before display, so text containing HTML or script can't run in the browser. Model output is treated as untrusted. See [HTML escaping](concepts.md#html-escaping).
   - **Evidence labeled as data.** Retrieved exercises go in `<evidence>` tags and the question in `<question>` tags, with a rule that their contents are data, not instructions. Not tested with an injected instruction yet; matters more once documents are retrieved (Steps 11 to 13). See [Prompt injection](concepts.md#prompt-injection) (extended).
   - Also: the server binds to `127.0.0.1`, so only this computer can reach it, and request input is length-limited (question 3 to 500 characters, k 1 to 10).
+
+### How do you decide what content your RAG system is allowed to ingest? (interview material)
+Not a question from the brief, but a strong one for RAG roles: data provenance (knowing where every piece of data came from) and licensing are part of RAG engineering, not an afterthought.
+Evidence so far:
+- [Before Step 11](build-log.md#before-step-11-finding-and-license-checking-knowledge-sources): every candidate source was license-checked before any download, on publisher pages or publisher metadata (Europe PMC, Crossref), with unchecked items marked UNVERIFIED. Results in [candidates.md](sources/candidates.md).
+- **Free to read is not free to reuse.** NSCA position statements are free PDFs, but NSCA's Terms of Use forbid using them "on any other Web site or networked computer environment." They become the developer's own cited notes, not ingested text. See [Content licensing in RAG](concepts.md#content-licensing-in-rag) (extended).
+- **Honest correction.** The developer first asked to have NSCA material "rewritten" into notes. Claude declined to do that: a close paraphrase of copyrighted text is still derived from it. The notes must be the developer's own synthesis. Good story about knowing where the line is (ideas and facts are free; wording, tables, figures are not).
+- **TDM reservations.** The JSCR publisher reserves "text and data mining and artificial intelligence training." See [Text and data mining (TDM) reservations](concepts.md#text-and-data-mining-tdm-reservations).
+- **Licenses vary and change.** Two JISSN position stands are CC BY-NC while others are CC BY; OpenStax A&P 2e moved from CC BY to CC BY-NC-SA. So checks are per item and dated.
+- **Per-chunk license tags.** Proposed: `source_url` and `license` on every chunk, plus a committed source manifest, so answers attribute correctly and NonCommercial chunks can be filtered out. See [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) and [0017](decisions/0017-knowledge-source-licensing-policy.md) (proposed).
+- **Excluding scraped data.** free-exercise-db was excluded (images traced to bodybuilding.com, text origin unknown); ExerciseDB is proprietary.
+- Point to make: "Before ingesting anything I sorted sources into four license groups. Public domain and CC BY go in; NonCommercial and ShareAlike go in with a license tag on every chunk; NoDerivatives stays local; all-rights-reserved material I only read and cite in my own notes."
 
 ## Architecture
 
@@ -454,3 +468,4 @@ Evidence so far:
 - **Plan order: documents before tracing** ([0011 update](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith), after Step 10): reaching chunking sooner, at the cost of debugging the first chunking bugs without LangSmith traces.
 - **UI tool** ([0015](decisions/0015-local-web-ui-fastapi-static-html.md), Step 10): FastAPI + one HTML page over Streamlit or Gradio. Gained a reusable API and keys kept server-side; gave up speed of building (hand-written HTML/JS).
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).
+- **Content breadth vs licensing safety** ([0017](decisions/0017-knowledge-source-licensing-policy.md), proposed, before Step 11): a tiered license policy uses public-domain and CC BY sources freely and restricted ones only with tags or not at all. Gained: a repo that can be shown publicly and chunks that can be filtered by license. Given up: NSCA's *Essentials*, JSCR articles, and the ACSM 2026 position stand as ingested text; NSCA knowledge now costs the developer's time to write original notes.
