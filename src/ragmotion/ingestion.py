@@ -22,12 +22,14 @@ class Source:
     title: str
     publisher: str
     year: int
-    url: str
     license: str
     license_group: str
     attribution: str
     local_path: str
-    sha256: str
+    type: str = "document"  # "document" (external source text) or "notes" (original project notes)
+    url: str | None = None  # documents only
+    sha256: str | None = None  # documents only; notes are edited over time, so they aren't pinned
+    skip_pages: list[int] | None = None  # pages that are noise for retrieval (TOC, credits, ...)
 
     @property
     def path(self) -> Path:
@@ -140,6 +142,8 @@ def verify_file(source: Source) -> None:
     """Fail loudly if the file is missing or isn't the exact file recorded in the manifest."""
     if not source.path.exists():
         raise FileNotFoundError(f"{source.path} is missing. Download it from {source.url}")
+    if source.sha256 is None:
+        return  # project notes aren't pinned to a hash
     digest = hashlib.sha256(source.path.read_bytes()).hexdigest()
     if digest != source.sha256:
         raise ValueError(

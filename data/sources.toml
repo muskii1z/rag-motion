@@ -23,3 +23,44 @@ attribution = "U.S. Department of Health and Human Services. Physical Activity G
 local_path = "data/raw/Physical_Activity_Guidelines_2nd_edition.pdf"
 sha256 = "0147d4dfc5ae76613a8b8d9d1c95244477527989f1d841845866ae5b5340cda5"
 retrieved = "2026-09-25"
+type = "document"
+# Pages that are noise for retrieval: 2 inside cover, 3 table of contents, 4-5 authors and
+# acknowledgments, 11 infographic (extracts as fragments), 113-117 Appendix 2 (agency directory).
+skip_pages = [2, 3, 4, 5, 11, 113, 114, 115, 116, 117]
+
+# ---- Project notes -------------------------------------------------------------------------
+# Original notes written for this project. NSCA material is copyrighted (policy group D), so it
+# enters only as these notes, never as source text. The notes cite the position statements.
+
+[[source]]
+id = "notes-nsca-weightlifting"
+type = "notes"
+title = "Notes: Weightlifting for Sports Performance"
+publisher = "rag-motion project notes"
+year = 2026
+license = "Original project notes. Summarize ideas from the cited NSCA position statement; no text copied."
+license_group = "A"
+attribution = "Project notes summarizing: Comfort P, et al. NSCA Position Statement on Weightlifting for Sports Performance. J Strength Cond Res. 2023;37(6):1163-1190."
+local_path = "data/notes/nsca/weightlifting-for-sports-performance.md"
+
+[[source]]
+id = "notes-nsca-older-adults"
+type = "notes"
+title = "Notes: Resistance Training for Older Adults"
+publisher = "rag-motion project notes"
+year = 2026
+license = "Original project notes. Summarize ideas from the cited NSCA position statement; no text copied."
+license_group = "A"
+attribution = "Project notes summarizing: Fragala MS, et al. Resistance Training for Older Adults: Position Statement From the NSCA. J Strength Cond Res. 2019;33(8):2019-2052."
+local_path = "data/notes/nsca/resistance-training-for-older-adults.md"
+
+[[source]]
+id = "notes-nsca-youth-ltad"
+type = "notes"
+title = "Notes: Youth Resistance Training and Long-Term Athletic Development"
+publisher = "rag-motion project notes"
+year = 2026
+license = "Original project notes. Summarize ideas from the cited NSCA position statements; no text copied."
+license_group = "A"
+attribution = "Project notes summarizing: Lloyd RS, et al. NSCA Position Statement on Long-Term Athletic Development. J Strength Cond Res. 2016;30(6):1491-1509; and Faigenbaum AD, et al. Youth Resistance Training: Updated Position Statement Paper From the NSCA. J Strength Cond Res. 2009;23(Suppl 5):S60-S79."
+local_path = "data/notes/nsca/youth-and-long-term-athletic-development.md"
