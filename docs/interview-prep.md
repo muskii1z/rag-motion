@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 13 (embedding the document chunks, searching exercises and documents together, and answers that cite both).
+Last updated: Step 14 (LangSmith tracing on the RAG pipeline).
 
 ---
 
@@ -388,7 +388,14 @@ Evidence so far:
 - [After Step 10](build-log.md#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier): the reorder is itself a debugging tradeoff worth telling. LangSmith was placed before ingestion so chunking bugs could be traced; the developer moved it after (Step 14) to reach real documents sooner, because tracing adds more value once there is ingestion to debug. Chunking bugs in Steps 11 to 13 will be debugged from printed stages.
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): printed stages found all three problems. `ask.py` and the web page now show passages and exercises separately (cited / not used, chapter and pages), which exposed the population mix (a Chapter 5 Older Adults passage cited for adults), the checker's false alarm, and the invented ids. Retrieval-vs-generation diagnosis in practice: the adult key-guidelines passage was never retrieved (a retrieval problem), and the older-adult passage was retrieved and misapplied (a generation problem). See [Manual tracing](concepts.md#manual-tracing) (extended).
   - The developer created a free LangSmith account for Step 14; the key goes into `.env` by the developer, not into the chat.
-- Nothing traced in LangSmith yet.
+- **[Step 14](build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline): real tracing, and a real debugging workflow.** Every request, from the terminal or the web page, is now a trace in LangSmith: a tree of steps with inputs, outputs, and timing. See [Tracing and traces](concepts.md#tracing-and-traces) and [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md).
+  - **What a trace shows for one question** ("How heavy should older adults lift to build strength?", 2.54 s, 3,646 tokens): `answer_question` → `search_all` (0.99 s) → `embed` (0.95 s), then the LLM call (1.49 s), then `check_citations`. The retriever step lists the retrieved passages and exercises with source, chapter, pages, and similarity; the LLM step holds the exact prompt and response; the root holds the answer, coverage, gaps, cited ids, citation problems, and cost. See [Summarizing large outputs in traces](concepts.md#summarizing-large-outputs-in-traces-process_outputs).
+  - **How to debug a bad answer with it:** open the trace; check the retriever step (was the right evidence retrieved at all?); check the LLM step (what exact prompt and evidence did the model see, and what did it return?); check `check_citations` (did code flag anything?). That is the "never retrieved vs retrieved and ignored" question from Step 5, answered from stored data instead of from a rerun.
+  - **Variance example:** the biceps question cited both rows (one-arm dumbbell row and inverted row) in a Step 14 run through the API; a Step 13 run cited only the inverted row. With both traces stored, the two runs can be compared step by step. One pair of runs; how often each happens is for the eval (Step 15).
+  - **How it was built:** the LLM client is wrapped once (`wrap_openai`), and our own functions are decorated (`@traceable`); the SDK's wrapper doesn't cover embeddings, which was checked by reading the SDK before relying on it. See [Auto-instrumentation vs decorators](concepts.md#auto-instrumentation-vs-decorators-wrap_openai-and-traceable).
+  - **Verified, not assumed:** Claude queried LangSmith's API after each test to confirm the traces arrived and had the expected steps.
+  - Point to make: "When a bad answer comes in, I don't rerun and hope to reproduce it. I open its trace: what was retrieved, what exact prompt the model got, what it returned, and what my checks flagged."
+- Still true: no agent exists yet (Phase 2). The same approach (a trace per request, a run per step) is what would be used to debug an agent's decisions.
 
 ## Production
 
@@ -441,6 +448,11 @@ Evidence so far:
   - **Hash verification.** `verify_file()` refuses to extract if the file is missing or its SHA-256 differs from the manifest, so a changed upstream file is caught, not silently ingested. See [File fingerprint (SHA-256)](concepts.md#file-fingerprint-sha-256).
   - Point to make: "The repo holds the recipe, not the ingredients: the manifest, the hash, and the script. Anyone can rebuild the knowledge base and prove they used the same files."
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): cost and latency with documents added. Input grew to about 3,500 tokens per answer (from about 1,000), but on Gemini 2.5 Flash-Lite an answer still cost about $0.0005 and took about 1.5 s to generate. Embedding all 147 chunks cost about a tenth of a cent or less. See [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (extended).
+- [Step 14](build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline): monitoring a running system.
+  - **Latency attribution.** The first trace split time per step: of a 2.54 s answer, retrieval was 0.99 s, of which the embedding API call was 0.95 s; the LLM call was 1.49 s. The pgvector search is nearly instant. Point to make: measure per step before optimizing; here the database is not the bottleneck. See [Latency: where the time goes](concepts.md#latency-where-the-time-goes) (extended).
+  - **Tracing privacy.** In production, traces would contain real users' prompts, so the tracing service becomes part of the data-handling plan. Today's data is fictional and public, so hosted LangSmith is fine; real client data would need review, masking, or self-hosting. See [Privacy of traces](concepts.md#privacy-of-traces).
+  - **Config for third-party SDKs.** Tracing is switched on by environment variables (`LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_API_KEY`), which a host's secret settings would provide. Locally, `config.py` loads `.env` into the environment with `load_dotenv`, because pydantic-settings alone didn't expose it to the SDK. See [Environment variables vs a settings object](concepts.md#environment-variables-vs-a-settings-object).
+  - Small hygiene: a harmless warning printed on every structured call (from the wrapper serializing `parse()` responses) was silenced by exact message only, with a comment, rather than turning off all warnings.
 - Actual deployment not yet done.
 
 ## Security
@@ -485,6 +497,11 @@ Evidence so far:
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): two small points.
   - The developer made a LangSmith account; Claude asked them to add `LANGSMITH_API_KEY` to `.env` themselves rather than paste it into the chat. See [API key hygiene](concepts.md#api-key-hygiene).
   - Retrieved document text (Guidelines and NSCA notes) now goes into the model's prompt. Both are vetted sources, so the risk is low, but the evidence-is-data rule is still untested with an injected instruction. See [Prompt injection](concepts.md#prompt-injection) (extended).
+- [Step 14](build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline): a new key, and a new place data goes.
+  - **Key handling.** `LANGSMITH_API_KEY` was added to `.env` by the developer, never shown in the chat. The check printed only its name, length (51), and `lsv2` prefix. The non-secret settings were appended to `.env` only if missing, without reading or printing any key. The key was proven with a read-only call (listing projects) before any trace was sent. `.env.example` documents all three `LANGSMITH_*` variables with the key blank. See [API key hygiene](concepts.md#api-key-hygiene) (extended).
+  - **Traces contain prompts.** Every trace stores the question, the full prompt, the retrieved evidence, and the answer on LangSmith's servers. That's a data flow to a third party, planned since Step 5 and now live. Acceptable because clients are fictional and documents are public or project-owned.
+  - **Data classification.** Before real client data, classify what ends up in prompts (personal, health-related, public) and decide what may leave the machine: mask fields, review the vendor, or self-host (for example Langfuse). Recorded as the revisit signal in [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md). See [Privacy of traces](concepts.md#privacy-of-traces).
+  - Point to make: "Turning on tracing is a data-sharing decision. I made it knowingly, for fictional and public data, and wrote down the condition that would reverse it."
 
 ### How do you decide what content your RAG system is allowed to ingest? (interview material)
 Not a question from the brief, but a strong one for RAG roles: data provenance (knowing where every piece of data came from) and licensing are part of RAG engineering, not an afterthought.
@@ -559,6 +576,19 @@ Evidence so far:
   4. `find_citations()` and `check_citations()` compare the ids in the text and the list with the retrieved ids.
   5. The API returns exercises and passages separately; the page shows "Document passages" cards above "Exercises", with citation chips linking to both.
   - See [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate) (extended with the two-table diagram).
+- **[Step 14](build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline): the request path is now visible end to end, as a trace.** Each request produces this tree in LangSmith, whether it came from `scripts/ask.py` or `POST /api/ask`:
+
+  ```
+  answer_question   (chain)       2.54s
+  ├─ search_all     (retriever)   0.99s
+  │  └─ embed       (embedding)   0.95s
+  ├─ llm (OpenRouter) (llm)       1.49s
+  └─ check_citations (tool)       0.00s
+  ```
+
+  (Times from the first traced question; the LLM step was named "ChatOpenAI" in that first trace and renamed right after.)
+  - Where tracing sits in the code: `llm.py` wraps the OpenRouter client once (`wrap_openai`), so every model call is traced; `embeddings.py`, `retrieval.py`, and `rag.py` decorate their main functions with `@traceable`. `config.py` loads `.env` into the environment so the SDK finds its settings. `extract_profile` (Step 6) is traced too.
+  - The trace mirrors the architecture: one root per request, one child per stage. Point to make: "If you want to see my architecture, open a trace. Each box is a module: retrieval, embedding, the model call, and the citation check."
 
 ## Tradeoffs
 
@@ -602,7 +632,8 @@ Evidence so far:
   Point to make: the fast, cheap model was about 20x faster and cheaper in practice, and less honest in this one test. The developer chose Gemini as the default for speed and keeps watching gap honesty; Step 15 decides on eval numbers. At 100,000 users, a 29-second answer isn't viable, and the per-call cost multiplies. See the [0013 update](decisions/0013-llm-openrouter-openai-sdk-qwen.md#update-2026-09-25-step-10-default-switched-to-gemini-25-flash-lite).
 - **Prompt rules vs code for constraints** ([Step 10](build-log.md#test-runs-and-fixes)): prompt rules fixed ungrounded advice and a formatting leak, but the equipment mismatch was left for code, because a prompt rule only makes a mistake less likely. See [Hard constraints and negation](concepts.md#hard-constraints-and-negation).
 - **Helpfulness vs verifiability** ([0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md), [after Step 10](build-log.md#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier)): strict answers are fully traceable but can't give any programming advice until documents supply it; a free blend is most helpful-sounding but unverifiable. Chosen middle: evidence-only answer plus a labeled general-guidance field. Gained: practical advice (sets, reps, rest). Given up: unverified content now reaches the coach, and code can't judge its accuracy. The first example (60–120 s rest for power work) was doubtful. See [Grounding modes](concepts.md#grounding-modes-strict-vs-labeled-general-knowledge-vs-free-blend).
-- **Plan order: documents before tracing** ([0011 update](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith), after Step 10): reaching chunking sooner, at the cost of debugging the first chunking bugs without LangSmith traces.
+- **Plan order: documents before tracing** ([0011 update](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith), after Step 10): reaching chunking sooner, at the cost of debugging the first chunking bugs without LangSmith traces. *Step 14: tracing added; all Step 11 to 13 bugs had been found from printed stages.*
+- **Hosted tracing vs keeping data local** ([0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md), [Step 14](build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline)): LangSmith over manual printing only, Langfuse (open source, self-hostable), or plain structured logs. Gained: stored, comparable traces with retriever and LLM views, on a free tier, with little code. Given up: prompts and evidence leave the machine; the code depends on the `langsmith` SDK; free-tier limits (not yet checked). At 100,000 users, trace volume, cost, and personal data in prompts would all push toward sampling, masking, or self-hosting (not decided or tested).
 - **UI tool** ([0015](decisions/0015-local-web-ui-fastapi-static-html.md), Step 10): FastAPI + one HTML page over Streamlit or Gradio. Gained a reusable API and keys kept server-side; gave up speed of building (hand-written HTML/JS).
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).
 - **Content breadth vs licensing safety** ([0017](decisions/0017-knowledge-source-licensing-policy.md), proposed before Step 11, accepted in Step 11): a tiered license policy uses public-domain and CC BY sources freely and restricted ones only with tags or not at all. Gained: a repo that can be shown publicly and chunks that can be filtered by license. Given up: NSCA's *Essentials*, JSCR articles, and the ACSM 2026 position stand as ingested text; NSCA knowledge now costs the developer's time to write original notes.

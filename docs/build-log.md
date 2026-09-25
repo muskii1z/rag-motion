@@ -2113,3 +2113,90 @@ Model: Gemini 2.5 Flash-Lite (the default).
 **Decisions.**
 - None new.
 - Updated: [0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md) (passages now supply programming numbers, so `general_guidance` should be needed less), [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md) (population tags per chunk are the planned fix for population mixing; page 118 skipped)
+
+## Step 14: LangSmith tracing on the RAG pipeline
+**Date:** 2026-09-25 · **Commit:** `d397fb5` feat: trace the RAG pipeline with LangSmith (this docs update is committed and pushed right after)
+
+**Goal.** Record every request automatically as a trace (a tree of steps with inputs, outputs, timing, and cost), replacing terminal-only manual tracing.
+
+### Before we started
+- The developer had created a free LangSmith account in Step 13 and added `LANGSMITH_API_KEY` to `.env` themselves. The key was never shown in the chat.
+- They said "api key added" during Step 13's wrap-up. Together with their earlier "let's get through Phase 1 now", Claude treated that as the go for Step 14.
+- The key check printed only the variable's name, its length (51), and that it starts with `lsv2` (the expected prefix). Never the value. See [API key hygiene](concepts.md#api-key-hygiene) (extended).
+
+### What we did
+- **Explained tracing first.** A trace is a tree of steps; each step records its inputs, outputs, timing, and cost. Every request is recorded, whether it came from the terminal or the web page. Privacy tradeoff: traces, including prompts and retrieved evidence, are stored on LangSmith's servers. Acceptable because clients are fictional and the documents are public or project-owned. See [Tracing and traces](concepts.md#tracing-and-traces).
+- **Dependencies.** `langsmith` 0.14.0 was already installed, as a transitive dependency (voyageai → langchain-core → langsmith). `uv add langsmith python-dotenv` declared both directly, the same "declare what you import" rule as PyYAML in Step 12. See [Transitive dependencies](concepts.md#transitive-dependencies) (extended).
+- **Inspected the SDK before using it.** `wrap_openai` traces chat calls, including `parse()` (structured outputs), but not embeddings. So embeddings needed a different approach (`@traceable`). See [Auto-instrumentation vs decorators](concepts.md#auto-instrumentation-vs-decorators-wrap_openai-and-traceable).
+- **`.env` and `.env.example`.**
+  - `.env`: `LANGSMITH_TRACING=true` and `LANGSMITH_PROJECT=rag-motion` were appended only if missing, without reading or printing any key.
+  - `.env.example` documents all three `LANGSMITH_*` variables (key left blank).
+- **Verified the key works.** A LangSmith `Client()` pointed at `https://api.smith.langchain.com`; `list_projects` succeeded and returned no projects yet. So the key is accepted.
+- **Fixed a config gotcha.** pydantic-settings reads `.env` into the `Settings` object only. It does not put values into the process environment (the variables every library in the running program can see). The LangSmith SDK reads its own environment variables, so it never saw the key or the tracing switch. Fix: `config.py` now calls python-dotenv's `load_dotenv(<project>/.env, override=False)`, so `.env` also fills the environment. `override=False` means a variable already set in the shell wins. See [Environment variables vs a settings object](concepts.md#environment-variables-vs-a-settings-object).
+- **Instrumented the pipeline.**
+  - `llm.py`: `get_client()` returns `wrap_openai(client, chat_name="llm (OpenRouter)")`, so every LLM call (prompt, response, tokens) is traced. `extract_profile` is `@traceable(run_type="chain")`.
+  - `embeddings.py`: `_embed` is `@traceable(run_type="embedding", name="embed")`. Its `process_outputs` records the vectors as `{count, dimensions}` instead of thousands of numbers.
+  - `retrieval.py`: `search_all` is `@traceable(run_type="retriever")`. Its `process_outputs` turns passages and exercises into LangSmith "documents" (`page_content` plus metadata: id, kind, source, chapter, pages, similarity), so the LangSmith page shows them as a readable list.
+  - `rag.py`: `check_citations` is `@traceable(run_type="tool")`, so flagged citations are visible in the trace. `answer_question` is `@traceable(run_type="chain")`; its `process_outputs` summarizes the result (answer, coverage, gaps, general guidance, cited ids, citation problems, cost).
+  - `scripts/ask.py` prints "6. TRACE: recorded in LangSmith project 'rag-motion'..." when tracing is on.
+  - See [Summarizing large outputs in traces](concepts.md#summarizing-large-outputs-in-traces-process_outputs).
+- **`CLAUDE.md`:** Step 14 done, Step 15 next; a new stack line for tracing.
+
+**Commands.**
+```bash
+uv add langsmith python-dotenv
+# Declared both directly in pyproject.toml (langsmith>=0.14.0, python-dotenv>=1.2.3).
+# langsmith was already installed indirectly.
+
+uv run python scripts/ask.py "How heavy should older adults lift to build strength?"
+# First traced question. Prints the usual stages plus "6. TRACE: recorded in LangSmith project 'rag-motion'...".
+
+uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload
+curl -X POST http://127.0.0.1:8010/api/ask ...
+# Web-page path, tested through the API with the biceps question (exact curl body not recorded).
+```
+Not recorded as exact commands: the key check (printed name, length 51, `lsv2` prefix), the `.env` append, the `Client()` / `list_projects` check, the second terminal question, and Claude's one-off Python snippets that queried LangSmith's API to confirm traces arrived.
+
+### What we saw
+**Claude checked LangSmith's API instead of assuming traces arrived.**
+
+First traced question, "How heavy should older adults lift to build strength?": root trace `answer_question`, status success, 2.54 s, 3,646 tokens.
+
+```
+answer_question   (chain)       2.54s
+├─ search_all     (retriever)   0.99s
+│  └─ embed       (embedding)   0.95s
+├─ ChatOpenAI     (llm)         1.49s
+└─ check_citations (tool)       0.00s
+```
+
+- **Something the terminal never showed:** the embedding API call was 0.95 s of the 0.99 s retrieval. The database search itself is nearly instant. Earlier steps timed "retrieval" as one number (Step 10 noted the embedding call and database query were timed together). See [Latency: where the time goes](concepts.md#latency-where-the-time-goes) (extended).
+- The LLM step showed up as "ChatOpenAI": misleading, since the call goes to OpenRouter (Gemini 2.5 Flash-Lite by default), not OpenAI. Renamed (below).
+
+**Web-page path.** After a `POST /api/ask` with the biceps question, plus one more terminal question, LangSmith held 3 root traces. The two new ones had the steps `answer_question`, `search_all`, `embed`, `llm (OpenRouter)`, `check_citations`. So requests from the browser path and the terminal are both traced, through the same `answer_question()`.
+
+**Run-to-run variance, now comparable.** The biceps answer through the API cited **both** rows (one-arm dumbbell row and inverted row). A Step 13 run cited only the inverted row. Same question, same code path, different answer: model variance. This is the kind of difference traces make easy to compare side by side. See [Tracing and traces](concepts.md#tracing-and-traces).
+
+### Problems and fixes
+- **LangSmith saw nothing from `.env`.** pydantic-settings only fills the `Settings` object. Fixed with `load_dotenv(..., override=False)` in `config.py`.
+- **A warning on every structured call.** When `wrap_openai` records a `parse()` response, it serializes the response object. That object's `parsed` field is typed as `None` in the SDK's model, so Pydantic printed a harmless "serializer warnings" `UserWarning` each time. Fixed by silencing only that message with a targeted `warnings.filterwarnings(...)` in `llm.py`, with a comment explaining why.
+- **Misleading step name.** The LLM step was called "ChatOpenAI". Renamed to "llm (OpenRouter)" with `chat_name`.
+- **Deprecation warnings (not in project code).** `list_runs` and `get_run_url` printed deprecation warnings. They came only from Claude's one-off verification snippet. The SDK now prefers `client.runs.query()` and `client.runs.get_url()`. Project code was not affected.
+
+### Open questions
+- LangSmith free-tier limits (traces per month, retention) were not checked.
+- Timings for the second terminal trace and the API trace were not recorded; only the first trace's numbers were.
+- Which question the second terminal run asked was not recorded.
+- The biceps difference (one row in Step 13, both rows now) is one pair of runs. How often each happens would need repeated runs, which the eval (Step 15) can do.
+- Carried over from Step 13: population tags on chunks (who assigns them, and how); `k_passages`; the untested prompt-injection rule; developer reviews of the NSCA notes and `data/exercises.json`.
+
+### Developer questions
+None recorded for this step. The developer's "api key added" was taken as the go.
+
+**Learned.**
+- New: [Tracing and traces](concepts.md#tracing-and-traces), [Auto-instrumentation vs decorators (wrap_openai and @traceable)](concepts.md#auto-instrumentation-vs-decorators-wrap_openai-and-traceable), [Summarizing large outputs in traces (process_outputs)](concepts.md#summarizing-large-outputs-in-traces-process_outputs), [Environment variables vs a settings object](concepts.md#environment-variables-vs-a-settings-object), [Privacy of traces](concepts.md#privacy-of-traces)
+- Extended: [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (built), [Manual tracing](concepts.md#manual-tracing) (what tracing adds on top), [Latency: where the time goes](concepts.md#latency-where-the-time-goes) (per-step attribution), [Config module (pydantic-settings)](concepts.md#config-module-pydantic-settings) (`load_dotenv`), [Transitive dependencies](concepts.md#transitive-dependencies) (langsmith declared), [What each library is for](concepts.md#what-each-library-is-for) (langsmith, python-dotenv), [API key hygiene](concepts.md#api-key-hygiene) (LangSmith key check)
+
+**Decisions.**
+- New: [0020. Observability with LangSmith: wrap the LLM client, decorate pipeline steps](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md)
+- Updated: [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (LangSmith step done)

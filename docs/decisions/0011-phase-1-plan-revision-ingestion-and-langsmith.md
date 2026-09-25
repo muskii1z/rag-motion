@@ -56,3 +56,7 @@ New sequence (updated in `CLAUDE.md`, commit `6e90764`):
 **Revisit when** debugging ingestion from printed stages becomes slow or confusing. Then pull LangSmith forward.
 
 See [the build log entry](../build-log.md#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier).
+
+## Note (2026-09-25, Step 14): LangSmith built
+
+LangSmith tracing was added in [Step 14](../build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline), after ingestion as reordered above. How it was added (wrap the LLM client, decorate the pipeline steps) is recorded in [0020](0020-observability-langsmith-wrap-client-decorate-steps.md). The first traces already showed something the printed stages had not: the embedding call is almost all of retrieval time (0.95 s of 0.99 s).
