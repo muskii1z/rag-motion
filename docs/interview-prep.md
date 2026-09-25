@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: after Step 11 (PDF extraction of the Physical Activity Guidelines).
+Last updated: NSCA coaching notes, alongside Step 11 (after the PDF extraction of the Physical Activity Guidelines).
 
 ---
 
@@ -263,6 +263,12 @@ Evidence so far:
 - [Step 11](build-log.md#step-11-document-ingestion-extract-clean-page-text-from-the-physical-activity-guidelines-pdf): **evaluating the ingestion stage on its own, before chunking.** The extraction script prints a quality report (page count, raw vs cleaned words, nearly empty pages, lines repeated on 15%+ of pages with digits normalized, headings detected, line-end hyphens). Every cleaning rule was checked against it: the running header went from 54 pages to 0, and the 488-word drop was accounted for by the removed footers. See [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed).
   - A lesson for evals generally: the first automated check (exact-match repeats) reported "no header" and was wrong. Checks need checking; normalize before comparing. See [Running headers and footers](concepts.md#running-headers-and-footers-normalize-before-comparing).
   - Point to make: "I evaluate each pipeline stage where its errors start. Ingestion errors don't crash, they just make retrieval worse later, so ingestion gets its own report."
+- [NSCA notes (alongside Step 11)](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11): **independent verification of generated content.** Background agents wrote three coaching notes and reported that every number was checked. Claude verified separately, with two cheap checks:
+  - an 8-word [verbatim-overlap check](concepts.md#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) against the source text (raw hits 12 / 13 / 21, nearly all paper titles; 4 left after excluding titles, all name lists, one short phrase, or a marked quote);
+  - three number spot-checks against specific source lines (70–85% 1RM, lines 407–408; 1 or 2 sets of 10–15 reps, line 1209; 60–80% 1RM for 8–12 reps, lines 760–761). All matched.
+  - Point to make: "An agent's 'I checked it' is a claim, not a result. I recheck a sample with a different method." See [Verify agent output independently](concepts.md#verify-agent-output-independently).
+  - Also: the raw overlap count looked bad until each hit was read. Same lesson as the header check: checks need interpreting, not just counting.
+  - Still to come: the developer's expert review of the notes, the human-judged part of the check.
 - No eval set or scores exist yet.
 
 ### How do you know your system isn't making things up? (interview material)
@@ -274,6 +280,7 @@ Evidence so far:
 - [Step 6](build-log.md#runs-problems-and-fixes): plausible guessing, such as "early 30s" becoming age 30 ([Hallucinated inference](concepts.md#hallucinated-inference)).
 - [After Step 10](build-log.md#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier): model knowledge is labeled as "not from your sources" so a coach can judge it ([0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)).
 - [Step 11](build-log.md#step-11-document-ingestion-extract-clean-page-text-from-the-physical-activity-guidelines-pdf): **the hallucination confirmed.** The NSCA older-adults text, extracted locally, recommends 70–85% of 1RM for strength in healthy adults over 60. The tool had invented 60–80%: plausible, specific, and wrong. See [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation) (extended). The NSCA notes now being written are checked number by number against the extracted text.
+- [NSCA notes (alongside Step 11)](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11): **the notes were written from the source text only**, with no web and no background knowledge, and every number grepped in the source before use. Claude then spot-checked three numbers against source lines; all matched, including the real 70–85% figure. See [Verify agent output independently](concepts.md#verify-agent-output-independently).
 - No automated groundedness score exists yet.
 
 ## Agents
@@ -431,7 +438,13 @@ Evidence so far:
   - The route agreed: original syntheses of principles, cited to specific NSCA sources, no copied tables, figures, or long quotes, labeled as AI-drafted and pending the developer's review. How the notes get written is still pending ([0017 update](decisions/0017-knowledge-source-licensing-policy.md#update-2026-09-25-before-step-11-continued-nsca-notes-route-pending)).
 - **Respecting bot blocks.** nsca.com returned HTTP 403 to automated clients. The agents didn't spoof a browser or use mirrors. See [Bot blocking (HTTP 403) and not circumventing it](concepts.md#bot-blocking-http-403-and-not-circumventing-it).
 - [Step 11](build-log.md#step-11-document-ingestion-extract-clean-page-text-from-the-physical-activity-guidelines-pdf): **policy accepted and applied.** [0017](decisions/0017-knowledge-source-licensing-policy.md) is now accepted. The first document's manifest entry records its license group (A), the evidence (a quote from ODPHP's copyright policy), and the attribution to show. For NSCA, the free position-statement PDFs were extracted locally into a scratch folder outside the repo; only original, cited notes written from them may enter the project.
-- Point to make: "Before ingesting anything I sorted sources into four license groups. Public domain and CC BY go in; NonCommercial and ShareAlike go in with a license tag on every chunk; NoDerivatives stays local; all-rights-reserved material I only read and cite in my own notes."
+- [NSCA notes (alongside Step 11)](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11): **how the notes were made legally and verifiably.**
+  - The copyrighted source text stayed outside the repo (Claude's scratch folder). Only three original notes were committed, in `data/notes/nsca/`.
+  - Each note's frontmatter states who drafted it and that review is pending, marks it as original project-owned notes, and cites each source with authors, year, journal, DOI, and how it was accessed.
+  - No tables or figures recreated. Quotes kept short and marked. Clinical content (blood-pressure and glucose thresholds, disease-specific guidance) left out to keep the notes non-medical.
+  - Proof, not a promise: an 8-word [verbatim-overlap check](concepts.md#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) against the source found only paper titles, name lists, one short phrase, and a marked quote.
+  - Honest gaps: the DOIs are unconfirmed against the text, the developer's review is pending, and four topics (plyometrics, sprinting, program design by season, energy systems) are still uncovered because their pages block automated access.
+  - Point to make: "I didn't just say the notes were in my own words. I measured it: no 8-word run shared with the source except titles, lists of names, and a marked quote."
 
 ## Architecture
 

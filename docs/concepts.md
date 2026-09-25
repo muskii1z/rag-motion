@@ -84,7 +84,16 @@ A hallucination is confident output with no real source. When a model is asked t
 
 **In an interview (with the ending):** "Later I extracted the real text. The statement says 70 to 85 percent of 1RM; the tool had said 60 to 80. Plausible, specific, and wrong. That's the failure mode I design against."
 
-*First seen: before Step 11. Extended: Step 11.*
+*NSCA notes update: checked again, now in a committed note.* When the NSCA coaching notes were written from the extracted text, Claude spot-checked the older-adults figure independently: 70–85% of 1RM for healthy adults over 60 appears at lines 407–408 of the source text. That is the value in the committed note `data/notes/nsca/resistance-training-for-older-adults.md`. The invented 60–80% never entered the project. See the [build log](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11).
+
+*First seen: before Step 11. Extended: Step 11, NSCA notes (alongside Step 11).*
+
+### Verify agent output independently
+An agent (here, a background Claude session given a task) reports what it did, but that report is itself model output and can be wrong in the same ways as anything else a model writes. So a claim like "every number was checked against the source" is not treated as proof. Instead you recheck a sample yourself, with a method the agent didn't use. For the NSCA notes, the agents returned a line-by-line list of where each number appeared in the source. Claude still ran its own [verbatim-overlap check](#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) on the wording and spot-checked three numbers against the source lines (all three matched). The reason was concrete: before Step 11, a web tool had confidently reported figures from a PDF it couldn't read ([Hallucination from unreadable input](#hallucination-from-unreadable-input-and-verification-by-quotation)).
+
+**In an interview:** "When an agent tells me it verified something, I treat that as a claim, not a result. For my coaching notes the agents said every number was sourced; I still ran my own overlap check and spot-checked numbers against the source lines, because I'd already seen a tool invent figures confidently."
+
+*First seen: NSCA notes (alongside Step 11).*
 
 ### Deterministic vs generated
 Deterministic means the same input always gives the same, exactly correct output, like ordinary code. Generated means produced by the LLM, which can vary and can be wrong. The rule: compute in code whatever code can compute exactly, and use the LLM only for the language-understanding part. In Step 6 the first version asked the LLM to list missing information, and it invented field names. Now Python's `missing_fields()` checks which fields are null. Always correct, and free.
@@ -510,7 +519,9 @@ The practical legal risk to a small project is small, but the portfolio signal i
 
 *Step 11 update: policy accepted, NSCA route chosen.* The developer approved [0017](decisions/0017-knowledge-source-licensing-policy.md). For NSCA, they chose to extract text locally from the four free NSCA position-statement PDFs the web tool had cached (older adults 2019, weightlifting 2023, LTAD 2016, youth resistance training 2009). The extracted text sits in Claude's scratch folder, outside the repo, because it is copyrighted; only original, cited notes written from it may enter the project. The Physical Activity Guidelines (group A, public domain) were downloaded into git-ignored `data/raw/` and recorded in the committed manifest with their license evidence and attribution.
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11.*
+*NSCA notes update: the notes exist.* Three original notes are committed in `data/notes/nsca/` (weightlifting, older adults, youth and LTAD). Each carries frontmatter with an honest `author` line ("Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat"), a `license` line ("Original notes (project-owned)..."), and full source citations. No tables or figures were recreated, quotes are short and marked, and clinical content was left out to keep them non-medical. A [verbatim-overlap check](#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) confirmed the wording is original. See the [build log](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11).
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11).*
 
 ### Source manifest and provenance fields on chunks
 A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
@@ -536,6 +547,13 @@ When a program requests a web page, the server replies with a status code: 200 m
 **In an interview:** "The site I most wanted blocked automated access with 403s. I treated that as the owner's answer rather than a technical obstacle, and didn't spoof a browser. The workaround is a human reading it and writing notes, which also keeps my data pipeline clean."
 
 *First seen: before Step 11.*
+
+### Verbatim-overlap (n-gram) check as a copyright guardrail
+An n-gram is a run of n consecutive words; "cannot play themselves into shape" is a 5-gram. A verbatim-overlap check lists every run of n or more identical consecutive words shared by two texts. Copyright protects wording, not facts ([Content licensing in RAG](#content-licensing-in-rag)), so this is a direct, measurable test of whether notes copied their source's wording. For the NSCA notes, Claude used n = 8. The raw hits (12, 13, and 21 for the three notes) were almost all paper titles, which naturally appear in both reference lists. Excluding titles and the Sources section left only 4 hits in total: two lists of names (lifts, equipment), one short prescription phrase, and one quote that was already marked and attributed. The lesson is to read the hits, not just count them: a raw count of 21 looked alarming, but explained nothing until each hit was sorted.
+
+**In an interview:** "To show my notes on copyrighted position statements weren't disguised copies, I compared them to the source text for any 8-word run in common. Almost every hit was a paper title in the references; outside those, only name lists and one marked quote. It's a cheap, repeatable check that turns 'I wrote it in my own words' into evidence."
+
+*First seen: NSCA notes (alongside Step 11).*
 
 ### Why RAG beats a plain chatbot here
 A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 15 are where points 1 and 4 get real evidence (evaluation moved from Step 11 to Step 15 in Step 5).
@@ -616,7 +634,9 @@ A PDF is not stored as paragraphs. It is a set of instructions for drawing chara
 
 **In an interview:** "PDFs store positioned characters, not paragraphs, so extraction is a reconstruction problem. I treated it as its own step: extract, measure what came out, clean it, and check the result before any chunking."
 
-*First seen: Step 11.*
+*NSCA notes update: garbled symbols.* In the NSCA weightlifting text (extracted with `pdftotext`), comparison signs came out as other characters: ">" as ".", "≥" as "$", "≤" as "#", and "<" as ",". Nothing flagged it: by that mapping, "<60%" comes out as ",60%", which looks like stray punctuation. The agent writing the notes read the substituted characters as the original symbols. Symbols like these carry meaning in training prescriptions, so a garbled one can silently flip a recommendation. Another reason to read extracted text before trusting it.
+
+*First seen: Step 11. Extended: NSCA notes (alongside Step 11).*
 
 ### Running headers and footers (normalize before comparing)
 A running header or footer is text repeated on every page, such as the book title and page number. Left in, it gets glued into the middle of chunks. The usual detection is "find lines that appear on many pages". In Step 11 that check, done by exact matching, found only "Learn More" and missed the real footer, because `56      Physical Activity Guidelines for Americans` carries a different page number on every page, so every copy is unique. Replacing digits before comparing (normalizing) revealed it on 54 pages. The general lesson: normalize the parts that are supposed to vary before you compare. The script's quality report now replaces digits with `#` before counting repeats.

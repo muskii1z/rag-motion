@@ -46,3 +46,9 @@ First document, chosen by the developer: the Physical Activity Guidelines for Am
 
 ## Update 2026-09-25: accepted
 The developer approved the policy (groups A–D, committed source manifest, git-ignored `data/raw/`). They also chose the NSCA note route: extract text locally from the four free NSCA-hosted position-statement PDFs (already cached by the web tool) and write original, cited notes from that text only. The extracted NSCA text stays in Claude's scratch folder, outside the repo. The Kinetic Select pages (plyometrics, sprinting, program design) remain uncovered.
+
+## Update 2026-09-25 (alongside Step 11): NSCA notes written and verified
+- Three original notes are committed in `data/notes/nsca/` (commit `c698571`): weightlifting for sports performance (2023), resistance training for older adults (2019), and youth plus long-term athletic development (2016 and 2009). They were drafted by agents from the locally extracted text only; that text stays outside the repo.
+- Guardrails applied: the `author` line says "Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat"; full citations in frontmatter; no tables or figures recreated; short marked quotes only; clinical content left out.
+- Verified independently: an 8-word verbatim-overlap check found shared runs only in paper titles, name lists, one short phrase, and a marked quote. See the [build log](../build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11).
+- Still open: whether to amend the group D line ("Claude does not rewrite or closely paraphrase these texts into notes") to describe AI-drafted original syntheses reviewed by the developer; and how the four uncovered topics (plyometrics, sprinting, program design by season, energy systems) get sourced.

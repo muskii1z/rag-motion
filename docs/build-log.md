@@ -1758,9 +1758,9 @@ The NSCA text was extracted with poppler's `pdftotext`; exact commands not recor
 - The PDF is tagged (has structure labels), but the cleaning doesn't use the tags. Could they replace some of the heuristics? Not discussed.
 - How many true split words now carry a stray hyphen ("cardio-respiratory")? Not counted.
 - Will the chapter title pages and `## ` headings become chunk boundaries in Step 12? Likely, not decided.
-- Small repo inconsistency: the docstring in `scripts/extract_document.py` says `--show 25` prints "page 25's raw text", but the option prints the cleaned text.
+- Small repo inconsistency: the docstring in `scripts/extract_document.py` says `--show 25` prints "page 25's raw text", but the option prints the cleaned text. *Fixed in `c698571`.*
 - PyMuPDF's AGPL license needs a review before any closed commercial use.
-- The NSCA notes (`data/notes/nsca/`, currently untracked) are still being written and will get their own entry.
+- The NSCA notes (`data/notes/nsca/`, currently untracked) are still being written and will get their own entry. *Done: see [NSCA coaching notes](#nsca-coaching-notes-written-from-local-text-alongside-step-11).*
 
 **Developer questions.** None recorded beyond the three decisions above.
 
@@ -1771,3 +1771,71 @@ The NSCA text was extracted with poppler's `pdftotext`; exact commands not recor
 **Decisions.**
 - New: [0018. PDF extraction with PyMuPDF and layout-based cleaning](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)
 - Updated (by the main session, in the commit): [0017](decisions/0017-knowledge-source-licensing-policy.md) is now **accepted**.
+
+## NSCA coaching notes written from local text (alongside Step 11)
+**Date:** 2026-09-25 · **Commit:** `c698571` feat: add original NSCA-based coaching notes; record step 11 (the notes, the Step 11 docs, and a docstring fix; this entry is committed and pushed right after)
+
+**Goal.** Turn the locally extracted NSCA position-statement text into original, cited coaching notes, and prove independently that the wording is ours and the numbers are right.
+
+**What we did.**
+- Two background agents wrote three notes. They worked **only** from the NSCA text extracted in [Step 11](#step-11-document-ingestion-extract-clean-page-text-from-the-physical-activity-guidelines-pdf), which sits in Claude's scratch folder outside the repo. No web access, no background knowledge. They searched (grepped) the source text for every number before using it.
+  - `data/notes/nsca/weightlifting-for-sports-performance.md`: from Comfort et al. 2023, *JSCR* 37(6):1163–1190. About 1,100 words of body text, no quotes.
+  - `data/notes/nsca/resistance-training-for-older-adults.md`: from Fragala et al. 2019, *JSCR* 33(8):2019–2052. About 1,100 words, one short marked quote.
+  - `data/notes/nsca/youth-and-long-term-athletic-development.md`: from Lloyd et al. 2016, *JSCR* 30(6):1491–1509 (LTAD, long-term athletic development) and Faigenbaum et al. 2009, *JSCR* 23(Suppl 5):S60–S79 (youth resistance training). About 1,200 words, one short marked quote. Where the two statements differ, the 2016 one is preferred and the difference is stated (for example, the starting age).
+- **Shape of each note.** YAML frontmatter (a block of labeled fields at the top of the file): `title`, `type: coaching-notes`, `author` ("Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat"), `license` ("Original notes (project-owned)..."), and `sources` with authors, year, journal, DOI (a permanent ID for a paper), and `accessed_via`. The body uses the same sections in all three: what it is and why coaches use it, key principles, programming guidelines, exercise examples and progressions, safety and readiness, common mistakes or myths, and sources. Claims carry short inline source tags such as `[NSCA 2019 Older Adults]`.
+- **The agents' self-report.** Each agent returned a line-by-line list of where every number was found in the source text, plus caveats (below).
+- **Claude's independent check.** Claude did not take the agents' reports on trust, given the web tool's earlier [hallucination](#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination). Two checks:
+  1. **Verbatim-overlap check.** Find every run of 8 or more identical consecutive words shared between each note and its source text. See [Verbatim-overlap (n-gram) check](concepts.md#verbatim-overlap-n-gram-check-as-a-copyright-guardrail).
+  2. **Number spot-checks.** Three numbers checked against specific lines of the source text.
+- Also in the commit: the docstring in `scripts/extract_document.py` now says `--show` prints the page's cleaned text (the mismatch flagged as an open question in Step 11).
+
+**Commands.** Not recorded in the brief. The agents grepped the extracted source text; Claude's overlap check and spot-checks were run by hand in the session.
+
+**What we saw.**
+- **Overlap check, raw hits:** 12 (weightlifting), 13 (older adults), 21 (youth). Almost all were titles of papers in the reference lists, which appear in both the note's Sources section and the source's references.
+- **Overlap check, excluding titles and the Sources section:**
+  - Weightlifting: 1 hit, a list of lift names ("the push press, push jerk, and split jerk").
+  - Older adults: 2 hits, "1–2 multijoint exercises per major muscle group" and a list of equipment (bands, soft weights, ankle weights, medicine balls).
+  - Youth: 1 hit, the marked quote ("aspiring young athletes cannot play themselves into shape").
+  - Conclusion: the wording is original. The only shared runs are name lists, one short prescription phrase, and a quote that is marked and attributed.
+- **Spot-checks, all matched:**
+  - Older adults: 70–85% 1RM (one-repetition maximum) for healthy adults over 60, source lines 407–408.
+  - Youth (2009): 1 or 2 sets of 10–15 reps to begin, source line 1209.
+  - Weightlifting: 60–80% 1RM for 8–12 reps, source lines 760–761.
+- The 70–85% figure is the real value that the web tool had replaced with an invented 60–80% before Step 11. It is now confirmed twice (Step 11 and this check) and is the value in the committed note. See [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation) (extended).
+- **Caveats the agents reported:**
+  - DOIs are not in the extracted text. The DOIs in the frontmatter were supplied to the agents and are unconfirmed.
+  - **Garbled symbols in the weightlifting text.** The extraction turned comparison signs into other characters: ">" became ".", "≥" became "$", "≤" became "#", and "<" became ",". The agent read them accordingly. Same lesson as Step 11: extraction errors are silent, so read the text before trusting it. See [PDF text extraction](concepts.md#pdf-text-extraction-and-reading-order) (extended).
+  - The older-adults PDF carried a placeholder citation line ("XX(X): 000–000"); the final citation was in the footer.
+  - Two approximations: periodization-study ages are written as "around 70" (the source reports 72 for men, 70 for women); frail-client frequency is written as "2–3 (most studies used 3)".
+- **Deliberately left out:**
+  - Clinical content, to keep the notes non-medical: blood-pressure and glucose thresholds, disease-specific guidance, exercise swaps for osteoporosis or arthritis, grip-strength cut-offs. The notes instead say that clearance for unstable conditions is a clinician's call.
+  - Some statistics, cut for length.
+  - Tables and figures: none recreated.
+  - The LTAD statement's numbered list of pillars: summarized as ideas, not reproduced as its list.
+
+**Problems and fixes.**
+- **Trusting a model's self-report.** The agents said every number was checked. After the earlier hallucination, that claim alone wasn't enough. Fix: an independent overlap check and spot-checks of numbers against source lines. See [Verify agent output independently](concepts.md#verify-agent-output-independently).
+- **Garbled comparison symbols** in the extracted weightlifting text. Fix: the agent read the substituted characters as the symbols they replaced. Not fixed in the extraction itself (the text stays outside the repo).
+- **Docstring mismatch** in `scripts/extract_document.py` (from Step 11's open questions). Fixed in this commit.
+
+**Still uncovered.** Plyometrics, sprinting and speed, program design by season, and energy-system training. The Kinetic Select pages that cover them blocked automated access ([403](concepts.md#bot-blocking-http-403-and-not-circumventing-it)). Options: the developer pastes the text, the developer writes the notes, or we use CC BY research on those topics as group A sources instead (for example the plyometric umbrella review, or Haugen 2019 on sprinting; see [candidates.md](sources/candidates.md)).
+
+**Open questions.**
+- **Coach review is pending.** When the developer has reviewed a note, its `author` line changes to "reviewed by M. Saraswat". What counts as reviewed (read through, numbers rechecked, edits made) is not defined.
+- Which option covers the four uncovered topics?
+- The DOIs are unconfirmed against the text. Check them against the publisher or Crossref?
+- [0017](decisions/0017-knowledge-source-licensing-policy.md)'s group D line still says "Claude does not rewrite or closely paraphrase these texts into notes". These notes are AI-drafted original syntheses. Should that wording be amended? (Open since [before Step 11](#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination).)
+- The notes are not in `data/sources.toml`. How they are registered and chunked for ingestion (they are Markdown, not PDF) is not decided.
+- Small inconsistency: the youth note's Sources section omits the DOIs (they are in its frontmatter); the other two notes list them in both places.
+- The overlap threshold was 8 words. Is that the right line? Not discussed.
+
+**Developer questions.** None recorded.
+
+**Learned.**
+- New: [Verbatim-overlap (n-gram) check as a copyright guardrail](concepts.md#verbatim-overlap-n-gram-check-as-a-copyright-guardrail)
+- New: [Verify agent output independently](concepts.md#verify-agent-output-independently)
+- Extended: [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation) (real value confirmed again by spot-check, now in a committed note), [PDF text extraction and reading order](concepts.md#pdf-text-extraction-and-reading-order) (garbled comparison symbols), [Content licensing in RAG](concepts.md#content-licensing-in-rag) (the NSCA notes exist)
+
+**Decisions.**
+- None new. Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (notes written and verified; group D wording still open).
