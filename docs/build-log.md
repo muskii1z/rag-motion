@@ -1582,3 +1582,74 @@ From here on, the plan is: 11 document ingestion, 12 chunking, 13 embed chunks +
 
 **Decisions.**
 - New (proposed): [0017. Knowledge source licensing policy (groups A–D)](decisions/0017-knowledge-source-licensing-policy.md)
+
+## Before Step 11 (continued): NSCA notes attempt: blocked, and a caught hallucination
+**Date:** 2026-09-25 · **Commit:** not committed yet (this docs update is committed and pushed right after)
+
+**Goal.** Write original, cited notes on NSCA principles, ready to ingest, without copying NSCA's text.
+
+**The developer's request.** "Do notes of the copyrighted stuff and we'll still cite it. I don't understand why we can't use it and just cite it; that's what a regular search would find."
+
+**The answer given.** Summary (full explanation in [Content licensing in RAG](concepts.md#content-licensing-in-rag)):
+- **Citing gives credit, not permission.** A citation says where an idea came from. It does not grant a right to copy the text.
+- **A search engine is not a RAG system.** A search engine stores an index (a lookup list of which words appear where), shows a short snippet, and sends you to the source. Courts have accepted that narrow use. A RAG system ingests: it copies the whole text, stores it, and answers from it, so people never need the original. In a public repo that is republishing.
+- NSCA's terms forbid it, and the JSCR publisher explicitly reserves text and data mining and AI use ([TDM reservations](concepts.md#text-and-data-mining-tdm-reservations)).
+- The legal risk to a small project is small, but the portfolio signal is big. An interviewer who sees licensed textbooks ingested into a public repo reads it as a red flag. A license policy plus original notes reads as experience.
+- **Notes are fine.** Facts and principles aren't copyrightable; only the wording, tables, and figures are.
+
+**What Claude agreed to do.** Write original syntheses of the principles, with these rules:
+- Each note cites specific NSCA sources.
+- No copied tables, figures, or long quotes. Numbers (for example rep ranges) are included as cited facts.
+- Every note is labeled "Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat".
+- Notes go in `data/notes/nsca/`, ready to ingest.
+- Six topics planned: (1) plyometric training; (2) speed and sprint training; (3) program design and training seasons, plus energy system training; (4) weightlifting for sports performance (2023 position statement); (5) youth and long-term athletic development (2016 LTAD statement plus the 2009 youth resistance training statement); (6) resistance training for older adults (2019).
+
+Note on consistency: the previous entry and [0017](decisions/0017-knowledge-source-licensing-policy.md) said the NSCA notes must be the developer's own synthesis and that Claude would not rewrite NSCA texts into notes. This plan has Claude draft original syntheses (not rewrites of passages), labeled as AI-drafted and pending the developer's review. See the open questions below.
+
+**What we did.**
+- Claude ran three agents in parallel to gather the material and draft the notes.
+- All three wrote nothing, and each explained why (below). No project files were created. `data/notes/nsca/` does not exist yet. Only these docs changed.
+
+**Commands.** No shell commands were recorded in the brief. The agents used the automated web fetch tool on nsca.com pages and on NSCA-hosted PDFs.
+
+**What we saw.**
+- **Every nsca.com web page was blocked.** Kinetic Select articles, position-statement pages, and the position statements index all returned HTTP 403 Forbidden (the server's "you may not have this" reply) to the web tool. The pages are public to a person in a browser; the site refuses automated clients. The agents did not try to get around the block: no fake user agents (the label a program sends to say what kind of browser it is), no browser automation, no mirror sites. See [Bot blocking (HTTP 403) and not circumventing it](concepts.md#bot-blocking-http-403-and-not-circumventing-it).
+- **The free PDFs downloaded but couldn't be read.** The NSCA-hosted position-statement PDFs (weightlifting 2023, older adults 2019, LTAD 2016, youth resistance training 2009) downloaded. The web tool returned compressed binary PDF data, not readable text.
+- **A caught hallucination.** On the first fetch of the older-adults PDF, the web tool's summarizing model (a model built into the tool that condenses what it fetched) confidently returned specific figures:
+  - 1–3 sets of 8–12 reps at 60–80% of 1RM (one-repetition maximum), with 2–3 minutes of rest;
+  - 1 session a week to maintain gains;
+  - strength loss after 2 weeks off;
+  - 3–5 minutes of rest for frail adults.
+
+  The agent then asked the same tool to quote short snippets that supported these numbers. The tool said it could not read the PDF text at all. So the numbers came from the tool's model, not the document. The agent discarded them. See [Hallucination from unreadable input, and verification by quotation](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation).
+  - Why it matters: the figures looked right for the topic, which is what made them dangerous. Asking for a supporting quote exposed them. This is the failure that RAG and citation checks exist to prevent, and it happened inside the research tooling, not the app.
+- **Unverified detail.** One NSCA-hosted weightlifting PDF's metadata showed a 2019 creation date, so it may not be the 2023 JSCR version. Not checked.
+
+**Problems and fixes.**
+- Problem: no readable source text, from either the web pages (403) or the PDFs (binary). Fix: none yet; three options were put to the developer (below).
+- Problem: invented figures from the web tool. Fix: the agent demanded quotes, found none, and discarded the numbers. Nothing was written from them.
+- Housekeeping: the web tool automatically cached five NSCA PDFs in Claude's session folder (`~/.claude/projects/-Users-musabs1-rag-motion/<session>/tool-results/webfetch-*.pdf`): two copies of the weightlifting statement, plus older adults (~1.2 MB), LTAD (~219 KB), and youth resistance training (~194 KB). This is in addition to the Army FM 7-22 copy from the previous entry. They are not in the repo, were not opened, and were not deleted. The developer can delete them.
+
+**Options put to the developer (decision pending).**
+1. **Extract text locally** from the free NSCA position-statement PDFs that are already cached (for example with a PDF text-extraction tool), then write the notes from that text only. Reading a free, NSCA-published PDF for personal notes is ordinary study use; the notes stay original.
+2. **The developer pastes the text.** The developer opens the pages in their own browser and pastes the relevant sections into the chat; Claude writes notes from that text only.
+3. **The developer writes the notes**, and Claude provides a template organized by topic.
+
+The blocked Kinetic Select web pages (plyometrics, sprinting, program design, energy systems) can only be covered by option 2 or 3. Option 1 covers only the four position statements.
+
+**Open questions.**
+- Which option does the developer choose?
+- [0017](decisions/0017-knowledge-source-licensing-policy.md) (still *proposed*) says Claude does not rewrite or closely paraphrase group D texts into notes. The new plan has Claude draft original, labeled syntheses for the developer to review. Should the policy wording be amended to allow that, and what counts as "reviewed" before a note loses the "pending review" label?
+- Is the NSCA-hosted weightlifting PDF the 2023 JSCR version or an earlier file?
+- Delete the six cached PDFs (five NSCA plus FM 7-22) from the session folder, or keep them for option 1?
+- `data/notes/nsca/` and the license field for these notes (for example "original notes citing NSCA") are not set up yet.
+
+**Developer questions.** "Why can't we use it and just cite it; that's what a regular search would find?" Answered above: citation is credit, not permission, and ingesting is copying, not indexing.
+
+**Learned.**
+- New: [Hallucination from unreadable input, and verification by quotation](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation)
+- New: [Bot blocking (HTTP 403) and not circumventing it](concepts.md#bot-blocking-http-403-and-not-circumventing-it)
+- Extended: [Content licensing in RAG](concepts.md#content-licensing-in-rag) (citation is credit, not permission; search engine vs RAG)
+
+**Decisions.**
+- None new. Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (NSCA material enters only as original notes; how the notes get written is pending).

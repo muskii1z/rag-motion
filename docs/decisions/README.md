@@ -18,4 +18,4 @@ One file per real decision, numbered in order. Each records the context, options
 - [0014. Embedded text: name + description + labeled facts, no instructions](0014-embedded-text-name-description-labels.md) (Step 8)
 - [0015. Local web UI: FastAPI + one static HTML page](0015-local-web-ui-fastapi-static-html.md) (Step 10)
 - [0016. Answer grounding: evidence-only answer plus labeled general guidance](0016-answer-grounding-evidence-plus-labeled-general-guidance.md) (after Step 10)
-- [0017. Knowledge source licensing policy (groups A–D)](0017-knowledge-source-licensing-policy.md) (before Step 11, **proposed**: not yet formally approved)
+- [0017. Knowledge source licensing policy (groups A–D)](0017-knowledge-source-licensing-policy.md) (before Step 11, **proposed**: not yet formally approved; updated: NSCA enters only as original notes, drafting route pending)

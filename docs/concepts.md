@@ -75,6 +75,13 @@ When a model fills a field from its own assumptions instead of the text. Example
 
 *First seen: Step 6.*
 
+### Hallucination from unreadable input, and verification by quotation
+A hallucination is confident output with no real source. When a model is asked to summarize something it can't actually read, it may not say so; it can produce plausible specifics that fit the topic. Before Step 11, a web tool's built-in summarizing model was given an NSCA older-adults PDF that arrived as compressed binary data (not readable text). It still returned exact training figures: 1–3 sets of 8–12 reps at 60–80% of 1RM, 2–3 minutes of rest, 1 session a week to maintain gains, and more. When asked to quote short snippets supporting those figures, the same tool said it couldn't read the PDF at all. Verification by quotation means asking for the exact source words behind each claim: a claim with no quotable source is treated as invented and thrown away. It is the manual version of what [Citation validation](#citation-validation) does in code.
+
+**In an interview:** "While gathering sources, a web tool gave me precise rep ranges and rest periods from a PDF it turned out it couldn't even read. I caught it by asking for the supporting quotes, and there were none. That's exactly why my RAG answers must cite retrieved text, and why I check citations instead of trusting fluent output."
+
+*First seen: before Step 11.*
+
 ### Deterministic vs generated
 Deterministic means the same input always gives the same, exactly correct output, like ordinary code. Generated means produced by the LLM, which can vary and can be wrong. The rule: compute in code whatever code can compute exactly, and use the LLM only for the language-understanding part. In Step 6 the first version asked the LLM to list missing information, and it invented field names. Now Python's `missing_fields()` checks which fields are null. Always correct, and free.
 
@@ -487,7 +494,15 @@ The key lesson: **free to read is not free to reuse.** Many NSCA position statem
 
 **In an interview (with evidence):** "Before ingesting anything I license-checked every candidate source (government guidelines, about 26 open-access papers, open textbooks, exercise datasets) and sorted them into four groups, from public domain to all-rights-reserved. The big lesson was that free to read isn't free to reuse: NSCA's position statements are free PDFs, but their terms forbid putting them in a system like mine, so those become my own cited notes instead."
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11.*
+*Before Step 11 update (continued): citation is credit, not permission.* The developer asked why we can't ingest NSCA material and simply cite it, since "that's what a regular search would find." Two points came out of the answer:
+- **Citing gives credit, not permission.** A citation says where an idea came from; it doesn't grant a right to copy the text.
+- **Search engine vs RAG.** A search engine stores an index (a lookup of which words appear where), shows a short snippet, and sends you to the source. Courts have accepted that narrow use. A RAG system ingests: it copies the whole text, stores it, and answers from it, so the reader never needs the original. In a public repo that is republishing.
+
+The practical legal risk to a small project is small, but the portfolio signal is large: licensed textbooks ingested into a public repo read as a red flag; a license policy plus original notes reads as experience. The agreed route: original syntheses of the principles, citing specific NSCA sources, with no copied tables, figures, or long quotes, and numbers included as cited facts. Each note is labeled "Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat". The first attempt to draft them was blocked (see the [build log](build-log.md#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination)).
+
+**In an interview (citation vs permission):** "A search engine points you to the source; a RAG system replaces the need to visit it, because it stores the whole text and answers from it. So citing a copyrighted source doesn't make ingesting it OK. I ingest my own cited notes on the principles instead, since facts aren't copyrightable but wording is."
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice).*
 
 ### Source manifest and provenance fields on chunks
 A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
@@ -500,6 +515,13 @@ A source manifest is a small committed file listing every document the system in
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
 
 **In an interview:** "Publishers increasingly reserve text and data mining and AI training rights. The journal most relevant to my domain does, so I cite it and write my own notes rather than ingesting it."
+
+*First seen: before Step 11.*
+
+### Bot blocking (HTTP 403) and not circumventing it
+When a program requests a web page, the server replies with a status code: 200 means "here it is", 403 Forbidden means "you may not have this". Some sites serve pages to people in a browser but return 403 to automated clients (bots). Before Step 11, every nsca.com page (Kinetic Select articles, position-statement pages, the index) returned 403 to the automated web tool, though the same pages open in a normal browser. There are known ways around a block: a fake user agent (the label a program sends saying what browser it is), browser automation (software that drives a real browser), or copies on mirror sites. The agents used none of them. A 403 to bots is the site owner saying "no automated access", and working around it would undercut the project's licensing policy. The fallback is a person reading the page in their own browser.
+
+**In an interview:** "The site I most wanted blocked automated access with 403s. I treated that as the owner's answer rather than a technical obstacle, and didn't spoof a browser. The workaround is a human reading it and writing notes, which also keeps my data pipeline clean."
 
 *First seen: before Step 11.*
 

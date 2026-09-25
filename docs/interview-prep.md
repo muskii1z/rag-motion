@@ -245,6 +245,16 @@ Evidence so far:
   - Point to make: "Some checks are code (citations), some need a domain expert (is this rest period right?). My eval has both kinds."
 - No eval set or scores exist yet.
 
+### How do you know your system isn't making things up? (interview material)
+Not a question from the brief, but a common follow-up to the one above.
+Evidence so far:
+- [Before Step 11 (continued)](build-log.md#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination): **a caught hallucination in the research tooling.** A web tool's summarizing model was given an NSCA older-adults PDF it could not read (compressed binary data). It still returned precise figures: 1–3 sets of 8–12 reps at 60–80% of 1RM, 2–3 minutes of rest, 1 session a week to maintain gains, strength loss after 2 weeks off, 3–5 minutes of rest for frail adults. Asked to quote supporting snippets, the same tool said it couldn't read the PDF text at all. The numbers were discarded. See [Hallucination from unreadable input, and verification by quotation](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation).
+  - Point to make: "Verify by demanding quotes from the source. A claim with no quotable source is treated as invented. That's the same rule my RAG pipeline enforces with citations."
+- [Step 10](build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui): the pipeline version of the same idea. Every answer cites retrieved exercises, and code checks the citations ([Citation validation](concepts.md#citation-validation)). The first prompt added unsourced advice ("2–3 times per week"), caught by comparing the answer with the evidence ([Groundedness vs relevance](concepts.md#groundedness-vs-relevance)).
+- [Step 6](build-log.md#runs-problems-and-fixes): plausible guessing, such as "early 30s" becoming age 30 ([Hallucinated inference](concepts.md#hallucinated-inference)).
+- [After Step 10](build-log.md#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier): model knowledge is labeled as "not from your sources" so a coach can judge it ([0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)).
+- No automated groundedness score exists yet.
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -390,6 +400,10 @@ Evidence so far:
 - **Licenses vary and change.** Two JISSN position stands are CC BY-NC while others are CC BY; OpenStax A&P 2e moved from CC BY to CC BY-NC-SA. So checks are per item and dated.
 - **Per-chunk license tags.** Proposed: `source_url` and `license` on every chunk, plus a committed source manifest, so answers attribute correctly and NonCommercial chunks can be filtered out. See [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) and [0017](decisions/0017-knowledge-source-licensing-policy.md) (proposed).
 - **Excluding scraped data.** free-exercise-db was excluded (images traced to bodybuilding.com, text origin unknown); ExerciseDB is proprietary.
+- [Before Step 11 (continued)](build-log.md#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination): **"Why can't we just cite it?"** The developer asked this about NSCA material. Answer: citation gives credit, not permission. A search engine stores an index, shows a snippet, and sends you to the source; a RAG system copies and stores the whole text and answers from it, so the reader never needs the original. In a public repo that is republishing. See [Content licensing in RAG](concepts.md#content-licensing-in-rag) (extended).
+  - Point to make: "The legal risk to a portfolio project is small, but the signal isn't. Ingested licensed textbooks in a public repo look careless; a license policy plus original cited notes looks like experience."
+  - The route agreed: original syntheses of principles, cited to specific NSCA sources, no copied tables, figures, or long quotes, labeled as AI-drafted and pending the developer's review. How the notes get written is still pending ([0017 update](decisions/0017-knowledge-source-licensing-policy.md#update-2026-09-25-before-step-11-continued-nsca-notes-route-pending)).
+- **Respecting bot blocks.** nsca.com returned HTTP 403 to automated clients. The agents didn't spoof a browser or use mirrors. See [Bot blocking (HTTP 403) and not circumventing it](concepts.md#bot-blocking-http-403-and-not-circumventing-it).
 - Point to make: "Before ingesting anything I sorted sources into four license groups. Public domain and CC BY go in; NonCommercial and ShareAlike go in with a license tag on every chunk; NoDerivatives stays local; all-rights-reserved material I only read and cite in my own notes."
 
 ## Architecture
