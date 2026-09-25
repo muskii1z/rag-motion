@@ -710,3 +710,92 @@ Hand queries, all run with `docker compose exec -T db psql ...` from `~/rag-moti
 - Updated [0003. LLM: Claude Opus 5](decisions/0003-llm-claude-opus-5.md): status now "under review", resolved at Step 6.
 - Updated [0006. Interface](decisions/0006-interface-cli-first.md): minimal local UI at Step 10, FastAPI moved to Step 16.
 - Updated [0010](decisions/0010-exercise-table-check-constraints.md): the allowed values are now mirrored in `models.py`; Phase 1F renumbered.
+
+---
+
+## Between Steps 5 and 6: API keys, OpenRouter setup, and the 'RAG Is Simpler Than You Think' article
+**Date:** 2026-09-24 · **Commit:** not committed (this docs update and the `CLAUDE.md` change are committed and pushed right after it is written)
+
+**Goal.** Get a working, safely stored OpenRouter key before Step 6, and decide whether a popular article on RAG strategies should change the plan.
+
+**What we did.**
+- No application code changed.
+- **A.** The developer created an OpenRouter account and API key (a secret password that identifies you to a paid service) and pasted it into `.env`. We checked its format through the project's config module, then confirmed OpenRouter accepts it, without calling any model. The Voyage key is not set yet.
+- **B.** The developer shared the article "RAG Is Simpler Than You Think" by Rafael Pierre (Lighthouse newsletter, June 2026) and asked for an opinion on its strategies. Claude reviewed it. The developer approved two plan changes, and the Step 15 row and the Phase 1F note in `CLAUDE.md` were updated. Neither change affects Step 6. Recorded as [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+### A. API keys and OpenRouter setup
+
+**Developer questions.**
+- *"What do I do with OpenRouter and Voyage? I've never used Voyage."* Both are websites where you create an account and copy a key into `.env`. OpenRouter gives the code access to many LLMs (Claude, GPT, Llama, and others) through one key. Voyage is a separate company that provides the embedding model; OpenRouter doesn't replace it. OpenRouter: sign in, add a few dollars of credit, create a key named `rag-motion` on the Keys page (optionally with a spending limit), and copy it immediately. Voyage: sign up at dashboard.voyageai.com and create a key under API Keys. New Voyage accounts get free usage, but Voyage may keep request rate limits (how many calls you may make per minute) very low until a payment method is added.
+- *"Is a $5 limit cool?"* Yes. Claude's rough Phase 1 cost estimate with a mid-priced model: Step 6 extraction about half a cent per call; one RAG answer 1 to 2 cents (maybe 100 answers while building); one eval run 30 to 60 cents (a few runs). Total roughly $2 to $4; a top-tier model roughly doubles it. These are estimates, not measured. The limit also protects against bugs, for example a loop that calls the model over and over. When the limit is hit, calls fail with an error and nothing is charged beyond it. The time to raise it is Phase 1F, when the eval is rerun after every change. Claude committed to giving a cost estimate before any step that makes many calls.
+- *"Where do I paste it / how do I get to .env?"* `.env` is in `~/rag-motion`. Finder hides files whose names start with a dot. Open it with `open -e ~/rag-motion/.env` (opens in TextEdit), paste each key right after its `=` with no quotes or spaces, and save. Alternative: in Finder, press Cmd+Shift+Period to show hidden files. Never paste keys into the chat, a screenshot, or any file other than `.env`.
+- *"How do I choose a model on OpenRouter for the key?"* You don't choose it on the key. One key works with every model. The model is chosen in the code, per request, with an ID like `"provider/model-name"`. So switching models is a one-line change, and the eval step can compare models. The model will be picked at the start of Step 6 from OpenRouter's live model list, comparing price, speed, and structured-output support (the feature that forces the reply into an exact data format). Not every model has it, and Step 6 depends on it.
+
+**Commands.**
+
+```bash
+# Suggested way to open the hidden .env file in TextEdit
+open -e ~/rag-motion/.env
+```
+
+```text
+# Check 1: a short Python check that loaded ragmotion.config.settings
+#   Printed only: is each key set, its length, and any format problems. Never the key itself.
+
+# Check 2: OpenRouter's free key-info endpoint (does not call any model)
+GET https://openrouter.ai/api/v1/key
+Authorization: Bearer <OPENROUTER_API_KEY from .env>
+#   First attempt with Python's built-in urllib: SSL certificate error (see Problems and fixes)
+#   Second attempt with the requests library: key accepted
+```
+
+The exact Python code for both checks is not recorded here.
+
+**What we saw.**
+- `OPENROUTER_API_KEY`: set, 73 characters, correct `sk-or-` prefix, no stray spaces or quotes.
+- `VOYAGE_API_KEY`: not set yet. It is needed at Step 7, so nothing is blocked.
+- Key-info endpoint: key accepted. `limit` 10, `limit_remaining` 10, `usage` 0, `is_free_tier` False. No model was called, so nothing was spent.
+- The key's spending limit is $10, not the $5 the developer mentioned. See Open questions.
+
+**Problems and fixes.**
+- **SSL certificate error on the first validation attempt.** The first try used Python's built-in web tool, `urllib`, and failed with `ssl.SSLCertVerificationError: CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`. SSL (the "S" in https) is how your computer confirms a website is really who it claims to be; it checks the site's certificate against a list of trusted certificate authorities. Cause: this Mac's Python was installed from python.org, and that installer doesn't set up the trusted list until you run its one-time "Install Certificates" setup. `urllib` relies on that list. **Fix:** used the `requests` library instead, which ships its own certificate bundle (`certifi`), and it worked immediately. The libraries the project actually uses (OpenRouter/OpenAI-style clients, `voyageai`, `requests`) bring their own certificates, so they are not affected. The global Python installation was deliberately left unchanged, because changing it affects every project on the Mac. See [SSL certificate errors on python.org Python](concepts.md#ssl-certificate-errors-on-pythonorg-python).
+
+### B. Article review: "RAG Is Simpler Than You Think"
+
+**The article, in brief (our summary, not a quote).** It argues that most teams over-engineer RAG. Its recommended order is keyword search first (BM25, or Postgres full-text search), then an LLM that rewrites the user's question into better search terms, and only then embeddings. It lays out six "recipes", from full-text search only up to embedding everything in advance, with a decision tree based on how fresh the data must be, what the questions look like, scale, and the team's skills. It also covers splitting questions that ask for several things at once into separate sub-searches.
+
+**Claude's assessment: what it gets right.**
+- **Start simple and measure.** Keyword search is a strong baseline that teams often skip. Adding complexity only when data shows a need matches the master context document.
+- **Query rewriting is cheap and powerful.** An LLM turns a conversational question into better search terms, and you improve it by editing a prompt, not by re-indexing the data. See [Query rewriting](concepts.md#query-rewriting).
+- **Jargon breaks general embeddings.** Directly relevant here. Coaches write RDL, BSS, SL RDL, Pallof. A general embedding model may not know BSS means Bulgarian split squat. Keyword matching plus a glossary handles that. See [Semantic search](concepts.md#semantic-search) (extended).
+- **Multi-intent questions should be split.** "Explosive lower-body program to run faster" is really several searches: power principles, jump exercises, single-leg strength, progression. The right idea for Phase 2. See [Query decomposition (multi-intent questions)](concepts.md#query-decomposition-multi-intent-questions).
+
+**Claude's assessment: where it's weak.**
+- **Its "hybrid" has a hole.** It uses keyword search to pick about 50 candidates, then reorders them with embeddings. But keyword search misses synonyms (the article's own point), so anything keyword search never finds can't be rescued by the embedding step. The more common hybrid runs both searches separately and merges the two lists. That is the version this project plans. See [Retrieve-then-rerank vs parallel hybrid](concepts.md#retrieve-then-rerank-vs-parallel-hybrid).
+- **It overstates the pain of embedding everything in advance** ("needs an ML team", "deprecation nightmare"). True at 10 million documents. At this project's scale, embedding everything should take seconds and fractions of a cent (an estimate; nothing has been embedded yet), and switching embedding models means re-running one script. By the article's own decision factors (small, stable data), pre-computing embeddings is the right call here. See [On-the-fly vs pre-computed embeddings](concepts.md#on-the-fly-vs-pre-computed-embeddings).
+- **"No chunking needed with full-text search" is half true.** Chunking isn't only for embeddings. You can't paste a 200-page PDF into a prompt, and citations need to point at a specific passage. See [Chunking](concepts.md#chunking).
+- **"No evaluation complexity" is wrong.** Every retrieval method needs evaluation.
+- **Its numbers are illustrative, not measured**: a 60/25/10/5 split, "15x cheaper", a 0.15 similarity example.
+- **Its decision tree assumes live users** (2 to 4 weeks of feedback, A/B tests, meaning showing two versions to different users and comparing). This project has no users, so the evaluation set plays that role.
+- **Minor:** its agentic loop has an LLM judge its own search results. The master context document warns against relying on an LLM to evaluate its own output without independent checks.
+
+**Plan changes (developer approved both).**
+1. **Step 15 compares three retrieval modes** on the same test questions: keyword only (Postgres full-text search), semantic only (pgvector), and both combined. This gives evidence for whether embeddings actually beat keyword search on this data. Postgres already has full-text search, so it is cheap to add. Later implementation: a full-text index (`tsvector`) over name and description, and a `keyword_search()` function next to the semantic one. See [Keyword search](concepts.md#keyword-search) (extended with BM25 and Postgres full-text search).
+2. **Phase 1F gains a query-rewriting experiment**, alongside metadata filtering, hybrid search, and reranking. An LLM rewrites the question before search, using a small glossary of exercise abbreviations (RDL, BSS, SL RDL, KB). Measured against the Step 15 baseline.
+- `CLAUDE.md` updated: the Step 15 row and the Phase 1F note. Neither change affects Step 6.
+
+### Wrap-up
+
+**Open questions.**
+- The key's spending limit is $10, but the developer mentioned $5. If $5 was meant, change it on OpenRouter's Keys page.
+- `VOYAGE_API_KEY` is not set yet (needed at Step 7).
+- The LLM model is chosen at the start of Step 6 from OpenRouter's live model list (price, speed, structured-output support). [0003](decisions/0003-llm-claude-opus-5.md) stays "under review" until then.
+- Step 5's open questions (coach review, advanced exercises, first document, LangSmith key, ID gaps) are unchanged.
+
+**Learned.**
+- New: [API key hygiene](concepts.md#api-key-hygiene), [SSL certificate errors on python.org Python](concepts.md#ssl-certificate-errors-on-pythonorg-python), [Query rewriting](concepts.md#query-rewriting), [Query decomposition (multi-intent questions)](concepts.md#query-decomposition-multi-intent-questions), [Retrieve-then-rerank vs parallel hybrid](concepts.md#retrieve-then-rerank-vs-parallel-hybrid), [On-the-fly vs pre-computed embeddings](concepts.md#on-the-fly-vs-pre-computed-embeddings)
+- Extended: [OpenRouter](concepts.md#openrouter) (one key, many models; model chosen per request in code), [Keyword search](concepts.md#keyword-search) (BM25 and Postgres full-text search), [Semantic search](concepts.md#semantic-search) (coaching abbreviations), [Hybrid search](concepts.md#hybrid-search) (parallel, not keyword-first), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag) (keyword baseline at Step 15, query rewriting in Phase 1F)
+
+**Decisions.**
+- [0012. Evaluate keyword search as a baseline; add query rewriting to Phase 1F](decisions/0012-keyword-baseline-and-query-rewriting.md) (new)
+- Note added to [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md): Step 15 and Phase 1F scope extended by 0012.

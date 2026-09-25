@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 5.
+Last updated: between Steps 5 and 6.
 
 ---
 
@@ -43,6 +43,7 @@ Evidence so far:
 - [Step 1](build-log.md#step-1-install-uv-create-the-python-project-add-dependencies): pydantic 2.13.5 and the anthropic SDK 1.8.0 are installed and import cleanly. See [What each library is for](concepts.md#what-each-library-is-for).
 - [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the provider is now open. The developer prefers [OpenRouter](concepts.md#openrouter) (one key, many models), so 0003 is "under review" until Step 6. Point to make: structured-output support varies by model on OpenRouter, so the model choice has to be checked against the output shape we need. The `client.messages.parse` plan may not apply.
 - [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the same technique already works on input data. The `Exercise` [Pydantic model](concepts.md#pydantic-model-and-literal-types) with `Literal` types validates every seed entry and names the failing field. A structured LLM output would be checked against a model like this.
+- [Between Steps 5 and 6](build-log.md#a-api-keys-and-openrouter-setup): with OpenRouter, one key works with every model and the model is a string chosen per request, so it can be swapped or compared in one line. Structured-output support is one of the three criteria (with price and speed) for picking the Step 6 model, because Step 6 depends on it. See [OpenRouter](concepts.md#openrouter) (extended).
 
 ## RAG
 
@@ -95,6 +96,16 @@ Evidence so far:
   - `equipment <@ ARRAY['dumbbell','bodyweight']` ("only needs what I own") returned 11 rows across the catalog. That is the client's actual question.
   - Point to make: a filter can be valid SQL and still answer the wrong question. This feeds Phase 1F filtering and Phase 2 program building.
   - Why only 20 exercises: results can be judged by eye. A push-up in "unilateral lower-body" results is instantly wrong; with 2,000 rows it wouldn't be.
+- [Between Steps 5 and 6](build-log.md#b-article-review-rag-is-simpler-than-you-think): domain jargon, and planned counters.
+  - [Semantic search](concepts.md#semantic-search) (extended): coaches write RDL, BSS, SL RDL, Pallof. A general embedding model may not know BSS means Bulgarian split squat.
+  - [Keyword search](concepts.md#keyword-search) (extended with BM25 and Postgres full-text search): Step 15 will measure keyword-only as a baseline next to semantic-only and combined. Planned, not built.
+  - [Query rewriting](concepts.md#query-rewriting): an LLM with an abbreviation glossary rewrites the question before search. Phase 1F experiment. Planned, not built.
+  - [Query decomposition (multi-intent questions)](concepts.md#query-decomposition-multi-intent-questions): "explosive lower-body program to run faster" is four searches in one. Phase 2 idea.
+  - [Retrieve-then-rerank vs parallel hybrid](concepts.md#retrieve-then-rerank-vs-parallel-hybrid): why keyword-first "hybrid" can't recover what keyword search missed, and why this project plans run-both-and-merge.
+  - Decision: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+### Critiquing RAG advice (interview material)
+Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
 ## PostgreSQL
 
@@ -141,6 +152,8 @@ Evidence so far:
   - In Phase 1F (after Step 16), hybrid search, metadata filters, and reranking are added one at a time, with the same eval rerun after each, so each improvement is a number ("hits went from X to Y"), not a claim.
 - [Step 4](build-log.md#step-4-exercise-schema-create-the-table-inspect-it-in-psql): each exercise has a unique, stable `slug` (e.g. `goblet-squat`), which eval cases will use to name the expected exercises. See [Slug vs id](concepts.md#slug-vs-id).
 - [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the catalog is kept to 20 exercises so results can be judged by eye before a formal eval exists. Hand queries already checked the data: 20 rows, lower 11 / upper 5 / core 2 / full 2; difficulty beginner 14 / intermediate 6 / advanced 0 (a gap flagged for review).
+- [Between Steps 5 and 6](build-log.md#b-article-review-rag-is-simpler-than-you-think): the eval now tests an assumption, not just the system. Step 15 will score three retrieval modes on the same questions: keyword only (Postgres full-text search), semantic only (pgvector), and both combined. Point to make: "do embeddings help on this data?" gets answered with numbers. Phase 1F adds query rewriting as a fourth experiment against the same baseline. Revisit signal: if keyword-only matches or beats semantic, simplify. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) and [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag) (extended).
+  - Also from the article review: every retrieval method needs evaluation, and with no live users the eval set stands in for user feedback and A/B tests. And an LLM judging its own search results is not an independent check.
 - No eval set or scores exist yet.
 
 ## Agents
@@ -198,6 +211,11 @@ Evidence so far:
   - Rest of the app: backend on Render, Fly.io, or Railway; frontend on Netlify or Vercel; API keys move from `.env` into the host's secret settings. Phase 6 in the master context document.
   - [Where the database runs in this project](concepts.md#where-the-database-runs-in-this-project): code travels through GitHub, the database doesn't. Any machine rebuilds it from the repo (clone, start Docker, apply the schema, seed). That is why schema and seed data are files in git.
 - [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand): the rebuild recipe is now complete for the data too. `uv run python scripts/seed_exercises.py` loads `data/exercises.json` from git and is safe to re-run ([Upsert](concepts.md#upsert)). Configuration comes from one [config module](concepts.md#config-module-pydantic-settings): `DATABASE_URL` has a local default and would be overridden in production; keys are read from the environment.
+- [Between Steps 5 and 6](build-log.md#a-api-keys-and-openrouter-setup): cost control.
+  - The OpenRouter key has a spending limit ($10; the developer had mentioned $5, open question). When it is hit, calls fail with an error and nothing more is charged, which also protects against bugs like a loop calling the model repeatedly. See [API key hygiene](concepts.md#api-key-hygiene).
+  - Rough Phase 1 estimate with a mid-priced model: about $2 to $4 total (half a cent per Step 6 call, 1 to 2 cents per RAG answer, 30 to 60 cents per eval run); roughly double with a top-tier model. Estimates, not measured. A cost estimate comes before any step that makes many calls.
+  - The key was validated with a free key-info endpoint before any model call.
+  - Environment gotcha: python.org Python on a Mac lacks trusted certificates until its setup is run; the project's libraries bundle their own, so the global install was left alone. See [SSL certificate errors on python.org Python](concepts.md#ssl-certificate-errors-on-pythonorg-python).
 - Actual deployment not yet done.
 
 ## Security
@@ -225,6 +243,10 @@ Evidence so far:
   - The developer pastes keys into `.env` in an editor, never into the chat with the AI coding assistant. Point to make: a key typed into a chat is a key shared with another system.
   - Keys are read in one place, the [config module](concepts.md#config-module-pydantic-settings) (pydantic-settings), and are optional until the step that uses them.
   - Planned third-party data flow: LangSmith (Step 11) stores traces, including prompts, on its servers. Acceptable because client data is fictional only.
+- [Between Steps 5 and 6](build-log.md#a-api-keys-and-openrouter-setup): the first real key, handled by the rules. See [API key hygiene](concepts.md#api-key-hygiene).
+  - The OpenRouter key was pasted into `.env` by the developer (suggested method: `open -e ~/rag-motion/.env` opens it in TextEdit), never into the chat or a screenshot.
+  - The check printed only presence, length (73), and format (`sk-or-` prefix, no stray spaces or quotes), never the key.
+  - Spending limit on the key as a safety net. `VOYAGE_API_KEY` not set yet (Step 7).
 
 ## Architecture
 
@@ -261,4 +283,6 @@ Evidence so far:
 - [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Step 5): plan revision. Catalog first, then RAG, then LangSmith tracing, then ingestion, then evaluation. Tradeoff: ingestion starts about six steps later than "ingestion first", in exchange for failures that can be located. Revisit if the catalog steps drag.
 - [Validate before write](concepts.md#validate-before-write) (Step 5): two validation layers (Pydantic and CHECK constraints) give clearer errors plus a safety net, at the cost of keeping two lists of allowed values in sync. See the [0010 note](decisions/0010-exercise-table-check-constraints.md).
 - [OpenRouter](concepts.md#openrouter) (Step 5): one key for many models vs an extra middleman and uneven structured-output support. Decided at Step 6.
+- [On-the-fly vs pre-computed embeddings](concepts.md#on-the-fly-vs-pre-computed-embeddings) (between Steps 5 and 6): pre-computing trades freshness and easy model switching for fast search. For a small, stable catalog, re-embedding is one script run, so pre-computing wins. At tens of millions of fast-changing documents, embedding at query time becomes worth weighing. See also [Critiquing RAG advice](#critiquing-rag-advice-interview-material).
+- [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (between Steps 5 and 6): keep semantic-first for learning, but prove it against a keyword baseline. Cost: a slightly bigger eval step and one more Phase 1F experiment. Query rewriting, if kept, adds an LLM call per question.
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).

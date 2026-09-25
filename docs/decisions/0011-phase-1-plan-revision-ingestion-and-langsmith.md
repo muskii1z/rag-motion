@@ -27,3 +27,7 @@ Supporting choices:
 
 ## Revisit when
 The catalog steps (6 to 10) drag on and the developer's focus on ingestion is lost. Then consider pulling ingestion earlier.
+
+## Note (2026-09-24, between Steps 5 and 6)
+
+Step 15 and Phase 1F were extended by [0012](0012-keyword-baseline-and-query-rewriting.md): Step 15 now compares keyword-only, semantic-only, and combined retrieval on the same questions, and Phase 1F adds a query-rewriting experiment. The step order in this record is unchanged.

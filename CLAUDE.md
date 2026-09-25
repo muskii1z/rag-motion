@@ -31,12 +31,12 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 12 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | |
 | 13 | Chunking: split into passages, store in a second table with metadata | |
 | 14 | Embed chunks, search exercises + documents together, answers cite both | |
-| 15 | Evaluation set: own scoring script first, then viewed in LangSmith | |
+| 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | |
 | 16 | FastAPI endpoint, tests, README | |
 
 Update the Status column as steps complete.
 
-**After Step 16: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic), and reranking one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
+**After Step 16: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic, run separately and merged), reranking, and query rewriting (an LLM rewrites the question before search, using a glossary of exercise abbreviations like RDL, BSS, SL RDL, KB) one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
 
 ## Stack decisions (see docs/decisions/ for the reasoning)
 

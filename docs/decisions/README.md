@@ -12,4 +12,5 @@ One file per real decision, numbered in order. Each records the context, options
 - [0008. Documentation with a build-scribe subagent](0008-documentation-build-scribe.md) (Step 0)
 - [0009. Local database on port 5434, bound to 127.0.0.1](0009-local-db-port-5434-localhost-only.md) (Step 3)
 - [0010. Exercise table: metadata columns with CHECK constraints](0010-exercise-table-check-constraints.md) (Step 4, note on the mirrored Pydantic lists added in Step 5)
-- [0011. Phase 1 plan revision: ingestion and LangSmith get concrete steps](0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Step 5)
+- [0011. Phase 1 plan revision: ingestion and LangSmith get concrete steps](0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Step 5, Step 15 and Phase 1F scope extended by 0012)
+- [0012. Evaluate keyword search as a baseline; add query rewriting to Phase 1F](0012-keyword-baseline-and-query-rewriting.md) (between Steps 5 and 6)

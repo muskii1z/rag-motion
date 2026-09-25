@@ -25,7 +25,11 @@ OpenRouter is a service that sits between your code and many LLM providers. With
 
 **In an interview:** "I routed LLM calls through OpenRouter so I could swap and compare models with one key. The cost is a middleman and uneven structured-output support across models, so I check that the model I pick can return the exact shape I need."
 
-*First seen: Step 5.*
+*Between Steps 5 and 6 update: one key, many models.* The developer asked how to pick a model "for the key". You don't: one OpenRouter key works with every model. The model is chosen in the code, on each request, with an ID like `"provider/model-name"`. Switching models is a one-line change, and the evaluation step can run the same questions against several models. The model for Step 6 will be picked from OpenRouter's live model list by price, speed, and structured-output support. The key itself was checked with OpenRouter's key-info endpoint (`GET https://openrouter.ai/api/v1/key`), which reports the key's spending limit and usage without calling any model, so the check costs nothing. Result: key accepted, limit $10, usage $0. See [API key hygiene](#api-key-hygiene).
+
+**In an interview:** "With OpenRouter the key isn't tied to a model. The model is a string in each request, so comparing models is a config change, not a new integration. I validated the key with a free metadata endpoint before spending anything."
+
+*First seen: Step 5. Extended: between Steps 5 and 6.*
 
 ---
 
@@ -52,14 +56,20 @@ Keyword search finds rows that contain the actual words in the question. Using t
 
 **In an interview:** "Keyword search is precise on exact terms like exercise names and abbreviations, but it's blind to synonyms. Postgres has it built in as full-text search, so it needs no extra service."
 
-*First seen: between Steps 2 and 3.*
+*Between Steps 5 and 6 update: BM25 and Postgres full-text search.* BM25 is the standard formula search engines use to rank keyword matches. Roughly, a text scores higher when it contains the question's words more often, when those words are rare across the whole collection (so "RDL" counts for more than "exercise"), with an adjustment so long texts don't win just by being long. Postgres full-text search is the built-in keyword search this project will use for the same job. It stores a `tsvector` for each row: a preprocessed list of the row's words, reduced to their base form (so "squats" and "squat" match). Its default ranking is simpler than BM25 but serves the same purpose. The article reviewed between Steps 5 and 6 argued teams should start with keyword search and add embeddings only when needed. Rather than assume either way, Step 15 now measures keyword-only, semantic-only, and combined search on the same questions. Planned implementation: a full-text index over name and description, and a `keyword_search()` function next to the semantic one. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+**In an interview:** "BM25 is the classic keyword-ranking formula, and Postgres full-text search gives me the same kind of keyword search in the database I already use. I measure keyword-only as a baseline, so any claim that embeddings help comes with a number."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
 
 ### Semantic search
 Semantic search compares [embeddings](#embedding) instead of words, using [pgvector](#pgvector) inside the database. It matches by meaning, so "hip hinge" can find "Romanian deadlift" even with no words in common. Its weak spot is exact terms: "RDL" is just three letters to the embedding model, so it may rank loosely related exercises above the one literally named "Dumbbell RDL".
 
 **In an interview:** "Semantic search handles paraphrases, like 'hip hinge' finding Romanian deadlifts, but it's fuzzy on exact names and abbreviations. That's the gap keyword search fills."
 
-*First seen: between Steps 2 and 3.*
+*Between Steps 5 and 6 update: coaching jargon.* Coaches write in abbreviations: RDL, BSS, SL RDL, Pallof. A general-purpose embedding model was trained on general text and may not know that BSS means Bulgarian split squat, so a question written in coach shorthand can land far from the right exercise. Two planned counters: keyword search (measured at Step 15) and [query rewriting](#query-rewriting) with a glossary (Phase 1F).
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
 
 ### Metadata filtering
 Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
@@ -79,7 +89,9 @@ Hybrid search runs [keyword search](#keyword-search) and [semantic search](#sema
 
 **In an interview:** "Hybrid search means running keyword and vector search together and merging the rankings. Keyword catches exact exercise names, vectors catch paraphrases, and in Postgres both can run against the same table."
 
-*First seen: between Steps 2 and 3.*
+*Between Steps 5 and 6 update:* Not every "hybrid" is built this way. Some designs run keyword search first and only reorder its results with embeddings, which can't recover anything keyword search missed. This project plans the parallel version. See [Retrieve-then-rerank vs parallel hybrid](#retrieve-then-rerank-vs-parallel-hybrid).
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
 
 ### Reranking
 Reranking is a second stage after retrieval. First, retrieve a wide set of candidates (say the top 20). Then a second, more careful model reorders them and the best 5 are kept. It is slower but more accurate, which is why it only runs on a short list. Voyage AI sells reranking models, so this could stay with a provider the project already uses. It is the only part of the production-style pipeline that needs a model outside Postgres.
@@ -106,7 +118,21 @@ The reason is measurement. Step 15 (originally Step 11) builds an evaluation set
 
 *Step 5 update: renumbered.* The plan changed in [Step 5](build-log.md#step-5-write-20-exercises-seed-script-query-by-hand). The evaluation set moved from Step 11 to **Step 15**, after document ingestion (Steps 12 to 14), so the baseline measures the whole system (exercises plus documents), not just the catalog. Phase 1F now comes after **Step 16**. LangSmith tracing is added at Step 11, between basic RAG and ingestion. The LLM at the end of the pipeline is no longer assumed to be Claude; see [OpenRouter](#openrouter). See [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
 
-*First seen: between Steps 2 and 3. Extended: Step 5.*
+*Between Steps 5 and 6 update: keyword baseline and query rewriting.* After reviewing an article that argues most teams over-engineer RAG, two changes were approved. (1) Step 15 now scores three retrieval modes on the same questions: keyword only (Postgres full-text search), semantic only (pgvector), and both combined. So the value of embeddings is measured on this data, not assumed. (2) Phase 1F adds [query rewriting](#query-rewriting) as a fourth experiment, next to metadata filters, hybrid search, and reranking. Updated plan:
+
+```
+Step 15 baseline (three modes, same questions):
+  keyword only | semantic only | keyword + semantic merged
+
+Phase 1F experiments, one at a time, each rerun against the baseline:
+  metadata filters, hybrid search, reranking, query rewriting (LLM + abbreviation glossary)
+```
+
+See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+**In an interview:** "I don't assume embeddings beat keyword search. My eval baseline compares keyword-only, vector-only, and combined on the same questions, and every later technique, including LLM query rewriting, has to beat that baseline to stay."
+
+*First seen: between Steps 2 and 3. Extended: Step 5, between Steps 5 and 6.*
 
 ### Stale embeddings
 An embedding is computed from a piece of text at one moment. If the text is later edited but the embedding isn't recomputed, the vector still describes the old text. Search then matches the old meaning, and nothing reports an error. The seed script guards against this: when an exercise's content changes, the upsert sets `embedding = NULL`. A missing vector is visible and easy to find (`WHERE embedding IS NULL`), so the embedding step (Step 8) can recompute exactly those rows. A wrong vector would be invisible.
@@ -114,6 +140,34 @@ An embedding is computed from a piece of text at one moment. If the text is late
 **In an interview:** "Embeddings go stale when the source text changes. My seed script clears an exercise's vector whenever its content changes, so a missing embedding gets recomputed instead of a wrong one silently staying in the index."
 
 *First seen: Step 5.*
+
+### Query rewriting
+Query rewriting means an LLM rewrites the user's question into better search terms before the search runs. People ask conversationally and in shorthand; the search works better on clear, explicit terms. With a small glossary of exercise abbreviations in the prompt (RDL = Romanian deadlift, BSS = Bulgarian split squat, SL RDL = single-leg RDL, KB = kettlebell), "BSS alternatives with a KB" could become a search for Bulgarian split squat alternatives using a kettlebell. It is cheap to improve: you edit a prompt, you don't re-index the data. The cost is one extra LLM call per question, which adds time and a small charge. Planned as a Phase 1F experiment, measured against the Step 15 baseline. Not built yet. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+**In an interview:** "Coaches write in abbreviations that a general embedding model may not understand, so I planned an LLM query-rewriting step with an abbreviation glossary. It's tuned by editing a prompt instead of re-embedding the catalog, and it only stays if it beats the eval baseline."
+
+*First seen: between Steps 5 and 6.*
+
+### Query decomposition (multi-intent questions)
+A multi-intent question asks for several things at once. "Explosive lower-body program to run faster" is really several searches: power training principles, jump exercises, single-leg strength, and how to progress. One embedding of the whole question blends those meanings together and may retrieve a bit of each and not enough of any. Query decomposition means splitting the question into sub-questions, searching for each one separately, and combining the results. This fits Phase 2, where an agent builds whole programs. Not built yet.
+
+**In an interview:** "A request like 'explosive lower-body program to run faster' is four searches in disguise. Splitting it into sub-queries for principles, jumps, single-leg strength, and progression retrieves better evidence than one blended search."
+
+*First seen: between Steps 5 and 6.*
+
+### Retrieve-then-rerank vs parallel hybrid
+There are two ways to combine keyword and semantic search. **Retrieve-then-rerank (keyword first):** keyword search picks a shortlist (say 50 candidates), then embeddings reorder only that shortlist. Its hole: keyword search misses synonyms, so an exercise that doesn't share the question's words (a question about "hip hinge" when the text only says "Romanian deadlift") never reaches the shortlist, and the embedding step can't bring it back. **Parallel hybrid:** run keyword search and semantic search separately over all rows, then merge the two ranked lists, so each search can contribute results the other missed. This project plans the parallel version for Phase 1F. The hole was spotted while reviewing the article "RAG Is Simpler Than You Think", whose "hybrid" recipe is keyword-first.
+
+**In an interview:** "If keyword search picks the candidates and embeddings only reorder them, you inherit keyword search's blind spot for synonyms. I run both searches independently and merge the lists, so semantic search can surface things keyword search never found."
+
+*First seen: between Steps 5 and 6.*
+
+### On-the-fly vs pre-computed embeddings
+**Pre-computed:** embed every exercise or chunk once, ahead of time, and store the vectors in the database (Step 8's plan). Search is fast because the vectors already exist. The costs: vectors can go [stale](#stale-embeddings) when text changes, and switching embedding models means re-embedding everything. **On-the-fly:** store no vectors; at question time, find candidates another way (for example keyword search) and embed only those. Always fresh, and switching models needs no re-indexing, but every question pays for embedding its candidates, which is slower. Re-embedding millions of documents is a real project; re-embedding this project's catalog means re-running one script. For small, stable data, pre-computed fits. The article reviewed between Steps 5 and 6 overstated the pain of pre-computing ("needs an ML team"), which is true at 10 million documents but not here.
+
+**In an interview:** "Pre-computing embeddings trades freshness and easy model switching for fast search. With a small, stable catalog, re-embedding everything is one script run, so pre-computing is the obvious choice. At tens of millions of fast-changing documents I'd weigh embedding at query time more seriously."
+
+*First seen: between Steps 5 and 6.*
 
 ---
 
@@ -312,6 +366,13 @@ pip (installs libraries) and venv (creates virtual environments) ship with Pytho
 **In an interview:** "I chose uv over pip and venv because it's one tool, it's fast, and it produces a lockfile automatically, with a standard pyproject.toml."
 
 *First seen: Step 0.*
+
+### SSL certificate errors on python.org Python
+SSL (the "S" in https) is how a program confirms a website is really who it claims to be: it checks the site's certificate against a list of trusted certificate authorities. Python installed from python.org on a Mac doesn't set up that list until you run its one-time "Install Certificates" setup. Until then, Python's built-in web tool (`urllib`) fails with `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate`. Libraries such as `requests` ship their own list (the `certifi` package), so they work anyway, and so do the model SDKs this project uses. Between Steps 5 and 6 we hit this while validating the OpenRouter key, switched to `requests`, and left the global Python alone, because changing it affects every project on the Mac.
+
+**In an interview:** "When urllib threw a certificate error, I traced it to the python.org installer's missing certificate setup. The project's own libraries bundle certificates, so I used requests rather than changing the system Python for every project on the machine."
+
+*First seen: between Steps 5 and 6.*
 
 ---
 
@@ -586,6 +647,13 @@ A network interface is one of the ways a computer is connected (for example, the
 **In an interview:** "Even locally, I bind the database port to 127.0.0.1, so it isn't exposed to the network. The dev password in the compose file is only acceptable because of that; in production it would come from a secret manager."
 
 *First seen: Step 3.*
+
+### API key hygiene
+The habits that keep API keys safe. Keys live only in `.env` ([git-ignored](#why-env-stays-out-of-git)), pasted right after the `=` with no quotes or spaces. Never paste a key into a chat (including with an AI assistant), a screenshot, or any other file. Checks that a key is set print only whether it is present, its length, and format problems, never the key. Copy a new key as soon as it is created. A spending limit on the key is a safety net: if a bug, such as a loop calling the model over and over, burns through the limit, calls fail with an error and nothing is charged beyond it. Between Steps 5 and 6 the OpenRouter key, named `rag-motion`, was checked this way: 73 characters, `sk-or-` prefix, limit $10, usage $0. The plan is to raise the limit only in Phase 1F, when the eval is rerun often, with a cost estimate before any step that makes many calls.
+
+**In an interview:** "Keys only ever go into a git-ignored .env, never into chat or screenshots, and my key checks print length and format, not the value. Each key has a spending limit, so a runaway loop fails with an error instead of running up a bill."
+
+*First seen: between Steps 5 and 6.*
 
 ---
 
