@@ -1,0 +1,25 @@
+# Source manifest: every external document the knowledge base ingests.
+#
+# This file is committed; the documents themselves are downloaded into data/raw/ (git-ignored).
+# Licensing policy: docs/decisions/0017-knowledge-source-licensing-policy.md
+#   group A = public domain / OGL / CC BY: ingest and commit processed text with attribution
+#   group B = NC or share-alike: ingest with per-chunk license tags
+#   group C = no-derivatives: local only or skip
+#   group D = all rights reserved: never ingested; original notes only
+#
+# sha256 pins the exact file we processed, so a changed upstream file is detected.
+
+[[source]]
+id = "pag2"
+title = "Physical Activity Guidelines for Americans, 2nd edition"
+publisher = "U.S. Department of Health and Human Services (ODPHP)"
+year = 2018
+url = "https://odphp.health.gov/sites/default/files/2019-09/Physical_Activity_Guidelines_2nd_edition.pdf"
+landing_page = "https://odphp.health.gov/our-work/nutrition-physical-activity/physical-activity-guidelines/current-guidelines"
+license = "Public domain (U.S. federal government work)"
+license_group = "A"
+license_evidence = "ODPHP copyright policy: information on odphp.health.gov 'is in the public domain' and 'may be freely distributed and copied'; link and acknowledgment requested. https://odphp.health.gov/copyright-policy"
+attribution = "U.S. Department of Health and Human Services. Physical Activity Guidelines for Americans, 2nd edition. Washington, DC: HHS; 2018. Text extracted and chunked for this project."
+local_path = "data/raw/Physical_Activity_Guidelines_2nd_edition.pdf"
+sha256 = "0147d4dfc5ae76613a8b8d9d1c95244477527989f1d841845866ae5b5340cda5"
+retrieved = "2026-09-25"
