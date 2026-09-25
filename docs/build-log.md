@@ -1757,7 +1757,7 @@ The NSCA text was extracted with poppler's `pdftotext`; exact commands not recor
 - Numeric grid tables have not been examined; none were checked in this document.
 - The PDF is tagged (has structure labels), but the cleaning doesn't use the tags. Could they replace some of the heuristics? Not discussed.
 - How many true split words now carry a stray hyphen ("cardio-respiratory")? Not counted.
-- Will the chapter title pages and `## ` headings become chunk boundaries in Step 12? Likely, not decided.
+- Will the chapter title pages and `## ` headings become chunk boundaries in Step 12? Likely, not decided. *Resolved in [Step 12](#step-12-chunking-split-sources-into-passages-and-store-them-in-a-second-table-with-metadata): yes, headings are the split points, and "Chapter N.", "Appendix N.", and "Glossary" mark chapters.*
 - Small repo inconsistency: the docstring in `scripts/extract_document.py` says `--show 25` prints "page 25's raw text", but the option prints the cleaned text. *Fixed in `c698571`.*
 - PyMuPDF's AGPL license needs a review before any closed commercial use.
 - The NSCA notes (`data/notes/nsca/`, currently untracked) are still being written and will get their own entry. *Done: see [NSCA coaching notes](#nsca-coaching-notes-written-from-local-text-alongside-step-11).*
@@ -1826,7 +1826,7 @@ The NSCA text was extracted with poppler's `pdftotext`; exact commands not recor
 - Which option covers the four uncovered topics?
 - The DOIs are unconfirmed against the text. Check them against the publisher or Crossref?
 - [0017](decisions/0017-knowledge-source-licensing-policy.md)'s group D line still says "Claude does not rewrite or closely paraphrase these texts into notes". These notes are AI-drafted original syntheses. Should that wording be amended? (Open since [before Step 11](#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination).)
-- The notes are not in `data/sources.toml`. How they are registered and chunked for ingestion (they are Markdown, not PDF) is not decided.
+- The notes are not in `data/sources.toml`. How they are registered and chunked for ingestion (they are Markdown, not PDF) is not decided. *Resolved in [Step 12](#step-12-chunking-split-sources-into-passages-and-store-them-in-a-second-table-with-metadata): registered with `type = "notes"` and chunked by their Markdown headings.*
 - Small inconsistency: the youth note's Sources section omits the DOIs (they are in its frontmatter); the other two notes list them in both places.
 - The overlap threshold was 8 words. Is that the right line? Not discussed.
 
@@ -1839,3 +1839,126 @@ The NSCA text was extracted with poppler's `pdftotext`; exact commands not recor
 
 **Decisions.**
 - None new. Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (notes written and verified; group D wording still open).
+
+## Step 12: Chunking: split sources into passages and store them in a second table with metadata
+**Date:** 2026-09-25 · **Commit:** `af95485` feat: structure-aware chunking into a document_chunk table (this docs update is committed and pushed right after)
+
+**Goal.** Turn the extracted Physical Activity Guidelines and the three NSCA notes into retrieval-sized chunks with full provenance (a record of where each chunk came from).
+
+### Before we started: two developer questions
+1. **"So we do have real docs, not notes, right?"** One real document so far: the Physical Activity Guidelines for Americans, its actual full text (public domain). The NSCA material is notes: our own summaries of about 1,100 words each, citing NSCA, because NSCA's text is copyrighted. So answers drawn from the Guidelines cite the real source; answers drawn from NSCA material cite our notes, which point back to NSCA. More real documents from license group A (free to reuse) are ready to add once chunking works: the US Army's ATP 7-22.02 drills, CC BY research papers (plyometrics, sprinting, stretching, weightlifting, nutrition), and the CC BY textbook *Introduction to Exercise Science for Fitness Professionals*. See [Content licensing in RAG](concepts.md#content-licensing-in-rag) (extended).
+2. **"What's the system for chunking? 300 words, section by section, 800 words?"** Claude compared four approaches ([Chunking approaches](concepts.md#chunking-approaches-fixed-size-section-structure-aware-semantic)):
+   - **Fixed size** (for example 300 or 800 words), often with overlap (repeating the end of one chunk at the start of the next). Simple, but cuts mid-sentence and mixes topics.
+   - **Section by section.** One topic per chunk, but sizes vary wildly.
+   - **Structure-aware with size limits.** Split at headings, merge tiny sections, split huge ones at paragraph breaks.
+   - **Semantic.** Embed every sentence and split where the meaning shifts. Adapts to the text, but costs an embedding call per sentence, is harder to debug, and usually gives only a small gain.
+
+   Why size matters: too small loses context ("2 or more days a week" of what?); too large blurs the embedding into an average and fills the prompt ([Chunk size](concepts.md#chunk-size-too-small-vs-too-large)).
+
+   Then Claude measured the Guidelines' own section sizes ([Measure the corpus first](concepts.md#measure-the-corpus-before-choosing-parameters)):
+
+   | Section size | Sections |
+   |---|---|
+   | under 50 words | 54 (including infographic scraps like "YOUR WAY" and a lone "2") |
+   | 50–150 | 106 |
+   | 150–300 | 71 |
+   | 300–600 | 23 |
+   | over 600 | 2 (Glossary 1,341 words; the "Anytown, USA" case study 905) |
+
+   256 sections with text, median 116 words. So pure section-by-section chunking would produce many useless fragments, and pure fixed-size would blend topics.
+
+   The developer asked again, "so what is the suggested way?" Short answer: structure-aware with size limits. The industry default is fixed-size, about 500–1,000 tokens with 10–20% overlap; the structure-aware version is the common upgrade for documents with clear headings. Plain fixed-size is kept as a comparison for the Step 15 evaluation. Developer: "ok go build step 12".
+
+### The design (as agreed)
+- Split at headings. Never cross a chapter.
+- Merge small neighboring sections within a chapter until about 150 words.
+- Split sections over about 450 words at paragraph breaks (sentence breaks if one paragraph is too long). Never mid-sentence.
+- No overlap. Instead, each chunk carries a "title > chapter > sections" label that is embedded with it ([Contextual labels instead of overlap](concepts.md#contextual-labels-instead-of-overlap)).
+- Skip junk: table of contents, credits, the infographic, the agency directory, and fragments under 4 words.
+- Store metadata: source, type, chapter, headings, pages, license, word count, and chunker settings.
+- The numbers are a first guess. Step 15 compares variants. See [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md).
+
+### What we did
+- **Defined chapters and noise from the Guidelines' headings.** "Chapter N.", "Appendix N.", and "Glossary" are chapter-level. Everything before Chapter 1 is "Front matter and summary". Noise pages: 2 (inside cover), 3 (table of contents), 4–5 (authors and acknowledgments), 11 (infographic, which extracts as scraps), and 113–117 (Appendix 2, a directory of federal agency programs and websites).
+- **`data/sources.toml` (the manifest).**
+  - `pag2` gains `type = "document"` and `skip_pages = [2, 3, 4, 5, 11, 113, 114, 115, 116, 117]`. Document-specific settings live in the manifest, not hidden in code.
+  - The three NSCA notes are registered as sources with `type = "notes"`, license "Original project notes. Summarize ideas from the cited NSCA position statement(s); no text copied.", `license_group = "A"`, and an attribution line naming the position statement(s) with journal citations. Notes have no URL or SHA-256, because they are edited over time.
+- **`src/ragmotion/ingestion.py`:** `Source` gains `type`, optional `url` and `sha256`, and `skip_pages`. `verify_file()` skips the hash check for notes.
+- **`uv add pyyaml`.** Installed nothing new: PyYAML was already present as a dependency of another library. It is now declared directly because our code imports it (to read the notes' YAML frontmatter). Rule: declare what you import. See [Transitive dependencies](concepts.md#transitive-dependencies) (extended).
+- **`db/schema.sql`: a new `document_chunk` table** (applied to the database). Kept separate from `exercise`, because exercises are structured records and chunks are prose passages. Columns:
+  - Provenance: `source_id`, `source_type` (`document` or `notes`), `source_title`, `source_url`, `license`, `license_group` with `CHECK (license_group IN ('A', 'B', 'C'))`, so group D can never be stored.
+  - Position, for citations: `chunk_index`, `chapter`, `headings` (a `text[]` list), `page_start`, `page_end` (null for notes).
+  - Text: `text` (shown to the LLM and the user) and `embed_text` (label + text: exactly what gets embedded).
+  - `word_count` (must be > 0) and `chunker` (method + settings, so variants can coexist).
+  - `embedding vector(1024)` and `embedding_model`, filled in Step 13.
+  - `created_at`, and `UNIQUE (source_id, chunker, chunk_index)`.
+- **`src/ragmotion/chunking.py`:**
+  - Constants `MIN_WORDS = 150`, `MAX_WORDS = 450`, `MIN_PARAGRAPH_WORDS = 4`. `chunker_label()` returns `structure-v1(min=150,max=450)`.
+  - `pdf_blocks()` reads Step 11's `pages.jsonl`, skipping `skip_pages`.
+  - `note_blocks()` reads Markdown: `# ` is chapter-level, `## ` is a section. It validates the YAML frontmatter (fails loudly if it's broken).
+  - `build_sections()` groups blocks into sections within chapters.
+  - `pack()` groups paragraphs into chunks. A leftover under `MIN_WORDS` is merged into the previous chunk if it's in the same chapter and still fits. Oversized sections go through `_split_long()`; a tiny tail piece is folded into the piece before it, which can slightly exceed `MAX_WORDS`.
+  - `embed_text_for()` builds the label + text.
+  - The notes' "Sources" and "Not covered by these sources" sections are not chunked.
+- **`scripts/chunk_documents.py [source_ids] [--show N]`:** chunks each source, then deletes and re-inserts that source's rows for the current chunker in one transaction. That makes it [idempotent](concepts.md#idempotent-script) (safe to re-run), and it also clears those rows' embeddings, which Step 13 recomputes. It refuses license groups outside A–C, prints stats, and optionally prints example chunks.
+- **`db/queries/chunks.sql`:** saved inspection queries: chunks per source with their size range, and the labels for one chapter.
+- **`CLAUDE.md`:** Step 12 marked done, Step 13 next. The stack line now mentions chunking and that NSCA enters only as notes.
+
+**Commands.**
+```bash
+uv add pyyaml
+# Installed nothing new (PyYAML was already a transitive dependency);
+# added it to pyproject.toml as a direct dependency ("pyyaml>=6.0.3").
+
+# Applied the new table from db/schema.sql (exact command not recorded;
+# Step 4's form is:)
+docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 < db/schema.sql
+
+uv run python scripts/chunk_documents.py
+# Chunks every source in the manifest. Prints "Chunker: structure-v1(min=150,max=450)",
+# one stats line per source (chunks, min/median/max words, total), then
+# "In the database: document: 133 chunks / 37,173 words, notes: 14 chunks / 3,250 words".
+# Run twice: identical counts (rows replaced, not duplicated).
+
+uv run python scripts/chunk_documents.py --show N
+# Also prints chunk N of each source with its label (used for inspection).
+
+docker compose exec -T db psql -U postgres -d ragmotion < db/queries/chunks.sql
+# Chunks per source with size range; labels for Chapter 4.
+```
+The exact arguments used during inspection were not recorded. The section-size measurement before building was an exploratory run; its command was not recorded either.
+
+**What we saw.**
+
+| Source | Chunks | Words min / median / max | Total words |
+|---|---|---|---|
+| Physical Activity Guidelines (`pag2`) | 133 | 83 / 253 / 519 | 37,173 |
+| Weightlifting notes | 4 | 211 / 276 / 297 | 1,059 |
+| Older adults notes | 5 | 181 / 198 / 274 | 1,054 |
+| Youth / LTAD notes | 5 | 160 / 230 / 322 | 1,137 |
+
+- Database: document 133 chunks / 37,173 words; notes 14 chunks / 3,250 words. A rerun gave identical counts.
+- **Accounting for what was removed.** Guidelines: 40,287 cleaned words became 37,173 chunked words. The difference is the skipped pages and dropped scraps. See [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed) (extended).
+- **Outside the bounds:** 3 chunks under 150 words (a short section at a chapter end with nothing to merge with) and 7 over 450 (heading lines inside a chunk add words, and the tiny-tail fold-in can push past the limit; max 519).
+- **A good chunk: #57** (Chapter 4, page 56, 382 words), label "Physical Activity Guidelines for Americans, 2nd edition > Chapter 4. Active Adults > Key Guidelines for Adults". Exactly one topic: the key adult guidelines plus their explanation. A question like "how much strength training should adults do?" can match it and be cited as Chapter 4, page 56.
+- **The smallest: #33** (83 words, page 35). A figure caption ("Figure 2-1. Relationship of Moderate-to-Vigorous Physical Activity to All-Cause Mortality") plus its source line. The chart's data is drawn as graphics, so only the caption survived. Harmless but low value. See [Figures and charts lost in extraction](concepts.md#figures-and-charts-lost-in-extraction).
+- **The largest: #122** (519 words, page 103). The "Anytown, USA" community case study, one long narrative.
+
+**Problems and fixes.**
+- **`pack()` lost page numbers.** The first version rebuilt the previous chunk from its own text when merging a leftover into it, which dropped the page numbers. Claude replaced it with a simpler design: each chunk stays a list of paragraphs (each with its page) until the very end, and `Chunk` objects are built only then.
+- **Note labels repeated the title.** Labels first read "Notes: Resistance Training for Older Adults > Resistance Training for Older Adults > ...", because a note's `# Title` is both the source title and its top heading. Fix in `embed_text_for()`: skip the chapter when it's contained in the source title. Rechunked. Labels now read, for example, "Notes: Resistance Training for Older Adults > Programming guidelines".
+- **Known, not fixed: Appendix 1 heading order.** On page 108, some Appendix 1 subsection headings come before the "Appendix 1." heading in reading order, so a few Appendix 1 subsections may be assigned to the previous chapter (Glossary). Worth checking if appendix questions retrieve oddly.
+
+**Open questions.**
+- Are 150 and 450 the right limits? First guess; Step 15 compares variants, including plain fixed-size.
+- Figure-caption chunks like #33: keep, drop, or merge? Not decided.
+- Will the heading rules fit the next documents (research papers, drill manuals)? Untested.
+- Developer review of the NSCA notes is still pending ([NSCA notes entry](#nsca-coaching-notes-written-from-local-text-alongside-step-11)); their chunks are now in the table as they are.
+
+**Learned.**
+- New: [Chunking approaches](concepts.md#chunking-approaches-fixed-size-section-structure-aware-semantic), [Chunk size: too small vs too large](concepts.md#chunk-size-too-small-vs-too-large), [Structure-aware chunking with size limits](concepts.md#structure-aware-chunking-with-size-limits), [Contextual labels instead of overlap](concepts.md#contextual-labels-instead-of-overlap), [Measure the corpus before choosing parameters](concepts.md#measure-the-corpus-before-choosing-parameters), [Figures and charts lost in extraction](concepts.md#figures-and-charts-lost-in-extraction), [Chunker version on every row](concepts.md#chunker-version-on-every-row)
+- Extended: [Chunking](concepts.md#chunking) (built), [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) (chunk metadata built; notes registered), [Content licensing in RAG](concepts.md#content-licensing-in-rag) (real document vs notes), [What text to embed](concepts.md#what-text-to-embed-document-representation) (`embed_text` for chunks), [Idempotent script](concepts.md#idempotent-script) (delete + insert per source and chunker), [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed) (40,287 → 37,173), [Transitive dependencies](concepts.md#transitive-dependencies) (declare what you import), [What each library is for](concepts.md#what-each-library-is-for) (pyyaml)
+
+**Decisions.**
+- New: [0019. Structure-aware chunking with size limits (150–450 words), contextual labels, no overlap](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)
+- Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (notes registered in the manifest; license group enforced on chunks), [0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md) (headings now drive chunk boundaries; `skip_pages`)

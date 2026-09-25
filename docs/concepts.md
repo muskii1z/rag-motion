@@ -364,7 +364,9 @@ An embedding only knows the text it was given, so choosing what text represents 
 
 **In an interview:** "What you embed is a design decision, not a given. I embed the name, the description, and labeled facts like equipment and difficulty, but not the coaching cues. The labels help questions about equipment match, but they also pull same-equipment exercises together, so the eval compares that against description-only."
 
-*First seen: Step 8.*
+*Step 12 update: document chunks.* For chunks, the embedded text is a location label plus the passage: "title > chapter > sections", a blank line, then the chunk text. It's stored separately as `embed_text`, while `text` (without the label) is what the LLM and user see. Same principle as the exercises: decide deliberately what the vector should represent. See [Contextual labels instead of overlap](#contextual-labels-instead-of-overlap).
+
+*First seen: Step 8. Extended: Step 12.*
 
 ### Batch embedding
 Sending many texts to the embedding model in one API call instead of one call per text. In Step 8, all 20 exercise texts went in a single `embed_documents()` call. Fewer calls means less waiting on the network and fewer chances to hit rate limits (a provider's cap on how many requests you may send per minute). The code sorts results by their `index` and checks there is one vector per text, so each vector is stored against the right exercise. At much larger scale, texts would be sent in chunks, because providers cap how many texts or tokens one call may carry.
@@ -488,7 +490,11 @@ Chunking means splitting long documents into passages of a few paragraphs each, 
 
 *Step 11 update: the input to chunking exists.* The Physical Activity Guidelines are extracted into `data/raw/pag2/pages.jsonl`: 118 pages of cleaned text with paragraphs separated by blank lines, 264 `## ` headings, and each page's `pdf_page` and printed `page_label`, so a chunk can cite "page 56". Two of the failure points named in Step 5 were dealt with before chunking: garbled text (footers, broken lines, hyphens; see [Document ingestion](#document-ingestion)) and lost page metadata. Possible chunk boundaries: headings, and the 10 nearly empty chapter title pages. Not decided yet.
 
-*First seen: Step 4. Extended: Step 5, after Step 10, Step 11.*
+*Step 12 update: built.* The Physical Activity Guidelines became 133 chunks (83 to 519 words, median 253, 37,173 words in total) and the three NSCA notes 14 chunks (3,250 words), stored in a new `document_chunk` table, separate from `exercise` because exercises are structured records and chunks are prose passages. The method is [structure-aware with size limits](#structure-aware-chunking-with-size-limits), chosen from [four approaches](#chunking-approaches-fixed-size-section-structure-aware-semantic) after [measuring the document's section sizes](#measure-the-corpus-before-choosing-parameters). Each chunk carries a [location label](#contextual-labels-instead-of-overlap) instead of overlap, and records [which chunker made it](#chunker-version-on-every-row). Three of the failure points named in Step 5 are now handled: chunks cut mid-sentence (splits happen only at paragraph or sentence breaks), sizes too big or too small (a 150–450-word band, with 10 of 133 chunks outside it: 3 short, 7 slightly long), and lost metadata (source, chapter, headings, pages, and license on every row). The chunks have no embeddings yet (Step 13). See [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md).
+
+**In an interview (with evidence):** "I chunk at headings with a 150-to-450-word band, never across chapters and never mid-sentence. The Guidelines became 133 chunks with a median of 253 words, each tagged with its chapter, section, pages, and license, so an answer can cite 'Chapter 4, page 56'."
+
+*First seen: Step 4. Extended: Step 5, after Step 10, Step 11, Step 12.*
 
 ### Content licensing in RAG
 Whatever text you ingest into a RAG system ends up stored in your database, and possibly in your repo. Copyrighted textbooks, such as NASM's materials or the NSCA's *Essentials of Strength Training and Conditioning*, can't go into a repo meant to become a public portfolio. Three options came up in Step 4: (a) write your own notes summarizing principles in your own words, citing the original source for each, and ingest the notes; (b) use openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) or open-access research papers; (c) keep copyrighted material local only, out of git and unpublished, which is fine for learning but can't be shown. This matches the master context document's rule: only use content we have permission to use or redistribute. No source has been chosen yet.
@@ -521,7 +527,9 @@ The practical legal risk to a small project is small, but the portfolio signal i
 
 *NSCA notes update: the notes exist.* Three original notes are committed in `data/notes/nsca/` (weightlifting, older adults, youth and LTAD). Each carries frontmatter with an honest `author` line ("Drafted with AI assistance from NSCA public materials; pending review by M. Saraswat"), a `license` line ("Original notes (project-owned)..."), and full source citations. No tables or figures were recreated, quotes are short and marked, and clinical content was left out to keep them non-medical. A [verbatim-overlap check](#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) confirmed the wording is original. See the [build log](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11).
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11).*
+*Step 12 update: real document vs notes.* The developer asked, "So we do have real docs, not notes, right?" One real document so far: the Physical Activity Guidelines, its actual full text (public domain). The NSCA material is our own notes, about 1,100 words each, citing NSCA. So answers from the Guidelines cite the real source, and answers from NSCA material cite our notes, which point back to NSCA. In the database this shows as `source_type` = `document` or `notes` on every chunk. The notes are registered in the manifest as license group A (project-owned original text), while NSCA's own statements stay group D and are never stored; the `document_chunk` table rejects any group outside A–C. More group A documents are ready once chunking works: the US Army's ATP 7-22.02 drills, CC BY research papers (plyometrics, sprinting, stretching, weightlifting, nutrition), and the CC BY textbook *Introduction to Exercise Science for Fitness Professionals*.
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11), Step 12.*
 
 ### Source manifest and provenance fields on chunks
 A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
@@ -532,7 +540,11 @@ A source manifest is a small committed file listing every document the system in
 
 **In an interview (with evidence):** "Each document has a manifest entry with its license, the evidence for that license, the attribution, and a SHA-256 of the exact file. The raw PDF isn't in git, but anyone can rebuild the data from the manifest and the script, and the hash check proves they got the same file."
 
-*First seen: before Step 11. Extended: Step 11.*
+*Step 12 update: provenance on every chunk.* The `document_chunk` table stores, per chunk: `source_id`, `source_type` (document or notes), `source_title`, `source_url`, `license`, and `license_group` (with a CHECK allowing only A, B, C), plus position for citations: `chapter`, `headings`, `page_start`, `page_end` (null for notes). The manifest grew too: `type`, and a per-document `skip_pages` list (pages that are noise for retrieval, such as the table of contents), so document-specific settings live in the manifest instead of in code. The three NSCA notes are now manifest entries with no URL or SHA-256, since they are edited over time; the fingerprint check skips them.
+
+**In an interview (with evidence):** "Every chunk row carries its source, license, license group, chapter, section headings, and page range. That gives me 'Chapter 4, page 56' citations for free, and the database itself refuses any chunk from a license group I've ruled out."
+
+*First seen: before Step 11. Extended: Steps 11 and 12.*
 
 ### Text and data mining (TDM) reservations
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
@@ -699,7 +711,58 @@ When a step removes content, check that what disappeared is exactly what you mea
 
 **In an interview:** "After cleaning I didn't just eyeball a page. The word count dropped by 488, and the footers I removed explain that almost exactly, so I know I didn't delete real content."
 
-*First seen: Step 11.*
+*Step 12 update:* Chunking dropped the Guidelines from 40,287 cleaned words to 37,173 chunked words. The difference is the pages deliberately skipped (inside cover, table of contents, credits, infographic, agency directory) and the scraps under 4 words.
+
+*First seen: Step 11. Extended: Step 12.*
+
+### Chunking approaches (fixed size, section, structure-aware, semantic)
+There are four common ways to cut documents into chunks. **Fixed size** cuts every N words or tokens (for example 300 or 800 words), usually with overlap, meaning the end of one chunk is repeated at the start of the next. It is simple but cuts mid-sentence and mixes topics. **Section by section** makes one chunk per heading: one topic each, but sizes vary wildly. **Structure-aware with size limits** splits at headings, then merges tiny sections and splits huge ones at paragraph breaks. **Semantic** chunking embeds every sentence and splits where the meaning shifts; it adapts to the text but costs one embedding call per sentence, is harder to debug, and usually gains little. The industry default is fixed size, about 500–1,000 tokens with 10–20% overlap; structure-aware is the common upgrade for documents with clear headings. Step 12 chose structure-aware ([0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)).
+
+**In an interview:** "I compared fixed-size, section-by-section, structure-aware, and semantic chunking. My documents have clear headings, so I split on structure with size limits, and I kept fixed-size as the baseline to beat in my evaluation."
+
+*First seen: Step 12.*
+
+### Chunk size: too small vs too large
+Chunk size pulls in two directions. Too small, and a chunk loses its context: "2 or more days a week" means little without knowing which activity, and for whom. Too large, and the chunk's [embedding](#embedding) (the list of numbers representing its meaning) becomes a blurred average of several topics, so it matches no question strongly, and every retrieved chunk takes up more of the prompt. Step 12 aimed for 150–450 words per chunk; the Guidelines came out at a median of 253.
+
+**In an interview:** "Small chunks lose context, big ones blur the embedding and waste prompt space. I aimed for 150 to 450 words, based on how long the document's own sections were."
+
+*First seen: Step 12.*
+
+### Structure-aware chunking with size limits
+The method built in Step 12 (`src/ragmotion/chunking.py`). It reads the document as headings and paragraphs, groups them into sections inside chapters, then packs sections into chunks with four rules: never cross a chapter; merge small neighboring sections until a chunk reaches about 150 words; split sections over about 450 words at paragraph breaks (or at sentences, if one paragraph is too long), never mid-sentence; drop fragments under 4 words. On the Physical Activity Guidelines this gave 133 chunks, 83 to 519 words, median 253. A few land outside the bounds: 3 short chunks at chapter ends with nothing to merge with, and 7 slightly long ones, because heading lines add words and a tiny leftover tail gets folded into the piece before it rather than stand alone. The rules depend on good headings, which here come from Step 11's [font-size rule](#font-size-as-structure-heading-detection).
+
+**In an interview:** "My chunker splits at headings, never crosses a chapter, merges tiny sections up to 150 words, and splits big ones at paragraph breaks below 450. So every chunk is one topic, and none is cut mid-sentence."
+
+*First seen: Step 12.*
+
+### Contextual labels instead of overlap
+Overlap repeats some text between neighboring chunks so a chunk isn't stranded without context. Step 12 uses a different fix: every chunk's embedded text starts with a label showing where it sits, "title > chapter > sections", for example "Physical Activity Guidelines for Americans, 2nd edition > Chapter 4. Active Adults > Key Guidelines for Adults". The label tells the embedding what the passage is about, even if the passage itself never says "adults". The database stores both `text` (shown to the LLM and user) and `embed_text` (label + text, exactly what gets embedded). One bug came up: a note's `# Title` is also its source title, so note labels repeated it ("Notes: Resistance Training for Older Adults > Resistance Training for Older Adults > ..."). The fix skips the chapter when it's already contained in the title.
+
+**In an interview:** "Instead of overlapping chunks, I prefix each one with its location, 'title > chapter > section', before embedding. A passage that just says '2 or more days a week' still carries 'Chapter 4, Active Adults' into its vector, without duplicating text."
+
+*First seen: Step 12.*
+
+### Measure the corpus before choosing parameters
+Before picking chunk sizes, Step 12 measured the document's own sections: 256 with text, median 116 words; 54 under 50 words (including infographic scraps like "YOUR WAY" and a lone "2"), 106 at 50–150, 71 at 150–300, 23 at 300–600, and 2 over 600 (the Glossary at 1,341 and a case study at 905). That one table ruled out two options: section-by-section would have made dozens of useless fragments, and plain fixed size would have blended topics. Same habit as Step 11's font-size tally: look at the data, then set the numbers.
+
+**In an interview:** "I didn't pick a chunk size from a blog post. I measured the document's section lengths first: median 116 words, 54 sections under 50, two over 600. That told me neither pure section chunks nor fixed windows would work."
+
+*First seen: Step 12.*
+
+### Figures and charts lost in extraction
+Charts in a PDF are usually drawn as graphics, not text, so text extraction keeps only the caption and source line. In Step 12 the smallest chunk (83 words, page 35) was just "Figure 2-1. Relationship of Moderate-to-Vigorous Physical Activity to All-Cause Mortality" plus its source line; the data in the chart was gone. Such chunks are harmless but low value. Recovering chart content would need a different approach than text extraction; not discussed yet.
+
+**In an interview:** "Text extraction drops charts; you get the caption and nothing else. I found a chunk that was only a figure caption. It's a known blind spot of text-only RAG."
+
+*First seen: Step 12.*
+
+### Chunker version on every row
+Every row in `document_chunk` stores the method and settings that produced it, for example `structure-v1(min=150,max=450)`, in a `chunker` column. The table's uniqueness rule is `(source_id, chunker, chunk_index)`, so chunks from different chunkers can sit side by side. That lets Step 15 compare chunking variants (such as fixed-size) on the same questions without deleting one to try the other. It's the same idea as the `embedding_model` column: record what produced the data ([Embedding provenance](#embedding-provenance-embedding_model-column)).
+
+**In an interview:** "Each chunk records which chunker and settings made it. So I can store two chunking strategies at once and let the evaluation pick, instead of arguing about it."
+
+*First seen: Step 12.*
 
 ---
 
@@ -782,7 +845,9 @@ Transitive dependencies are the libraries your libraries need, and the libraries
 
 **In an interview:** "Six direct dependencies turned into 62 installed packages. I traced it with uv tree and found the Voyage SDK pulls in LangChain core. That's a good reminder that your dependency surface is bigger than your pyproject file suggests."
 
-*First seen: Step 1.*
+*Step 12 update: declare what you import.* `uv add pyyaml` installed nothing new, because PyYAML was already present as a dependency of another library. It was still added to `pyproject.toml`, because our own code now imports it (to read the notes' YAML frontmatter). If the other library ever dropped PyYAML, our code would break with no warning. Rule: if your code imports it, declare it directly.
+
+*First seen: Step 1. Extended: Step 12.*
 
 ### Runtime vs dev dependencies
 Runtime dependencies are libraries the app needs to run: anthropic, voyageai, psycopg, and so on. Dev (development) dependencies are only needed while building the app, such as pytest for running tests. uv keeps them in separate sections of `pyproject.toml` (`dependencies` vs `[dependency-groups] dev`), so a production install can skip the dev tools.
@@ -828,7 +893,9 @@ The one dev library is **pytest**, which runs tests.
 
 *Step 11 update:* Added **pymupdf** 1.28.2 (`uv add pymupdf`), which opens PDFs and returns their text with positions and font sizes; used in `ingestion.py`. Its license is AGPL, a "copyleft" license: fine for an open portfolio, but it would need review before use in a closed commercial product ([0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)). The manifest is read with Python's built-in `tomllib`, so no library was added for that.
 
-*First seen: Step 1. Extended: Steps 5, 6, 7, 10, and 11.*
+*Step 12 update:* Added **pyyaml** (`uv add pyyaml`, declared as `pyyaml>=6.0.3`), which reads YAML, the format of the notes' frontmatter; used in `chunking.py`. It was already installed indirectly ([Transitive dependencies](#transitive-dependencies)).
+
+*First seen: Step 1. Extended: Steps 5, 6, 7, 10, 11, and 12.*
 
 ### Pydantic model and Literal types
 A Pydantic model is a Python class that describes the exact shape of some data: which fields exist, their types, and which values are allowed. Handing it bad data raises an error that names the field. A `Literal` type lists the only values a field may take, for example `Literal["beginner", "intermediate", "advanced"]`. In Step 5, `src/ragmotion/models.py` defines an `Exercise` model whose `Literal` lists mirror the CHECK constraints in `db/schema.sql`. It also requires `slug` to be lowercase words joined by hyphens and `equipment` to be non-empty. The seed script validates all 20 entries against it before touching the database.
@@ -1085,7 +1152,9 @@ An idempotent script gives the same result no matter how many times it is run. `
 
 **In an interview:** "Every pipeline step is safe to re-run. The embedding script works out what's missing or stale and only pays for that, so a second run is a no-op that costs nothing."
 
-*First seen: Step 4. Extended: Steps 5 and 8.*
+*Step 12 update: delete and re-insert.* `scripts/chunk_documents.py` makes re-runs safe differently from the seed script's upsert: for each source, it deletes that source's rows for the current chunker and inserts the fresh chunks, in one transaction. A rerun gave identical counts, with no duplicates. Side effect: those rows' embeddings are cleared too, and get recomputed in Step 13 (see [Stale embeddings](#stale-embeddings)).
+
+*First seen: Step 4. Extended: Steps 5, 8, and 12.*
 
 ### Slug vs id
 A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.

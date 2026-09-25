@@ -38,3 +38,9 @@ Use **PyMuPDF** (1.28.2), and clean each page by layout in `clean_page()` (`src/
 - A source has important numeric grid tables.
 - The project heads toward closed commercial use (AGPL review).
 - The same thresholds need retuning for several sources in a row. Then consider per-source settings in the manifest, using the PDF's tags, or a general document parser.
+
+## Note 2026-09-25 (Step 12): headings now drive chunk boundaries
+- The `## ` headings marked by the font-size rule are now where chunks split ([0019](0019-structure-aware-chunking-150-450-labels-no-overlap.md)). A heading-detection error now moves a chunk boundary, not just a line of formatting.
+- The first per-source setting moved into the manifest: `skip_pages` for `pag2` (inside cover, table of contents, credits, infographic, and the Appendix 2 agency directory). This is the "per-source settings in the manifest" direction named above.
+- Reading-order consequence seen: on page 108, some Appendix 1 subsection headings come before the "Appendix 1." heading, so a few subsections may be filed under the previous chapter (Glossary). Not fixed.
+- Figures: chart data is drawn as graphics and doesn't extract; only captions survive (the smallest chunk, 83 words, is a figure caption plus its source line).
