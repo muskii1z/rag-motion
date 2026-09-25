@@ -24,3 +24,10 @@ After Phase 1, when a UI is needed to demo.
 - This replaces "No frontend in Phase 1" with "a minimal local evidence page only, at Step 10". The revisit signal above still applies to anything beyond that.
 
 See [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).
+
+## Amendment (2026-09-25, Step 10)
+- **FastAPI arrived in Step 10, not Step 16.** The minimal local page needed a server, and FastAPI + one static HTML page was chosen over Streamlit and Gradio. See [0015](0015-local-web-ui-fastapi-static-html.md).
+- **Step 16 changes scope:** "Harden the FastAPI app (built in Step 10): tests, error handling, README" (updated in `CLAUDE.md`).
+- The page stays minimal: a question box, the answer with citations, and the evidence cards. No polished frontend.
+
+See [Step 10](../build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui).

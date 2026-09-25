@@ -94,7 +94,9 @@ Temperature controls how random the model's word choices are. Higher values give
 
 **In an interview:** "For extraction I use temperature 0, because I want repeatable output, not creativity. It reduces variation; it doesn't make the answer right."
 
-*First seen: Step 6.*
+*Step 10 update: 0.2 for answers.* The RAG answer step uses `temperature=0.2`: a little variety in wording, while the facts still have to come from the evidence. Extraction (Step 6) stays at 0. Even so, answers varied between runs in ways that matter: the coverage label for the same question came back "partial" on one run and "full" on another (the prompt had also changed in between). So eval questions should be run more than once.
+
+*First seen: Step 6. Extended: Step 10.*
 
 ### Tokens and cost per call
 A token is a small chunk of text, roughly part of a word. APIs charge separately for input tokens (what you send: instructions plus data) and output tokens (what the model writes), and output usually costs more. Different models split text differently (different tokenizers) and add their own overhead: the same Step 6 prompt was about 364 input tokens on Qwen and about 1,440 on Claude Haiku 4.5. A longer prompt costs more input tokens: the brief example went from 170 to 364 after the prompt rules were added. OpenRouter's usage accounting reports dollars per call, and `extract_profile.py` prints model, input tokens, output tokens, and cost for every run. Measured examples: Qwen about $0.0001 per call; Haiku 4.5 about $0.002; Kimi K2.5 about $0.003 to $0.005.
@@ -124,7 +126,9 @@ Open-weight models (models whose trained weights are published, like Qwen and Ki
 
 **In an interview:** "With open models, 'the model' is really several hosts, each with its own defaults. I pin behavior by setting parameters explicitly and requiring hosts to support all of them."
 
-*First seen: Step 6.*
+*Step 10 update: speed and real cost vary too.* Across Step 10 runs, Qwen's generation time ranged from about 4 to 29 seconds for similar-sized answers, unpredictably. The host serving it was the bottleneck. Its actual cost per call also ran about 2x its listed price, probably depending on which host served the request. Gemini 2.5 Flash-Lite, served by Google, answered the same question in under a second. See [Latency: where the time goes](#latency-where-the-time-goes).
+
+*First seen: Step 6. Extended: Step 10.*
 
 ---
 
@@ -190,7 +194,9 @@ Keyword search finds rows that contain the actual words in the question. Using t
 
 **In an interview:** "BM25 is the classic keyword-ranking formula, and Postgres full-text search gives me the same kind of keyword search in the database I already use. I measure keyword-only as a baseline, so any claim that embeddings help comes with a number."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
+*Step 10 update: a case where keyword search would win.* For "what exercises can i do for biceps", the word "biceps" literally appears in the text of the two exercises that train it (One-Arm Dumbbell Row and Inverted Row). Keyword search would have put them first. Semantic search put Dumbbell Overhead Press first, which has no biceps at all: the embedding matched the general feel of "upper-body dumbbell exercise". A real example for the Step 15 keyword-vs-semantic comparison.
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 10.*
 
 ### Semantic search
 Semantic search compares [embeddings](#embedding) instead of words, using [pgvector](#pgvector) inside the database. It matches by meaning, so "hip hinge" can find "Romanian deadlift" even with no words in common. Its weak spot is exact terms: "RDL" is just three letters to the embedding model, so it may rank loosely related exercises above the one literally named "Dumbbell RDL".
@@ -372,7 +378,9 @@ Nearest-neighbor search ranks everything and hands back the top results, whether
 
 *Step 9 update: filler in real search results.* "upper-body pulling exercises with bands" has one true answer in the catalog, Band Pull-Apart (0.722). Search still returned five: two pulls without bands (0.584, 0.560), a push (0.541), and a core exercise (0.537). A score cutoff looks tempting here, but scores are relative, so a cutoff that works for this question could cut good answers from another. The plan: the LLM in Step 10 judges which results are useful, and evaluation checks it. See [Top-k retrieval](#top-k-retrieval).
 
-*First seen: Step 8. Extended: Step 9.*
+*Step 10 update: the biceps search, and what the LLM did with it.* The catalog has no biceps exercise (no curls). "what exercises can i do for biceps" still returned five: Dumbbell Overhead Press 0.578, One-Arm Dumbbell Row 0.558, Farmer Carry 0.557, Inverted Row 0.556, Push-Up 0.550. All five within 0.03 of each other is a warning sign: when nothing stands out, nothing truly matches. In Step 10 the LLM kept only the two rows (the only exercises listing biceps as a primary muscle) and marked the other three "not used". See [The LLM can filter evidence, not add it](#the-llm-can-filter-evidence-not-add-it).
+
+*First seen: Step 8. Extended: Steps 9 and 10.*
 
 ### Top-k retrieval
 Top-k retrieval means "return the k best-ranked results", where k is a number you pick (here 5 by default; `--k` changes it). In SQL it is `ORDER BY <distance> LIMIT k`. It always returns exactly k results when there are at least k rows, whether or not k good answers exist. Choosing k is a tradeoff: a larger k is more likely to include the right answer (better recall) but hands more filler to the next step. In Step 9, question 2 had one real answer and four fillers.
@@ -386,7 +394,11 @@ A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner on
 
 **In an interview:** "Embeddings measure similarity, not truth. 'No equipment' is a fact about a column, so it belongs in a WHERE clause. My weakest search result was exactly that question, and it's the headline case for adding filters."
 
-*First seen: Step 9.*
+*Step 10 update: the LLM doesn't enforce them either, so they belong in code.* A beginner "with dumbbells and resistance bands" was recommended Dumbbell Step-Up (needs a box) and Dumbbell Hip Thrust (needs a bench). The evidence sent to the model listed that equipment; the model didn't check it against what the person owns. This was deliberately not patched with another prompt rule. A prompt rule makes a mistake less likely; code makes it impossible. Equipment is a hard fact, so the fix is a [metadata filter](#metadata-filtering) before retrieval (Phase 1F) and a validation step on the output (Phase 2).
+
+**In an interview (with evidence):** "My RAG answer told a beginner with only dumbbells and bands to do a step-up and a hip thrust, which need a box and a bench. The evidence said so; the model didn't check. I didn't fix that with a prompt rule, because equipment is a hard fact: it belongs in a filter and a validation step in code."
+
+*First seen: Step 9. Extended: Step 10.*
 
 ---
 
@@ -408,7 +420,24 @@ The scores are illustrative, not measured. Which steps build which letter: Step 
 
 **In an interview:** "RAG is three stages: retrieve relevant evidence from my own data, augment the prompt with it, and have the model generate an answer that cites it. I built and inspected each stage on its own before wiring them together, so when something fails I know which stage to look at."
 
-*First seen: Step 5.*
+*Step 10 update: built end to end.* The real path, with measured times:
+
+```
+question ("what exercises can i do for biceps")
+   ▼  embed the question (query mode), pgvector top 5              ← RETRIEVE   ~0.35–0.42 s
+   │     Overhead Press 0.578, One-Arm DB Row 0.558, Farmer Carry 0.557, Inverted Row 0.556, Push-Up 0.550
+   ▼  <evidence> (5 exercise blocks, no scores) + <question>         ← AUGMENT
+   ▼  LLM returns GroundedAnswer: answer with [slug] citations,     ← GENERATE   0.7–29 s
+   │     cited_slugs, evidence_coverage, gaps
+   ▼  check_citations() in Python                                   ← CHECK
+   ▼  answer shown next to its evidence (terminal or web page)
+```
+
+`answer_question()` in `src/ragmotion/rag.py` does it all. Similarity scores are not sent to the model; it judges the evidence by content. See [Grounding (grounded answers)](#grounding-grounded-answers) and [Citation validation](#citation-validation).
+
+**In an interview (with evidence):** "My RAG pipeline embeds the question, pulls the top five exercises from pgvector, sends them to the model as tagged evidence, gets back a structured answer with inline slug citations and a coverage label, and then checks every citation in Python before showing it next to the evidence. Retrieval takes about 0.4 seconds; generation is most of the time."
+
+*First seen: Step 5. Extended: Step 10.*
 
 ### Seeding
 Seeding means loading the first data into a database. It is the simplest form of ingestion (getting outside content into the system). The exercise data is already clean and structured, so seeding is just "validate and insert". Document ingestion (Steps 12 to 14) adds two steps before inserting: extract the text from a file such as a PDF, and split it into chunks. In Step 5, `scripts/seed_exercises.py` loads `data/exercises.json` (20 exercises) into the `exercise` table. The seed file lives in git, so any machine can rebuild the table from a clone.
@@ -451,7 +480,46 @@ A general chatbot like ChatGPT already knows general training principles and wou
 
 **In an interview:** "The model already knows training theory, so RAG isn't about making it smarter. It's about citations a coach can check, only recommending exercises the client can actually do, knowledge I've vetted myself, and quality I can measure."
 
-*First seen: Step 4.*
+*Step 10 update: first real evidence.* Point 1 now works: every answer cites exercises by slug, each citation is checked in code, and the web page shows the cited exercise's card and its `source`. The biceps question showed another difference from a chatbot: a chatbot would happily suggest curls, while the grounded answer (on Qwen) said the catalog has none. Point 2 is *not* delivered yet: the model recommended a box and a bench exercise to someone with only dumbbells and bands, so equipment fit needs filters in code ([Hard constraints and negation](#hard-constraints-and-negation)). Point 4 is still Step 15.
+
+**In an interview (with evidence):** "When I asked for biceps exercises, my system said the catalog has no curls and pointed to the two rows that do train biceps, instead of inventing a curl. That's the RAG difference: answers limited to what I've vetted, with sources and admitted gaps."
+
+*First seen: Step 4. Extended: Step 10.*
+
+### Grounding (grounded answers)
+A grounded answer uses only the evidence it was given, cites where each claim came from, and says plainly when the evidence doesn't cover the question. In Step 10 the system prompt tells the model to answer only from the exercises inside `<evidence>` tags, never mention anything else, cite each exercise inline as `[slug]`, leave out retrieved exercises that don't fit, and report partial or missing coverage. The answer comes back as a structured `GroundedAnswer` (answer, cited slugs, coverage, gaps), so code can check it. On the biceps question, Qwen cited only the two rows and stated the gap: no isolation exercises such as curls.
+
+**In an interview:** "Grounding means the model answers only from retrieved evidence, cites it, and admits what's missing. I get the answer back as a structured object with the citations and a coverage label, so code can check it rather than trusting the prose."
+
+*First seen: Step 10.*
+
+### Groundedness vs relevance
+Two different questions about an answer. **Relevance:** did it pick the right things for the question? **Groundedness:** is every claim supported by the evidence? An answer can be relevant and still not fully grounded. In Step 10 the exercise choices were grounded, but the first prompt version added advice from the model's general knowledge: "Incorporate them 2–3 times per week with full recovery between sets", and "a bench or sturdy couch". None of that was in the evidence. It sounds reasonable, which is what makes it a subtle hallucination (confident content with no source). Fix: a rule against programming advice (sets, reps, frequency, rest, substitutes) unless the evidence states it; missing advice goes into gaps instead. After the fix, the beginner answer listed "no sets, reps, frequency" as a gap.
+
+**In an interview:** "My first RAG answers picked the right exercises from the evidence, then added '2–3 times per week' from the model's own knowledge. Relevant, but not grounded. I added a rule that programming advice must come from the evidence or be listed as a gap, and groundedness is now one of the things my eval checks."
+
+*First seen: Step 10.*
+
+### Citation validation
+Checking the model's citations with ordinary code instead of trusting them. `check_citations()` in `src/ragmotion/rag.py` compares three sets: the slugs that were retrieved, the slugs the model listed in `cited_slugs`, and the `[slug]` citations found in the answer text (with a regular expression, a text-matching pattern). It flags any cited slug that wasn't retrieved (a possible invented source), any slug cited in the text but not listed, and any slug listed but never cited in the text. It is deterministic: same input, same result, no LLM involved. In every Step 10 run all citations were valid, but the check runs on every answer anyway.
+
+**In an interview:** "The model returns its citations as a list and inline in the text, and Python cross-checks both against what was actually retrieved. If the model cites a source it was never given, that's flagged as a possible invented source before anyone sees the answer."
+
+*First seen: Step 10.*
+
+### Evidence coverage and gaps
+Two fields in the answer where the model says how well the evidence answers the question: `evidence_coverage` is `"full"`, `"partial"`, or `"none"`, and `gaps` says in one sentence what is missing. They let the system admit a gap instead of padding. In Step 10 they helped but were unreliable. Qwen said "partial" for biceps and named the missing curls; Gemini 2.5 Flash-Lite said "full" twice on the same question and didn't mention them. Gemini also said "full" for "exercises that need no equipment" while two bodyweight exercises were missing. Qwen's gaps once said the evidence lacked "bounds or hops" when a Lateral Bound was right there. And the label changed between runs of the same question ("partial", then "full"; the prompt had also changed in between). So the coverage label is a useful signal, not a fact, and eval questions should be run more than once.
+
+**In an interview:** "I have the model label evidence coverage and list gaps, so it can say 'the catalog has no curls' instead of inventing one. But I measured that label flipping between runs and being over-confident on a cheaper model, so I treat it as a signal to evaluate, not a guarantee."
+
+*First seen: Step 10.*
+
+### The LLM can filter evidence, not add it
+The generation step can only work with what retrieval hands it. It can drop bad evidence, but it can't recover evidence that was never retrieved. In Step 10, for "exercises that need no equipment", the model correctly dropped Inverted Row (barbell) and Pallof Press (band). But Broad Jump and Lateral Bound, both bodyweight, were never retrieved, so the answer couldn't include them, and it still claimed "full" coverage. An answer's completeness is capped by retrieval recall (the share of the right items the search actually found). That is why Phase 1F focuses on retrieval: filters, hybrid search, reranking, and query rewriting.
+
+**In an interview:** "The LLM is a good filter but it can't add what retrieval missed. For 'no equipment', it threw out a barbell exercise correctly, but two bodyweight jumps were never retrieved, so the answer was incomplete and still called itself complete. Fixing that is a retrieval problem, not a prompt problem."
+
+*First seen: Step 10.*
 
 ---
 
@@ -576,7 +644,9 @@ The one dev library is **pytest**, which runs tests.
 
 *Step 7 update:* **openai** now also does embeddings (`client.embeddings.create` in `embeddings.py`), since Voyage is reached through OpenRouter. **voyageai** is still installed but unused. Whether to remove it (and the transitive dependencies it brings) is an open question.
 
-*First seen: Step 1. Extended: Steps 5, 6, and 7.*
+*Step 10 update:* Added **fastapi** 0.141.1 (builds the web API) and **uvicorn** 0.54.0 with the `[standard]` extra (the server that runs it), with `uv add fastapi "uvicorn[standard]"`. See [FastAPI and uvicorn](#fastapi-and-uvicorn).
+
+*First seen: Step 1. Extended: Steps 5, 6, 7, and 10.*
 
 ### Pydantic model and Literal types
 A Pydantic model is a Python class that describes the exact shape of some data: which fields exist, their types, and which values are allowed. Handing it bad data raises an error that names the field. A `Literal` type lists the only values a field may take, for example `Literal["beginner", "intermediate", "advanced"]`. In Step 5, `src/ragmotion/models.py` defines an `Exercise` model whose `Literal` lists mirror the CHECK constraints in `db/schema.sql`. It also requires `slug` to be lowercase words joined by hyphens and `equipment` to be non-empty. The seed script validates all 20 entries against it before touching the database.
@@ -942,7 +1012,16 @@ Prompt injection is when instructions hidden inside data hijack the model. In St
 
 **In an interview:** "I ran a prompt-injection test on my extraction step. The cheapest model fell for it even with a hardened prompt; two others resisted. My takeaway was to treat LLM output as a suggestion: code validates it and a coach approves it, whichever model I use."
 
-*First seen: Step 6.*
+*Step 10 update: evidence is data too.* In the RAG step, the retrieved exercises go inside `<evidence>` tags and the question inside `<question>` tags, with a rule that everything inside them is data, not instructions. Today the evidence is the developer's own catalog, so the risk is low; it rises when document chunks arrive (Steps 12 to 14). This rule was not tested with an injected instruction in Step 10. Citation checks in code ([Citation validation](#citation-validation)) are one of the design defenses.
+
+*First seen: Step 6. Extended: Step 10.*
+
+### HTML escaping
+HTML is the language web pages are written in. If text from a user or a model is inserted into a page as-is, any HTML tags or scripts inside it would run in the browser (an attack called cross-site scripting, XSS). Escaping turns special characters like `<` and `>` into harmless codes, so the text is shown, not run. In Step 10 the web page escapes all user and model text before showing it. Model output counts as untrusted: it can repeat anything that was in its input, including text from documents later on.
+
+**In an interview:** "Model output is untrusted input to the browser, so the page HTML-escapes every question and answer before showing it. That's a basic web-security habit, and it matters more once retrieved documents feed the model."
+
+*First seen: Step 10.*
 
 ---
 
@@ -954,6 +1033,13 @@ Observability means being able to see what a system did and why. LangSmith is a 
 **In an interview:** "When a RAG answer is wrong, the first question is whether retrieval missed the evidence or the model ignored it. I printed every stage by hand first, then added LangSmith tracing before document ingestion, so every request shows the retrieved chunks, scores, and exact prompt side by side."
 
 *First seen: Step 5 (planned, not built).*
+
+### Manual tracing
+Printing every stage of a request yourself, before adopting a tracing tool. `scripts/ask.py` (Step 10) prints five stages: (1) the retrieved exercises with their scores, each marked "cited" or "not used"; (2) the answer with coverage and gaps; (3) the sources, with each exercise's `source` field; (4) the citation checks; (5) cost and time, split into retrieval and generation. The web page shows the same things. This is how the Step 10 problems were found: "not used" marks showed the model filtering evidence, and the timing split showed generation, not retrieval, was slow. LangSmith (Step 11) will record the same stages automatically.
+
+**In an interview:** "Before adding a tracing tool I printed every stage by hand: what was retrieved, what was cited, the checks, tokens, cost, and time per stage. That's how I learned what a trace needs to show, and it's how I spotted that generation, not retrieval, was eating the time."
+
+*First seen: Step 10.*
 
 ---
 
@@ -971,7 +1057,29 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 
 **In an interview:** "My search takes 180 to 380 ms, and almost all of it is the network call to embed the question; the pgvector query itself is milliseconds at this size. If I needed it faster, I'd look at the embedding call first, not the database."
 
-*First seen: Step 9.*
+*Step 10 update: the latency budget for a full answer.* A latency budget is how the total time of a request splits across its stages. With the LLM added, retrieval took about 0.35 to 0.42 s and generation took 0.7 to 29 s, so generation is almost all of it. Measured examples on the biceps question: Qwen in the web page, retrieval 421 ms and generation 29,429 ms; Qwen again, generation 3,986 ms; Gemini 2.5 Flash-Lite, generation 793 ms and 681 ms. Across all Qwen runs generation ranged from 4 to 29 s, unpredictably, because of the host serving it. Speed, quality, and cost pull against each other: Gemini was about 20x faster and cheaper in practice, but Qwen was more honest about the missing curls in that one test. The developer made Gemini the default for speed ([0013 update](decisions/0013-llm-openrouter-openai-sdk-qwen.md#update-2026-09-25-step-10-default-switched-to-gemini-25-flash-lite)). `answer_question()` times retrieval and generation separately; the embedding call and the database query inside retrieval are still timed together.
+
+**In an interview (with evidence):** "In my RAG pipeline retrieval is about 0.4 seconds; generation was anywhere from 0.7 to 29 seconds depending on the model and who hosted it. So the model choice is the latency decision. I switched to a model that answers in under a second, and I'm watching whether it's as honest about gaps."
+
+*First seen: Step 9. Extended: Step 10.*
+
+---
+
+## Web apps
+
+### Frontend/backend split
+The frontend is what runs in the user's browser (here, one HTML page). The backend is the server program on our side (here, the FastAPI app). The browser only talks to our server, and only our server talks to the LLM and the database. So the API key stays on the server and never reaches the browser, where anyone could read it. This follows the master context document's rule: never put secrets in frontend code. In Step 10 the page sends a question to `POST /api/ask` and gets JSON back; the OpenRouter key is read on the server from `.env`.
+
+**In an interview:** "The browser calls my API, and my API calls the model. Keys never go to the frontend, because anything in the browser is readable by the user. The same API will serve a real frontend later."
+
+*First seen: Step 10.*
+
+### FastAPI and uvicorn
+FastAPI is a Python library for building web APIs (programs other programs call over HTTP, the web's request protocol). A route connects a URL and method to a Python function: in `src/ragmotion/app.py`, `GET /` returns the HTML page and `POST /api/ask` answers a question. The request body is validated by a Pydantic model (question 3 to 500 characters, k 1 to 10), so bad input is rejected before any code runs. The function returns a dict that FastAPI sends back as JSON. Errors get an HTTP status code: any failure in the RAG step comes back as 502 ("the server behind me failed") with the reason. Uvicorn is the server program that runs a FastAPI app and listens on a port; `--reload` restarts it whenever code changes. Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`.
+
+**In an interview:** "The API is a small FastAPI app: a route serves the page, another takes a validated question and returns the answer, evidence, costs, and timings as JSON, with errors mapped to status codes. Uvicorn runs it on localhost only."
+
+*First seen: Step 10.*
 
 ---
 
@@ -982,7 +1090,9 @@ Every call to an outside AI service goes through one module: `llm.py` for the LL
 
 **In an interview:** "All embedding calls go through one small module. It hides the provider, sorts results back into input order, checks the vector size against the database column, and exposes two functions so nobody can embed a question as a document by mistake."
 
-*First seen: Step 7.*
+*Step 10 update: one shared LLM call.* `llm.py` now has `structured_completion(system_prompt, user_content, response_model, *, max_tokens, temperature=0, model=None)`, which works with any Pydantic model and returns the parsed object plus a usage record. The safety settings live in it once: `require_parameters`, usage accounting, a required `max_tokens`, and checks for a cut-off reply, a refusal, or a parse failure. Step 6's `extract_profile()` and Step 10's RAG answer both call it, so a new LLM task can't forget a guard.
+
+*First seen: Step 7. Extended: Step 10.*
 
 ---
 

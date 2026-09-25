@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5434/ragmotion"
 
     # Which LLM to use through OpenRouter. Change here or set LLM_MODEL in .env.
-    llm_model: str = "qwen/qwen3-235b-a22b-2507"
+    llm_model: str = "google/gemini-2.5-flash-lite"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # Embedding model, also through OpenRouter. Must match the vector(1024) column in

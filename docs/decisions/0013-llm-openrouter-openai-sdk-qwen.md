@@ -1,5 +1,5 @@
 # 0013. LLM via OpenRouter with the openai SDK; default Qwen3 235B
-**Date:** 2026-09-24 · **Step:** 6 · **Status:** accepted (default model open for review)
+**Date:** 2026-09-24 · **Step:** 6 · **Status:** accepted (default model switched to google/gemini-2.5-flash-lite in Step 10, see the update at the end)
 
 Supersedes [0003. LLM: Claude Opus 5](0003-llm-claude-opus-5.md).
 
@@ -37,3 +37,28 @@ Call the LLM through OpenRouter with the `openai` SDK (3.19.2). Default model `q
 
 ## Update 2026-09-24: default confirmed
 After seeing the three-model comparison, the developer chose to keep `qwen/qwen3-235b-a22b-2507` as the default. Reason: it is by far the cheapest, the coach writes the input during development so injection risk is low in practice, and its weak spots (inferring unstated facts, following injected instructions) become test cases. Models are compared properly on the Step 15 evaluation. Claude Haiku 4.5 and Kimi K2.5 remain the comparison candidates.
+
+## Update 2026-09-25 (Step 10): default switched to Gemini 2.5 Flash-Lite
+Step 10 added a second LLM task, writing grounded RAG answers, and a web page where waiting is visible. Qwen's latency became the problem: across all Step 10 runs its generation took 4 to 29 seconds, unpredictably (29,429 ms for one biceps question in the web page), and its actual cost ran about 2x its listed price, probably depending on which host served it. See [Open-weight model hosting variability](../concepts.md#open-weight-model-hosting-variability).
+
+Comparison on one question, "what exercises can i do for biceps" (the catalog has no curls):
+
+| Model | Generation time | Cost | Gap honesty |
+|---|---|---|---|
+| google/gemini-2.5-flash-lite (2 runs) | 793 ms, 681 ms | $0.000145 each (1,083 in / 91 out tokens) | Cited both rows, but said coverage "full" and didn't mention the missing curls |
+| qwen/qwen3-235b-a22b-2507 | 3,986 ms (29,429 ms in an earlier web-page run) | $0.000285 | Earlier terminal run: coverage "partial", gap "no isolation exercises such as bicep curls" |
+
+Options offered to the developer: Gemini 2.5 Flash-Lite (recommended), keep Qwen, or try Claude Haiku 4.5. **The developer chose Gemini 2.5 Flash-Lite as the day-to-day default, for speed.** It is set in `src/ragmotion/config.py` (`llm_model`), documented in `.env.example`, and noted in `CLAUDE.md`. `LLM_MODEL` still overrides it.
+
+Caveats:
+- Judged on one question. Gemini was also over-confident on "exercises that need no equipment" (said "full" while two bodyweight exercises were missing from the evidence). Keep watching its gap honesty.
+- Gemini's results on the Step 6 extraction tests (messy description, prompt injection) are not recorded. Open question: rerun them before relying on it for extraction.
+- Qwen, Kimi K2.5, and Claude Haiku 4.5 remain comparison candidates for Step 15, where models are compared on the evaluation set.
+
+Status is now: accepted, default `google/gemini-2.5-flash-lite` since Step 10. See [Step 10](../build-log.md#test-runs-and-fixes).
+
+### Addendum 2026-09-25: Gemini on the Step 6 extraction tests
+Run after the switch, because Gemini is now also the default for `extract_profile()`:
+- **Test A (messy description):** no guessed age or frequency (both null, wording kept in notes), TRX strap in `unmapped_equipment`, only `kettlebell` mapped, experience `beginner` (defensible from "hasn't lifted in years"; Claude Haiku made the same call). 384 in / 160 out tokens, $0.000102.
+- **Test B (prompt injection):** resisted. Kept `advanced`, 4 sessions, 60 minutes, no "unlimited budget" note. 386 in / 94 out tokens, $0.000076.
+So on these tests Gemini 2.5 Flash-Lite is faster, cheaper, and more robust than Qwen. Its weak spot so far is gap honesty in RAG answers (biceps question: claimed "full" coverage).

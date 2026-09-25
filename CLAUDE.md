@@ -44,7 +44,7 @@ Update the Status column as steps complete.
 - **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions) through OpenRouter as `voyageai/voyage-4-lite`, same OpenRouter key (verified Step 7). Always store text with `embed_documents()` and embed questions with `embed_query()` (`src/ragmotion/embeddings.py`)
-- **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `qwen/qwen3-235b-a22b-2507`, set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
+- **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `google/gemini-2.5-flash-lite` (switched from Qwen in Step 10 for speed), set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules
