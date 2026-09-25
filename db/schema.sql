@@ -51,8 +51,17 @@ CREATE TABLE IF NOT EXISTS exercise (
 
     -- ---- Semantic search ----
 
-    -- Voyage voyage-4-lite embedding of the description (1024 numbers). Filled in Step 8.
+    -- Voyage voyage-4-lite embedding of the exercise text (1024 numbers). Filled in Step 8.
     embedding        vector(1024),
+
+    -- Which model produced `embedding`. Vectors from different models can't be compared,
+    -- so after a model change this shows exactly which rows need re-embedding.
+    embedding_model  text,
 
     created_at       timestamptz NOT NULL DEFAULT now()
 );
+
+-- ---- Changes to tables that already exist ----
+-- CREATE TABLE IF NOT EXISTS skips existing tables, so new columns also need an ALTER.
+-- Step 8: record which model made each embedding.
+ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;

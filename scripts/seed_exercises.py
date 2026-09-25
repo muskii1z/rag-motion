@@ -40,7 +40,8 @@ ON CONFLICT (slug) DO UPDATE SET
     laterality       = EXCLUDED.laterality,
     body_region      = EXCLUDED.body_region,
     source           = EXCLUDED.source,
-    embedding        = NULL
+    embedding        = NULL,
+    embedding_model  = NULL
 WHERE (exercise.name, exercise.description, exercise.instructions, exercise.primary_muscles,
        exercise.movement_pattern, exercise.equipment, exercise.difficulty,
        exercise.laterality, exercise.body_region, exercise.source)

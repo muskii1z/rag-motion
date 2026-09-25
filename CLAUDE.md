@@ -24,8 +24,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 5 | Write 20 exercises, seed script, query by hand | done (coach review pending) |
 | 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | done |
 | 7 | First embedding: embed one sentence, look at the numbers | done |
-| 8 | Embed all exercises, store vectors, compare two by hand | next |
-| 9 | Similarity search CLI, judge results by eye | |
+| 8 | Embed all exercises, store vectors, compare two by hand | done |
+| 9 | Similarity search CLI, judge results by eye | next |
 | 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | |
 | 11 | LangSmith tracing on the RAG pipeline | |
 | 12 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | |

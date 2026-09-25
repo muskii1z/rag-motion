@@ -15,8 +15,29 @@ from typing import Literal
 
 from ragmotion.config import settings
 from ragmotion.llm import get_client
+from ragmotion.models import Exercise
 
 InputType = Literal["query", "document"]
+
+
+def exercise_to_text(ex: Exercise) -> str:
+    """The exact text we embed for an exercise.
+
+    Name + description carry the meaning. The labeled facts let questions like
+    "beginner dumbbell exercises" match too. Instructions are left out: step-by-step
+    cues describe how to move, not what the exercise is, and add noise.
+    Changing this function changes every vector, so re-embed after editing it.
+    """
+    return "\n".join(
+        [
+            ex.name,
+            ex.description,
+            f"Movement pattern: {ex.movement_pattern}. Body region: {ex.body_region}. Laterality: {ex.laterality}.",
+            f"Primary muscles: {', '.join(ex.primary_muscles)}.",
+            f"Equipment: {', '.join(ex.equipment)}.",
+            f"Difficulty: {ex.difficulty}.",
+        ]
+    )
 
 
 def _embed(texts: list[str], input_type: InputType) -> list[list[float]]:
