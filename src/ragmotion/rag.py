@@ -13,6 +13,8 @@ import re
 import time
 from dataclasses import dataclass, field
 
+from langsmith import traceable
+
 from ragmotion.llm import LLMUsage, structured_completion
 from ragmotion.models import GroundedAnswer
 from ragmotion.retrieval import ChunkHit, ExerciseHit, search_all
@@ -99,6 +101,7 @@ def format_evidence(exercises: list[ExerciseHit], passages: list[ChunkHit]) -> s
     return "<evidence>\n" + "\n".join(blocks) + "\n</evidence>"
 
 
+@traceable(run_type="tool", name="check_citations")
 def check_citations(answer: GroundedAnswer, retrieved_ids: set[str]) -> list[str]:
     """Deterministic checks on the LLM's citations. Returns a list of problems (empty = clean)."""
     listed = set(answer.cited_ids)
@@ -117,6 +120,19 @@ def check_citations(answer: GroundedAnswer, retrieved_ids: set[str]) -> list[str
     return problems
 
 
+def _summarize_result(r: "RAGResult") -> dict:
+    return {
+        "answer": r.answer.answer,
+        "evidence_coverage": r.answer.evidence_coverage,
+        "gaps": r.answer.gaps,
+        "general_guidance": r.answer.general_guidance,
+        "cited_ids": r.answer.cited_ids,
+        "citation_problems": r.citation_problems,
+        "cost_usd": r.usage.cost_usd,
+    }
+
+
+@traceable(run_type="chain", name="answer_question", process_outputs=_summarize_result)
 def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5) -> RAGResult:
     t0 = time.perf_counter()
     exercises, passages = search_all(question, k_exercises=k_exercises, k_passages=k_passages)

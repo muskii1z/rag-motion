@@ -5,9 +5,12 @@ official `openai` library pointed at OpenRouter's address. The model is
 chosen per request (settings.llm_model), so switching models is one line.
 """
 
+import warnings
 from dataclasses import dataclass
 from typing import TypeVar
 
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -15,6 +18,10 @@ from ragmotion.config import settings
 from ragmotion.models import ClientProfile
 
 T = TypeVar("T", bound=BaseModel)
+
+# LangSmith's OpenAI wrapper serializes parse() responses whose `parsed` field is typed as None,
+# which makes Pydantic print a harmless warning on every traced structured call. Silence only that.
+warnings.filterwarnings("ignore", message="Pydantic serializer warnings", category=UserWarning)
 
 # Standing instructions. Kept separate from the coach's text (the user message)
 # so that nothing in a client description can override them.
@@ -55,7 +62,9 @@ class LLMUsage:
 def get_client() -> OpenAI:
     if not settings.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is not set. Add it to .env (see .env.example).")
-    return OpenAI(api_key=settings.openrouter_api_key.strip(), base_url=settings.openrouter_base_url)
+    client = OpenAI(api_key=settings.openrouter_api_key.strip(), base_url=settings.openrouter_base_url)
+    # wrap_openai records every chat call (prompt, response, tokens) in LangSmith when tracing is on.
+    return wrap_openai(client, chat_name="llm (OpenRouter)")
 
 
 def structured_completion(
@@ -115,6 +124,7 @@ def structured_completion(
     )
 
 
+@traceable(run_type="chain", name="extract_profile")
 def extract_profile(text: str, model: str | None = None) -> tuple[ClientProfile, LLMUsage]:
     """Turn a coach's description into a validated ClientProfile (Step 6)."""
     return structured_completion(

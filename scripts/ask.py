@@ -8,6 +8,7 @@ Run from the project folder:
 """
 
 import argparse
+import os
 
 from ragmotion.rag import answer_question
 
@@ -55,6 +56,9 @@ def main() -> None:
     cost = f"${u.cost_usd:.6f}" if u.cost_usd is not None else "not reported"
     print(f"\n5. COST AND TIME: retrieval {t['retrieval']:.0f} ms, generation {t['generation']:.0f} ms | "
           f"{u.model}: {u.prompt_tokens} in / {u.completion_tokens} out tokens, {cost}")
+    if os.environ.get("LANGSMITH_TRACING", "").lower() == "true":
+        project = os.environ.get("LANGSMITH_PROJECT", "default")
+        print(f"\n6. TRACE: recorded in LangSmith project '{project}' (smith.langchain.com -> Tracing Projects)")
 
 
 if __name__ == "__main__":

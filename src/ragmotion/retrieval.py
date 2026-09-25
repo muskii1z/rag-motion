@@ -4,6 +4,7 @@ Step 9 is semantic search only: embed the question, then ask pgvector for the
 closest exercise vectors. Later steps add keyword search, filters, and more.
 """
 
+from langsmith import traceable
 from pgvector import Vector
 from pydantic import BaseModel
 from psycopg.rows import dict_row
@@ -74,6 +75,23 @@ LIMIT %(k)s
 """
 
 
+def _as_trace_documents(result: tuple[list[ExerciseHit], list["ChunkHit"]]) -> dict:
+    """LangSmith shows retriever outputs nicely when they look like documents."""
+    exercises, passages = result
+    docs = [
+        {"page_content": p.text, "type": "Document",
+         "metadata": {"id": p.passage_id, "kind": "passage", "source": p.source_title, "chapter": p.chapter,
+                      "pages": f"{p.page_start}-{p.page_end}" if p.page_start else None, "similarity": round(p.similarity, 3)}}
+        for p in passages
+    ] + [
+        {"page_content": f"{h.name}: {h.description}", "type": "Document",
+         "metadata": {"id": h.slug, "kind": "exercise", "similarity": round(h.similarity, 3)}}
+        for h in exercises
+    ]
+    return {"documents": docs}
+
+
+@traceable(run_type="retriever", name="search_all", process_outputs=_as_trace_documents)
 def search_all(question: str, k_exercises: int = 5, k_passages: int = 5) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Embed the question once, then search exercises and document passages with the same vector."""
     q = Vector(embed_query(question))

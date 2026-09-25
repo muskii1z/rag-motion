@@ -13,6 +13,8 @@ embed_query() instead of choosing the mode themselves.
 
 from typing import Literal
 
+from langsmith import traceable
+
 from ragmotion.config import settings
 from ragmotion.llm import get_client
 from ragmotion.models import Exercise
@@ -40,6 +42,11 @@ def exercise_to_text(ex: Exercise) -> str:
     )
 
 
+def _summarize_vectors(vectors: list[list[float]]) -> dict:
+    return {"count": len(vectors), "dimensions": len(vectors[0]) if vectors else 0}
+
+
+@traceable(run_type="embedding", name="embed", process_outputs=_summarize_vectors)
 def _embed(texts: list[str], input_type: InputType) -> list[list[float]]:
     if not texts:
         return []

@@ -4,7 +4,15 @@ Every other module imports `settings` from here, so there is exactly one place
 that knows where configuration comes from.
 """
 
+from pathlib import Path
+
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Also load .env into the process environment. Libraries that read their own environment
+# variables (LangSmith: LANGSMITH_API_KEY, LANGSMITH_TRACING, LANGSMITH_PROJECT) need this;
+# pydantic-settings alone only fills the Settings object below.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 
 class Settings(BaseSettings):

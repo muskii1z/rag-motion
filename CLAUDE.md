@@ -30,8 +30,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 11 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | done (Physical Activity Guidelines) |
 | 12 | Chunking: split into passages, store in a second table with metadata | done (structure-aware, 150–450 words) |
 | 13 | Embed chunks, search exercises + documents together, answers cite both | done |
-| 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | next |
-| 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | |
+| 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | done |
+| 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | next |
 | 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | |
 
 Update the Status column as steps complete.
@@ -46,6 +46,7 @@ Update the Status column as steps complete.
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions) through OpenRouter as `voyageai/voyage-4-lite`, same OpenRouter key (verified Step 7). Always store text with `embed_documents()` and embed questions with `embed_query()` (`src/ragmotion/embeddings.py`)
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `google/gemini-2.5-flash-lite` (switched from Qwen in Step 10 for speed), set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; text extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`), then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
+- **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules
