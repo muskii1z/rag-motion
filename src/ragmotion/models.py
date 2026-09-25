@@ -67,13 +67,14 @@ class ClientProfile(BaseModel):
 
 
 class GroundedAnswer(BaseModel):
-    """The LLM's answer to a question, built only from retrieved exercises (Step 10)."""
+    """The LLM's answer, built only from retrieved exercises and document passages (Steps 10 and 13)."""
 
     answer: str = Field(
         description="Answer for a coach, in plain text. Use only the provided evidence. "
-        "Cite each exercise you mention inline as [slug], e.g. [goblet-squat]."
+        "Cite every exercise and passage you use inline by its id in square brackets, "
+        "e.g. [goblet-squat] or [pag2-57]."
     )
-    cited_slugs: list[str] = Field(description="The slug of every exercise cited in the answer.")
+    cited_ids: list[str] = Field(description="The id of every exercise and passage cited in the answer.")
     evidence_coverage: Literal["full", "partial", "none"] = Field(
         description="full: the evidence answers the question. partial: it answers only part. "
         "none: the evidence does not answer the question."

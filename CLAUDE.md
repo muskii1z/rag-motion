@@ -29,8 +29,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 10 | RAG: retrieved evidence to the LLM, cited answer, labeled general guidance, plus a minimal local UI | done |
 | 11 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | done (Physical Activity Guidelines) |
 | 12 | Chunking: split into passages, store in a second table with metadata | done (structure-aware, 150–450 words) |
-| 13 | Embed chunks, search exercises + documents together, answers cite both | next |
-| 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | |
+| 13 | Embed chunks, search exercises + documents together, answers cite both | done |
+| 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | next |
 | 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | |
 | 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | |
 

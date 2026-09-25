@@ -57,6 +57,11 @@
   .bar { height: 4px; border-radius: 2px; background: var(--border); margin: 8px 0; overflow: hidden; }
   .bar > div { height: 100%; background: var(--accent); }
   .desc { font-size: 13px; margin-top: 6px; }
+  .kind { font-weight: 600; }
+  .kind.document { color: var(--good); }
+  .kind.notes { color: var(--warn); }
+  details.desc summary { cursor: pointer; list-style: none; }
+  details.desc p { white-space: pre-wrap; margin: 8px 0 0; }
   .footer { margin-top: 14px; color: var(--muted); font-size: 12px; }
   .status { color: var(--muted); }
   .error { color: var(--bad); }
@@ -65,7 +70,7 @@
 <body>
 <main>
   <h1>rag-motion</h1>
-  <p class="sub">Answers built only from the exercise database, with every source shown. Local prototype, fictional data.</p>
+  <p class="sub">Answers built from your guideline documents, coaching notes, and exercise catalog, with every source shown. Local prototype.</p>
 
   <form id="ask-form">
     <input id="q" type="text" placeholder="Ask about exercises, e.g. beginner lower-body exercises with dumbbells" autocomplete="off" required minlength="3" maxlength="500">
@@ -78,6 +83,8 @@
 
 <script>
 const EXAMPLES = [
+  "How much strength training should a beginner adult do each week, and which exercises?",
+  "How heavy should older adults lift to build strength?",
   "I'm a beginner with dumbbells and bands. Good lower-body exercises?",
   "explosive exercises to help me run faster",
   "what exercises can I do for biceps",
@@ -98,19 +105,36 @@ function renderAnswer(text) {
   // Escape first, then add light formatting and clickable [slug] citations.
   return esc(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([a-z0-9]+(?:-[a-z0-9]+)*)\]/g, '<a class="cite" data-slug="$1">$1</a>');
+    .replace(/\[([a-z0-9]+(?:-[a-z0-9]+)*(?:\s*,\s*[a-z0-9]+(?:-[a-z0-9]+)*)*)\]/g, (_, group) =>
+      group.split(",").map(id => `<a class="cite" data-id="${id.trim()}">${id.trim()}</a>`).join(" "));
 }
 
-function card(h) {
-  return `<div class="card ${h.cited ? "" : "unused"}" id="card-${esc(h.slug)}">
-    <div class="card-top">
-      <span class="card-name">${h.rank}. ${esc(h.name)}</span>
-      <span class="badge ${h.cited ? "full" : "none"}">${h.cited ? "cited" : "not used"}</span>
-    </div>
-    <div class="bar"><div style="width:${Math.max(0, Math.min(1, h.similarity)) * 100}%"></div></div>
+function bar(sim) {
+  return `<div class="bar"><div style="width:${Math.max(0, Math.min(1, sim)) * 100}%"></div></div>`;
+}
+function badge(cited) {
+  return `<span class="badge ${cited ? "full" : "none"}">${cited ? "cited" : "not used"}</span>`;
+}
+function exerciseCard(h) {
+  return `<div class="card ${h.cited ? "" : "unused"}" id="card-${esc(h.id)}">
+    <div class="card-top"><span class="card-name">${esc(h.name)}</span>${badge(h.cited)}</div>
+    ${bar(h.similarity)}
     <div class="meta">similarity ${h.similarity.toFixed(3)} · ${esc(h.movement_pattern)} · ${esc(h.difficulty)} · ${esc(h.equipment.join(", "))}</div>
     <div class="desc">${esc(h.description)}</div>
-    <div class="meta" style="margin-top:6px">Source: ${esc(h.source)}</div>
+    <div class="meta" style="margin-top:6px">Exercise catalog [${esc(h.id)}] · ${esc(h.source)}</div>
+  </div>`;
+}
+function passageCard(p) {
+  const kind = p.source_type === "document" ? "document" : "notes";
+  const where = p.page_start ? `pages ${p.page_start}–${p.page_end}` : "project notes";
+  const section = (p.headings && p.headings.length) ? p.headings.join("; ") : p.chapter;
+  const snippet = p.text.replace(/^## .*$/gm, "").trim();
+  return `<div class="card ${p.cited ? "" : "unused"}" id="card-${esc(p.id)}">
+    <div class="card-top"><span class="card-name">${esc(section)}</span>${badge(p.cited)}</div>
+    ${bar(p.similarity)}
+    <div class="meta">similarity ${p.similarity.toFixed(3)} · <span class="kind ${kind}">${kind}</span> · ${esc(where)}</div>
+    <details class="desc"><summary>${esc(snippet.slice(0, 180))}${snippet.length > 180 ? "…" : ""}</summary><p>${esc(snippet)}</p></details>
+    <div class="meta" style="margin-top:6px">${esc(p.source_title)} · ${esc(p.chapter)} [${esc(p.id)}]</div>
   </div>`;
 }
 
@@ -130,7 +154,7 @@ async function ask(question) {
     const cost = u.cost_usd == null ? "cost not reported" : `$${u.cost_usd.toFixed(6)}`;
     const checks = data.citation_problems.length
       ? `<div class="problems"><strong>Citation problems (checked in code):</strong><br>${data.citation_problems.map(esc).join("<br>")}</div>`
-      : `<div class="ok">✓ Every citation points to a retrieved exercise (checked in code, not by the LLM).</div>`;
+      : `<div class="ok">✓ Every citation points to retrieved evidence (checked in code, not by the LLM).</div>`;
 
     $("out").innerHTML = `
       <div class="grid">
@@ -144,13 +168,15 @@ async function ask(question) {
           <div class="footer">retrieval ${t.retrieval} ms · generation ${t.generation} ms · ${esc(u.model)} · ${u.prompt_tokens} in / ${u.completion_tokens} out tokens · ${cost}</div>
         </section>
         <section class="panel">
-          <h2>Evidence retrieved (${data.evidence.length})</h2>
-          ${data.evidence.map(card).join("")}
+          <h2>Document passages (${data.passages.length})</h2>
+          ${data.passages.map(passageCard).join("")}
+          <h2 style="margin-top:18px">Exercises (${data.exercises.length})</h2>
+          ${data.exercises.map(exerciseCard).join("")}
         </section>
       </div>`;
 
     document.querySelectorAll(".cite").forEach(a => a.onclick = () => {
-      const el = document.getElementById("card-" + a.dataset.slug);
+      const el = document.getElementById("card-" + a.dataset.id);
       if (!el) return;
       el.scrollIntoView({behavior: "smooth", block: "center"});
       el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200);

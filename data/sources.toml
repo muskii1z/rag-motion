@@ -25,8 +25,8 @@ sha256 = "0147d4dfc5ae76613a8b8d9d1c95244477527989f1d841845866ae5b5340cda5"
 retrieved = "2026-09-25"
 type = "document"
 # Pages that are noise for retrieval: 2 inside cover, 3 table of contents, 4-5 authors and
-# acknowledgments, 11 infographic (extracts as fragments), 113-117 Appendix 2 (agency directory).
-skip_pages = [2, 3, 4, 5, 11, 113, 114, 115, 116, 117]
+# acknowledgments, 11 infographic (extracts as fragments), 113-117 Appendix 2 (agency directory), 118 back cover.
+skip_pages = [2, 3, 4, 5, 11, 113, 114, 115, 116, 117, 118]
 
 # ---- Project notes -------------------------------------------------------------------------
 # Original notes written for this project. NSCA material is copyrighted (policy group D), so it

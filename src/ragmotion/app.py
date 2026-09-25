@@ -24,7 +24,7 @@ app = FastAPI(title="rag-motion", description="Grounded answers from the exercis
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
-    k: int = Field(default=5, ge=1, le=10)
+    k: int = Field(default=5, ge=1, le=10)  # how many exercises AND how many passages to retrieve
 
 
 @app.get("/", include_in_schema=False)
@@ -35,11 +35,10 @@ def index() -> FileResponse:
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict:
     try:
-        r = answer_question(req.question.strip(), k=req.k)
+        r = answer_question(req.question.strip(), k_exercises=req.k, k_passages=req.k)
     except Exception as e:  # show the reason in the page instead of a blank failure
         raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {e}") from e
 
-    cited = set(r.answer.cited_slugs)
     return {
         "question": r.question,
         "answer": r.answer.answer,
@@ -47,9 +46,13 @@ def ask(req: AskRequest) -> dict:
         "gaps": r.answer.gaps,
         "general_guidance": r.answer.general_guidance,
         "citation_problems": r.citation_problems,
-        "evidence": [
-            {**h.model_dump(exclude={"source"}), "source": h.source, "rank": i, "cited": h.slug in cited}
-            for i, h in enumerate(r.hits, start=1)
+        "exercises": [
+            {**h.model_dump(), "id": h.slug, "rank": i, "cited": h.slug in r.cited}
+            for i, h in enumerate(r.exercises, start=1)
+        ],
+        "passages": [
+            {**p.model_dump(), "id": p.passage_id, "rank": i, "cited": p.passage_id in r.cited}
+            for i, p in enumerate(r.passages, start=1)
         ],
         "usage": {
             "model": r.usage.model,
