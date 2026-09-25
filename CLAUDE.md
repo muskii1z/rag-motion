@@ -22,8 +22,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 3 | Docker Compose, start Postgres, confirm pgvector | done |
 | 4 | Exercise schema, create the table, inspect it in psql | done |
 | 5 | Write 20 exercises, seed script, query by hand | done (coach review pending) |
-| 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | next |
-| 7 | First embedding: embed one sentence, look at the numbers | |
+| 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | done |
+| 7 | First embedding: embed one sentence, look at the numbers | next |
 | 8 | Embed all exercises, store vectors, compare two by hand | |
 | 9 | Similarity search CLI, judge results by eye | |
 | 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | |
@@ -44,7 +44,7 @@ Update the Status column as steps complete.
 - **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), key in `VOYAGE_API_KEY`
-- **LLM: likely via OpenRouter** (developer's preference, key in `OPENROUTER_API_KEY`); model and library confirmed at Step 6. The original default was Claude Opus 5 via the `anthropic` SDK (decision 0003)
+- **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `qwen/qwen3-235b-a22b-2507`, set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - CLI scripts first. Minimal local UI at Step 10. FastAPI endpoint at Step 16
 
 ## Rules

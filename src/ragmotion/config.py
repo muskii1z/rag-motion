@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Default matches docker-compose.yml, so the database works even before .env exists.
     database_url: str = "postgresql://postgres:postgres@localhost:5434/ragmotion"
 
+    # Which LLM to use through OpenRouter. Change here or set LLM_MODEL in .env.
+    llm_model: str = "qwen/qwen3-235b-a22b-2507"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
     # API keys are optional here; the step that needs a key checks for it.
     openrouter_api_key: str | None = None
     voyage_api_key: str | None = None

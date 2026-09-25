@@ -32,3 +32,35 @@ class Exercise(BaseModel):
     laterality: Laterality
     body_region: BodyRegion
     source: str = Field(min_length=1)
+
+
+class ClientProfile(BaseModel):
+    """Structured version of a coach's plain-English client description.
+
+    Filled in by the LLM (Step 6). Fields the coach didn't mention must be null
+    or empty, never guessed. Every field is required-but-nullable because strict
+    structured output needs the model to address each field explicitly.
+
+    Which fields are missing is computed in Python (missing_fields), not asked
+    of the LLM: code can answer that exactly, so the model shouldn't guess it.
+    """
+
+    goal: str | None = Field(description="Main training goal as a short plain-English phrase, e.g. 'general strength'. Null if not stated.")
+    sessions_per_week: int | None = Field(description="Training sessions per week. Null if not stated.")
+    session_duration_minutes: int | None = Field(description="Length of one session in minutes. Null if not stated.")
+    equipment: list[Equipment] = Field(
+        description="Available equipment mapped to the allowed names only. 'resistance bands' -> 'band', 'dumbbells' -> 'dumbbell'. Empty if not stated."
+    )
+    unmapped_equipment: list[str] = Field(
+        description="Equipment mentioned that does not fit any allowed name, in the coach's words, e.g. 'TRX', 'rower'."
+    )
+    experience_level: Difficulty | None = Field(description="beginner, intermediate, or advanced. Null unless clearly stated or implied.")
+    age: int | None = Field(description="Client age in years. Null if not stated.")
+    context_notes: list[str] = Field(
+        description="Short facts stated in the text that fit no other field, e.g. 'recreational runner', 'age given as early 30s'. No inferences, advice, or diagnoses."
+    )
+
+    def missing_fields(self) -> list[str]:
+        """Core fields the coach didn't provide. Deterministic: computed, not generated."""
+        core = ["goal", "sessions_per_week", "session_duration_minutes", "equipment", "experience_level", "age"]
+        return [name for name in core if getattr(self, name) in (None, [])]
