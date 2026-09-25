@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     llm_model: str = "qwen/qwen3-235b-a22b-2507"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
+    # Embedding model, also through OpenRouter. Must match the vector(1024) column in
+    # db/schema.sql. Changing the model means re-embedding every stored row.
+    embedding_model: str = "voyageai/voyage-4-lite"
+    embedding_dimensions: int = 1024
+
     # API keys are optional here; the step that needs a key checks for it.
     openrouter_api_key: str | None = None
     voyage_api_key: str | None = None

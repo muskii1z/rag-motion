@@ -23,8 +23,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 4 | Exercise schema, create the table, inspect it in psql | done |
 | 5 | Write 20 exercises, seed script, query by hand | done (coach review pending) |
 | 6 | First LLM call (via OpenRouter, model chosen here): prose to structured client profile | done |
-| 7 | First embedding: embed one sentence, look at the numbers | next |
-| 8 | Embed all exercises, store vectors, compare two by hand | |
+| 7 | First embedding: embed one sentence, look at the numbers | done |
+| 8 | Embed all exercises, store vectors, compare two by hand | next |
 | 9 | Similarity search CLI, judge results by eye | |
 | 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | |
 | 11 | LangSmith tracing on the RAG pipeline | |
@@ -43,7 +43,7 @@ Update the Status column as steps complete.
 - Python 3.12, managed with **uv** (`pyproject.toml` + `uv.lock`)
 - **PostgreSQL 16 + pgvector** in Docker (`pgvector/pgvector:pg16`), on Mac port **5434** (`docker compose up -d --wait`)
 - **psycopg 3** with hand-written SQL. No ORM yet
-- **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions), likely through OpenRouter as `voyageai/voyage-4-lite` with the same OpenRouter key; confirmed at Step 7 (a separate `VOYAGE_API_KEY` only if we call Voyage directly)
+- **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions) through OpenRouter as `voyageai/voyage-4-lite`, same OpenRouter key (verified Step 7). Always store text with `embed_documents()` and embed questions with `embed_query()` (`src/ragmotion/embeddings.py`)
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `qwen/qwen3-235b-a22b-2507`, set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - CLI scripts first. Minimal local UI at Step 10. FastAPI endpoint at Step 16
 
