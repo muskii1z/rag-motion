@@ -2,7 +2,7 @@
 
 Run from the project folder:
     uv run python scripts/extract_document.py pag2
-    uv run python scripts/extract_document.py pag2 --show 25    # also print page 25's raw text
+    uv run python scripts/extract_document.py pag2 --show 25    # also print page 25's cleaned text
 
 Writes data/raw/<source_id>/pages.jsonl (git-ignored), one JSON object per page.
 """

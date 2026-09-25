@@ -80,7 +80,11 @@ A hallucination is confident output with no real source. When a model is asked t
 
 **In an interview:** "While gathering sources, a web tool gave me precise rep ranges and rest periods from a PDF it turned out it couldn't even read. I caught it by asking for the supporting quotes, and there were none. That's exactly why my RAG answers must cite retrieved text, and why I check citations instead of trusting fluent output."
 
-*First seen: before Step 11.*
+*Step 11 update: confirmed against the real text.* In Step 11 the same PDF's text was extracted locally with `pdftotext`. The real NSCA older-adults statement recommends 70–85% of 1RM for strength in healthy adults over 60. The tool had said 60–80%. So the invented figure was not just unsupported, it was wrong, and close enough to the truth to pass a casual read.
+
+**In an interview (with the ending):** "Later I extracted the real text. The statement says 70 to 85 percent of 1RM; the tool had said 60 to 80. Plausible, specific, and wrong. That's the failure mode I design against."
+
+*First seen: before Step 11. Extended: Step 11.*
 
 ### Deterministic vs generated
 Deterministic means the same input always gives the same, exactly correct output, like ordinary code. Generated means produced by the LLM, which can vary and can be wrong. The rule: compute in code whatever code can compute exactly, and use the LLM only for the language-understanding part. In Step 6 the first version asked the LLM to list missing information, and it invented field names. Now Python's `missing_fields()` checks which fields are null. Always correct, and free.
@@ -473,7 +477,9 @@ Chunking means splitting long documents into passages of a few paragraphs each, 
 
 **In an interview:** "Documents get split into chunks of a few paragraphs, each embedded and stored separately, so retrieval can return just the passage that answers the question instead of a whole chapter."
 
-*First seen: Step 4. Extended: Step 5, after Step 10.*
+*Step 11 update: the input to chunking exists.* The Physical Activity Guidelines are extracted into `data/raw/pag2/pages.jsonl`: 118 pages of cleaned text with paragraphs separated by blank lines, 264 `## ` headings, and each page's `pdf_page` and printed `page_label`, so a chunk can cite "page 56". Two of the failure points named in Step 5 were dealt with before chunking: garbled text (footers, broken lines, hyphens; see [Document ingestion](#document-ingestion)) and lost page metadata. Possible chunk boundaries: headings, and the 10 nearly empty chapter title pages. Not decided yet.
+
+*First seen: Step 4. Extended: Step 5, after Step 10, Step 11.*
 
 ### Content licensing in RAG
 Whatever text you ingest into a RAG system ends up stored in your database, and possibly in your repo. Copyrighted textbooks, such as NASM's materials or the NSCA's *Essentials of Strength Training and Conditioning*, can't go into a repo meant to become a public portfolio. Three options came up in Step 4: (a) write your own notes summarizing principles in your own words, citing the original source for each, and ingest the notes; (b) use openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) or open-access research papers; (c) keep copyrighted material local only, out of git and unpublished, which is fine for learning but can't be shown. This matches the master context document's rule: only use content we have permission to use or redistribute. No source has been chosen yet.
@@ -502,14 +508,20 @@ The practical legal risk to a small project is small, but the portfolio signal i
 
 **In an interview (citation vs permission):** "A search engine points you to the source; a RAG system replaces the need to visit it, because it stores the whole text and answers from it. So citing a copyrighted source doesn't make ingesting it OK. I ingest my own cited notes on the principles instead, since facts aren't copyrightable but wording is."
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice).*
+*Step 11 update: policy accepted, NSCA route chosen.* The developer approved [0017](decisions/0017-knowledge-source-licensing-policy.md). For NSCA, they chose to extract text locally from the four free NSCA position-statement PDFs the web tool had cached (older adults 2019, weightlifting 2023, LTAD 2016, youth resistance training 2009). The extracted text sits in Claude's scratch folder, outside the repo, because it is copyrighted; only original, cited notes written from it may enter the project. The Physical Activity Guidelines (group A, public domain) were downloaded into git-ignored `data/raw/` and recorded in the committed manifest with their license evidence and attribution.
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11.*
 
 ### Source manifest and provenance fields on chunks
 A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
 
 **In an interview:** "Every chunk carries its source URL and license, and a committed manifest records where each document came from. So citations are accurate, and if a license rules a source out for some use, I can filter it with one WHERE clause instead of re-ingesting."
 
-*First seen: before Step 11.*
+*Step 11 update: the manifest is built.* `data/sources.toml` is committed. TOML is a simple settings-file format that Python reads with its built-in `tomllib`, so no extra library was needed. The first entry, `pag2` (Physical Activity Guidelines, 2nd ed.), records title, publisher, year, URL, landing page, license, license group (A), license evidence (a quote from ODPHP's copyright policy), the attribution string to show, the local path under git-ignored `data/raw/`, the file's [SHA-256 fingerprint](#file-fingerprint-sha-256), and the retrieval date. Comments at the top restate the A–D policy. `load_sources()` reads it and `verify_file()` refuses to extract a file whose fingerprint doesn't match. The per-chunk `source_url` and `license` fields come with the chunk table in Step 12.
+
+**In an interview (with evidence):** "Each document has a manifest entry with its license, the evidence for that license, the attribution, and a SHA-256 of the exact file. The raw PDF isn't in git, but anyone can rebuild the data from the manifest and the script, and the hash check proves they got the same file."
+
+*First seen: before Step 11. Extended: Step 11.*
 
 ### Text and data mining (TDM) reservations
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
@@ -594,6 +606,80 @@ Keeping sourced and unsourced content apart only helps if the separation survive
 **In an interview:** "The label is enforced in the data shape, in a code check, and in the UI, not just in the prompt. The cited answer and the model's general advice are different fields, shown in different boxes, and general advice isn't allowed to carry citations."
 
 *First seen: after Step 10.*
+
+---
+
+## Document ingestion
+
+### PDF text extraction and reading order
+A PDF is not stored as paragraphs. It is a set of instructions for drawing characters at positions on a page. Text extraction means pulling those characters back out, and the hard part is rebuilding reading order: the order a person would read them in. Typical problems are running headers and footers mixed into the text, page numbers inside sentences, columns read in the wrong order, words hyphenated at line breaks, and sidebars or tables turned into jumbled text. In Step 11 the extraction library, PyMuPDF, returned text in the PDF's internal content order, which is not always the visual order: on page 56 of the Physical Activity Guidelines, a "Key Guidelines" box lower on the page came before the intro text above it. We kept the internal order for this document, because re-sorting by position could scramble boxes.
+
+**In an interview:** "PDFs store positioned characters, not paragraphs, so extraction is a reconstruction problem. I treated it as its own step: extract, measure what came out, clean it, and check the result before any chunking."
+
+*First seen: Step 11.*
+
+### Running headers and footers (normalize before comparing)
+A running header or footer is text repeated on every page, such as the book title and page number. Left in, it gets glued into the middle of chunks. The usual detection is "find lines that appear on many pages". In Step 11 that check, done by exact matching, found only "Learn More" and missed the real footer, because `56      Physical Activity Guidelines for Americans` carries a different page number on every page, so every copy is unique. Replacing digits before comparing (normalizing) revealed it on 54 pages. The general lesson: normalize the parts that are supposed to vary before you compare. The script's quality report now replaces digits with `#` before counting repeats.
+
+**In an interview:** "My first repeated-line check said the PDF had no running header. It did; the page number made each copy unique. Normalizing digits before comparing found it on 54 pages. Now I normalize whatever is supposed to vary before I look for repeats."
+
+*First seen: Step 11.*
+
+### Line-end hyphens (hyphenation ambiguity)
+When a PDF wraps a line, a word can end in a hyphen at the line break. The hyphen can mean two different things: a word split to fit the line ("cardio-" + "respiratory"), or a real compound word that happens to break at its own hyphen ("moderate-to-" + "vigorous"). Deleting every line-end hyphen fixes the first and mangles the second into "moderate-tovigorous". Step 11 chose to join such lines without a space and keep the hyphen. Compounds come out right; split words keep a harmless stray hyphen. The raw text had 60 line-end hyphens.
+
+**In an interview:** "Line-end hyphens are ambiguous: some are split words, some are real compounds like 'moderate-to-vigorous'. I kept the hyphen when joining, because a stray hyphen barely affects retrieval but a mangled domain term does."
+
+*First seen: Step 11.*
+
+### Position-based cleaning (coordinates)
+PyMuPDF can return each line of text with its coordinates: where it sits on the page, measured in points (1 pt = 1/72 inch; a US letter page is 792 pt tall). That lets cleaning use *where* text is instead of *what* it says. In Step 11 the footers all sat at y ≈ 747–761, so any line starting within 50 pt of the bottom (or ending within 36 pt of the top) is dropped. Coordinates also rebuilt paragraphs: every block came back as a single line, so a new paragraph starts when the vertical gap exceeds 6 pt (normal line gap ~3 pt, paragraph gap ~12 pt), when the left edge shifts more than 20 pt (a column or sidebar change), or when the text jumps back up the page. The thresholds are named constants in `ingestion.py`, measured on this PDF ([0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)).
+
+**In an interview:** "I dropped headers and footers by position, not by text patterns, and rebuilt paragraphs from line gaps. Every threshold is a documented constant measured on the actual document, so it's clear why a line was removed, and easy to retune for the next source."
+
+*First seen: Step 11.*
+
+### Font size as structure (heading detection)
+A PDF has no "this is a heading" marker in its plain text, but the font sizes give it away. A tally over the whole Physical Activity Guidelines found body text at 10 pt (about 90% of words), 9.8 pt, 8 pt (footnotes and captions), and larger sizes, 12, 14, 15, 16, and 27 pt (chapter titles), used for headings, figure titles, and "Learn More" sidebars. So any line of 12 pt or more becomes a `## ` heading, and multi-line headings are merged. Step 11 detected 264 headings. Headings matter for chunking: they mark where one topic ends and the next begins, and they can label each chunk with its section.
+
+**In an interview:** "I measured the font-size distribution over the whole document: body text was 10 point, headings 12 and up. That let me mark headings reliably, so chunking can split on sections and every chunk knows what section it came from."
+
+*First seen: Step 11.*
+
+### Tagged PDF
+A tagged PDF contains structure labels (tags) that say what each piece of content is, such as a heading, paragraph, or table, mainly so screen readers can read it in order. The Physical Activity Guidelines PDF is tagged. Step 11's cleaning does not use the tags; it works from positions and font sizes instead. Whether the tags could replace some of those heuristics is an open question.
+
+**In an interview:** "The PDF was tagged, which is accessibility structure you can sometimes use for parsing. I went with positions and font sizes, which work on untagged PDFs too, and noted the tags as an option."
+
+*First seen: Step 11.*
+
+### File fingerprint (SHA-256)
+SHA-256 is a hash function: it turns any file into a 64-character code (a fingerprint). Change a single byte and the code changes completely. The source manifest records the SHA-256 of the exact PDF we processed. Before extracting, `verify_file()` recomputes it and stops if it differs, which would mean the file is missing, corrupted, or the publisher changed it upstream. Pinning the fingerprint means the chunks can always be traced to one exact file, and a silent upstream change can't slip in.
+
+**In an interview:** "The manifest pins each document's SHA-256. The pipeline refuses to run on a file that doesn't match, so if the publisher quietly updates the PDF, I find out and review it instead of ingesting different content under the same name."
+
+*First seen: Step 11.*
+
+### Raw and cleaned text side by side
+Every page record in `pages.jsonl` keeps both `raw_text` (exactly what PyMuPDF returned) and `text` (after `clean_page()`). When something looks wrong in a chunk or an answer later, you can compare the two and see whether the problem came from the PDF itself or from the cleaning rules. It is the ingestion version of printing every stage ([Manual tracing](#manual-tracing)).
+
+**In an interview:** "I keep the raw extraction next to the cleaned text for every page, so any cleaning bug can be traced back to its source instead of guessed at."
+
+*First seen: Step 11.*
+
+### Garbage in, garbage out (ingestion quality)
+In RAG, ingestion errors don't crash anything. A footer glued into a paragraph, a mangled word, or a sidebar merged into body text all flow quietly into chunks, then into embeddings, then into retrieval, where they show up as odd matches or missed answers far from their cause. So ingestion needs its own measurements before chunking. Step 11's script prints a quality report: page count, raw vs cleaned words, nearly empty pages, lines repeated on 15% or more of pages (digits normalized), headings detected, and line-end hyphens.
+
+**In an interview:** "Bad extraction fails silently: it just makes retrieval worse later. So my ingestion script prints a quality report, and I read it before chunking anything."
+
+*First seen: Step 11.*
+
+### Sanity-checking a transformation (account for what was removed)
+When a step removes content, check that what disappeared is exactly what you meant to remove. Step 11's cleaning reduced the document from 40,775 to 40,287 words: 488 fewer. The removed footers are 4–6 words each across about 100 pages, which accounts for the difference, so no real content was lost. The same idea caught a problem the other way: repeated lines went from 2 (raw) to 1 (cleaned), and the survivor, "## Learn More" on 20 pages, is a real sidebar heading, not junk.
+
+**In an interview:** "After cleaning I didn't just eyeball a page. The word count dropped by 488, and the footers I removed explain that almost exactly, so I know I didn't delete real content."
+
+*First seen: Step 11.*
 
 ---
 
@@ -720,7 +806,9 @@ The one dev library is **pytest**, which runs tests.
 
 *Step 10 update:* Added **fastapi** 0.141.1 (builds the web API) and **uvicorn** 0.54.0 with the `[standard]` extra (the server that runs it), with `uv add fastapi "uvicorn[standard]"`. See [FastAPI and uvicorn](#fastapi-and-uvicorn).
 
-*First seen: Step 1. Extended: Steps 5, 6, 7, and 10.*
+*Step 11 update:* Added **pymupdf** 1.28.2 (`uv add pymupdf`), which opens PDFs and returns their text with positions and font sizes; used in `ingestion.py`. Its license is AGPL, a "copyleft" license: fine for an open portfolio, but it would need review before use in a closed commercial product ([0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)). The manifest is read with Python's built-in `tomllib`, so no library was added for that.
+
+*First seen: Step 1. Extended: Steps 5, 6, 7, 10, and 11.*
 
 ### Pydantic model and Literal types
 A Pydantic model is a Python class that describes the exact shape of some data: which fields exist, their types, and which values are allowed. Handing it bad data raises an error that names the field. A `Literal` type lists the only values a field may take, for example `Literal["beginner", "intermediate", "advanced"]`. In Step 5, `src/ragmotion/models.py` defines an `Exercise` model whose `Literal` lists mirror the CHECK constraints in `db/schema.sql`. It also requires `slug` to be lowercase words joined by hyphens and `equipment` to be non-empty. The seed script validates all 20 entries against it before touching the database.

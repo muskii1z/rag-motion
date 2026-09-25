@@ -19,3 +19,4 @@ One file per real decision, numbered in order. Each records the context, options
 - [0015. Local web UI: FastAPI + one static HTML page](0015-local-web-ui-fastapi-static-html.md) (Step 10)
 - [0016. Answer grounding: evidence-only answer plus labeled general guidance](0016-answer-grounding-evidence-plus-labeled-general-guidance.md) (after Step 10)
 - [0017. Knowledge source licensing policy (groups A–D)](0017-knowledge-source-licensing-policy.md) (before Step 11, **accepted** 2026-09-25; NSCA enters only as original notes, drafted from locally extracted position statements)
+- [0018. PDF extraction with PyMuPDF and layout-based cleaning](0018-pdf-extraction-pymupdf-layout-cleaning.md) (Step 11)

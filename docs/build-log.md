@@ -1653,3 +1653,121 @@ The blocked Kinetic Select web pages (plyometrics, sprinting, program design, en
 
 **Decisions.**
 - None new. Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (NSCA material enters only as original notes; how the notes get written is pending).
+
+## Step 11: Document ingestion: extract clean page text from the Physical Activity Guidelines PDF
+**Date:** 2026-09-25 · **Commit:** `903f9ef` feat: extract and clean text from the Physical Activity Guidelines PDF (this docs update is committed and pushed right after, possibly together with the NSCA notes)
+
+**Goal.** Get clean, page-level text out of the first real document, and learn what makes PDF extraction hard, before chunking.
+
+### Before we started: three developer decisions
+Claude put three questions to the developer. Answers:
+
+1. **NSCA notes route: "Extract the cached PDFs locally"** (the recommended option from the [previous entry](#before-step-11-continued-nsca-notes-attempt-blocked-and-a-caught-hallucination)).
+   - The web tool had automatically cached four free NSCA position-statement PDFs. They were identified by their metadata and first-page text: Older Adults 2019 (34 pages), Weightlifting 2023 (28 pages; the real 2023 JSCR version, in two identical copies), LTAD 2016 (19 pages; LTAD means long-term athletic development), and Youth Resistance Training 2009 (20 pages). This answers the earlier open question about whether the weightlifting file was the 2023 version: it is.
+   - Text was extracted with poppler's `pdftotext` (a command-line PDF-to-text tool, already installed through Homebrew) into Claude's scratch folder, **outside the repo**, because the text is copyrighted. Roughly 40k, 27k, 18k, and 19k words.
+   - **The extracted text confirmed the earlier hallucination.** The real older-adults statement recommends 70–85% of 1RM (one-repetition maximum) for strength in healthy adults over 60. The web tool had invented "60–80% of 1RM". See [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation) (extended).
+   - Two background agents are now writing original, cited notes from that text only, checking every number against it: one on weightlifting plus older adults, one on youth plus LTAD combined. They will be documented in their own entry when finished.
+2. **Download: approved.** `Physical_Activity_Guidelines_2nd_edition.pdf` was downloaded with curl into `data/raw/`, which is git-ignored (the ignore rule was added in commit `a26cb38`). Facts about the file:
+   - 15,360,711 bytes, an exact match with the size from the earlier HEAD check (a request that returns only a file's headers).
+   - 118 pages. A [tagged PDF](concepts.md#tagged-pdf) (it contains structure labels). Created October 2018 with Adobe InDesign.
+   - SHA-256 `0147d4dfc5ae76613a8b8d9d1c95244477527989f1d841845866ae5b5340cda5`. See [File fingerprint (SHA-256)](concepts.md#file-fingerprint-sha-256).
+3. **Licensing policy: approved.** [0017](decisions/0017-knowledge-source-licensing-policy.md) changed from proposed to **accepted**, with an update section noting the NSCA route.
+
+### Why extraction is its own step
+Claude explained this before building. A PDF is not a document of paragraphs. It is a set of instructions for placing characters at positions on a page. Extraction has to rebuild the reading order (the order a person would read the text in) from those positions. Common problems:
+- running headers and footers (the book title and page number repeated on every page) mixed into the text;
+- page numbers inside the text;
+- multi-column pages read in the wrong order;
+- words hyphenated at line breaks;
+- sidebars and tables turning into jumbled text.
+
+Bad extraction fails silently. Nothing crashes; the junk just flows into chunking, then embeddings, then retrieval. See [PDF text extraction and reading order](concepts.md#pdf-text-extraction-and-reading-order) and [Garbage in, garbage out](concepts.md#garbage-in-garbage-out-ingestion-quality).
+
+### What we did
+- **Library: PyMuPDF 1.28.2** (`uv add pymupdf`). Options weighed: pypdf, pdfplumber, PyMuPDF. PyMuPDF was chosen because it is fast and returns each line's position and font size, which makes heading detection possible for section-based chunking later. It is also the library named in the master context document. Tradeoff: its AGPL license. See [0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md).
+- **`data/sources.toml`: a committed source manifest.** TOML is a simple settings-file format; Python reads it with the built-in `tomllib`, so no extra dependency. One entry so far, id `pag2`, with title, publisher, year, URL, landing page, license, license group A, license evidence (the ODPHP copyright policy), attribution string ("... Text extracted and chunked for this project."), local path, SHA-256, and retrieval date. Comments at the top restate the A–D policy. See [Source manifest](concepts.md#source-manifest-and-provenance-fields-on-chunks) (extended: now built).
+- **`src/ragmotion/ingestion.py`:**
+  - `Source` and `PageText` dataclasses (a dataclass is a small Python class that just holds named fields).
+  - `load_sources()` reads the manifest.
+  - `verify_file()` fails if the file is missing, or if its SHA-256 differs from the manifest (for example, if the upstream file changed).
+  - `extract_pdf_pages()` returns, per page: `source_id`, `pdf_page` (1-based position in the file), `page_label` (the page number printed on the page), cleaned `text`, and `raw_text` (exactly what PyMuPDF returned).
+  - `clean_page()`, built during the investigation below.
+- **`scripts/extract_document.py <source_id> [--show N]`:** verifies the file, extracts it, writes `data/raw/<id>/pages.jsonl` (one JSON object per page, git-ignored), prints a quality report, and optionally prints one cleaned page.
+- **`CLAUDE.md`:** Step 11 marked done (Physical Activity Guidelines), Step 12 (chunking) next, and a new stack line about the documents pipeline.
+
+### The investigation: from raw text to clean pages
+This is the heart of the step. In order:
+
+1. **First pass, raw text, no cleaning.** 118 pages, 40,775 words, median 385 words per page.
+   - 10 nearly empty pages (under 40 words): 1, 13, 27, 46, 55, 66, 78, 87, 94, 118.
+   - An exact-match check for lines repeated across pages found only "Learn More" (22 pages).
+   - 60 line-end hyphens. 12 lines that were only a number.
+2. **The near-empty pages are chapter title pages.** For example page 13 "Chapter 1. Introducing the Physical Activity Guidelines for Americans", page 27 "Chapter 2...", page 55 "Chapter 4. Active Adults". Useful later as chapter boundaries.
+3. **A running header the check missed.** Page 56's first line was `56      Physical Activity Guidelines for Americans`. The page number makes every copy of that line unique, so exact matching can't see the repeat. Lesson: normalize (here, replace digits) before comparing. After normalizing, the raw text showed that header on 54 pages. See [Running headers and footers](concepts.md#running-headers-and-footers-normalize-before-comparing).
+4. **Hyphens are ambiguous.** `moderate-to-\nvigorous` is a real compound word split across a line, not a broken word. Deleting every line-end hyphen would produce "moderate-tovigorous". Chosen rule: join such lines without a space and **keep** the hyphen. That is right for compounds, and leaves a harmless stray hyphen in truly split words ("cardio-respiratory"). A stray hyphen hurts retrieval far less than a mangled term. See [Line-end hyphens](concepts.md#line-end-hyphens-hyphenation-ambiguity).
+5. **No paragraph structure.** The plain text had hard line breaks mid-sentence and no blank lines between paragraphs.
+6. **Looking at positions.** PyMuPDF can return "blocks" of text with their coordinates (positions on the page, measured in points; 1 pt = 1/72 inch). On pages 56–57:
+   - Footers sit at y ≈ 747–761 on a 792-pt-tall page ("56 Physical Activity Guidelines for Americans" on even pages, "Chapter 4. Active Adults 57" on odd pages). So they can be dropped by **position**, not by text patterns. See [Position-based cleaning](concepts.md#position-based-cleaning-coordinates).
+   - Each block was a single line, not a paragraph. So paragraphs had to be rebuilt from vertical gaps: the normal gap between lines is about 3 pt, between paragraphs about 12 pt.
+   - Reading order follows the PDF's internal content order, not the visual layout. On page 56 the "Key Guidelines" box, which is lower on the page, came before the intro text above it. "Learn More" sidebars are separate blocks. Claude kept the internal order (sensible for this document) rather than re-sorting by position, which could scramble boxes.
+7. **Font-size tally over the whole document.** 10.0 pt body text (about 36,500 words, ~90%), 9.8 pt (~2,000), 14 pt (~800; headings and figure titles), 8 pt (~540; footnotes and captions, kept), plus 16 pt, 15 pt ("Learn More"), 12 pt, and 27 pt (chapter titles). So: headings are 12 pt and larger. See [Font size as structure](concepts.md#font-size-as-structure-heading-detection).
+8. **`clean_page()`, built from those measurements.** The constants are documented in the code: `FOOTER_BAND_PT=50`, `HEADER_BAND_PT=36`, `HEADING_MIN_SIZE=12.0`, `PARAGRAPH_GAP_PT=6.0`, `SAME_COLUMN_PT=20.0`. Rules:
+   - drop lines in the footer and header bands;
+   - lines of 12 pt or more become `## ` headings, with multi-line headings merged;
+   - a new paragraph starts when the left edge shifts more than 20 pt (a column or sidebar change), the gap exceeds 6 pt, or the text jumps back up the page;
+   - wrapped lines are joined with the hyphen rule;
+   - bullet points ("•") keep their own lines. This rule was added after seeing Table 4-1's bullets run together.
+9. **Results.**
+   - Cleaned text: 40,287 words, 488 fewer than raw. Sanity check: the removed footers are 4–6 words each across about 100 pages, which accounts for the difference, so no real content was lost. See [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed).
+   - Lines repeated on many pages (digits normalized): raw 2 (the running header on 54 pages; "Learn More" on 22). Cleaned 1 ("## Learn More" on 20 pages, a legitimate sidebar heading).
+   - 264 headings detected.
+   - Page 56 now reads as clean paragraphs with "## Key Guidelines for Adults" and "## Learn More" headings, "moderate-to-vigorous" intact, and no footer.
+   - Table 4-1 (examples of moderate vs vigorous activities) came out as two labeled groups with one bullet per line. Tables in this document are mostly list-style. Numeric grid tables would be harder; none were examined yet.
+   - `raw_text` is kept next to `text` in `pages.jsonl`, so any cleaning mistake can be traced back. See [Raw and cleaned text side by side](concepts.md#raw-and-cleaned-text-side-by-side).
+
+**Commands.**
+```bash
+uv add pymupdf
+# Installed PyMuPDF 1.28.2; added "pymupdf>=1.28.2" to pyproject.toml and updated uv.lock.
+
+# (curl download of the PDF into data/raw/; exact command not recorded)
+# 15,360,711 bytes, same as the earlier HEAD check.
+
+uv run python scripts/extract_document.py pag2
+# "Verified ... matches the manifest (sha256)", then the quality report:
+# pages, raw vs cleaned words, nearly empty pages, lines on 15%+ of pages
+# (digits normalized, raw and cleaned), headings detected, line-end hyphens.
+# Writes data/raw/pag2/pages.jsonl.
+
+uv run python scripts/extract_document.py pag2 --show N
+# Also prints one page's cleaned text (used to inspect pages such as 56).
+```
+The NSCA text was extracted with poppler's `pdftotext`; exact commands not recorded. The investigation passes (raw text check, block positions on pages 56–57, the font-size tally) were exploratory runs; their exact commands were not recorded either.
+
+**What we saw.** The numbers are in the investigation above. In short: 118 pages; 40,775 raw words became 40,287 cleaned words, with the 488-word difference explained by removed footers; the running header went from 54 pages to 0; 264 headings; compound words intact; bullets on their own lines.
+
+**Problems and fixes.**
+- **The invisible running header.** Exact matching missed it because each copy carried a different page number. Fix: normalize digits before comparing (now built into the script's report), and drop footers and headers by position in `clean_page()`.
+- **Hyphen ambiguity.** Deleting line-end hyphens would mangle compounds ("moderate-tovigorous"). Fix: join without a space and keep the hyphen.
+- **No paragraph structure.** Every block was one line. Fix: rebuild paragraphs from vertical gaps, left-edge shifts, and jumps back up the page.
+- **Bullets merged into one paragraph** (Table 4-1). Fix: a bullet rule that keeps each "•" line separate.
+
+**Open questions.**
+- The cleaning thresholds were measured on this one PDF. How well do they transfer to the next source? Expect to retune ([0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)).
+- Numeric grid tables have not been examined; none were checked in this document.
+- The PDF is tagged (has structure labels), but the cleaning doesn't use the tags. Could they replace some of the heuristics? Not discussed.
+- How many true split words now carry a stray hyphen ("cardio-respiratory")? Not counted.
+- Will the chapter title pages and `## ` headings become chunk boundaries in Step 12? Likely, not decided.
+- Small repo inconsistency: the docstring in `scripts/extract_document.py` says `--show 25` prints "page 25's raw text", but the option prints the cleaned text.
+- PyMuPDF's AGPL license needs a review before any closed commercial use.
+- The NSCA notes (`data/notes/nsca/`, currently untracked) are still being written and will get their own entry.
+
+**Developer questions.** None recorded beyond the three decisions above.
+
+**Learned.**
+- New group [Document ingestion](concepts.md#document-ingestion): [PDF text extraction and reading order](concepts.md#pdf-text-extraction-and-reading-order), [Running headers and footers](concepts.md#running-headers-and-footers-normalize-before-comparing), [Line-end hyphens](concepts.md#line-end-hyphens-hyphenation-ambiguity), [Position-based cleaning](concepts.md#position-based-cleaning-coordinates), [Font size as structure](concepts.md#font-size-as-structure-heading-detection), [Tagged PDF](concepts.md#tagged-pdf), [File fingerprint (SHA-256)](concepts.md#file-fingerprint-sha-256), [Raw and cleaned text side by side](concepts.md#raw-and-cleaned-text-side-by-side), [Garbage in, garbage out](concepts.md#garbage-in-garbage-out-ingestion-quality), [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed)
+- Extended: [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) (now built), [Chunking](concepts.md#chunking) (pages ready), [Content licensing in RAG](concepts.md#content-licensing-in-rag) (policy accepted), [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation) (confirmed against the real text), [What each library is for](concepts.md#what-each-library-is-for) (pymupdf)
+
+**Decisions.**
+- New: [0018. PDF extraction with PyMuPDF and layout-based cleaning](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)
+- Updated (by the main session, in the commit): [0017](decisions/0017-knowledge-source-licensing-policy.md) is now **accepted**.
