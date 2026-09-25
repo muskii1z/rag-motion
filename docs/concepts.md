@@ -148,7 +148,11 @@ An embedding is a list of numbers that represents the meaning of a piece of text
 
 **In an interview (with evidence):** "A real embedding is just 1,024 small decimals with length 1. On their own they mean nothing to a person, but compared with each other they worked: 'hip hinge exercise with dumbbells' named no exercise, and it still ranked the Romanian deadlift first and the kettlebell swing second."
 
-*First seen: Step 0. Extended: between Steps 2 and 3, between Steps 4 and 5, Step 7.*
+*Step 8 update: real clusters.* All 20 exercises were embedded and compared in SQL. With no categories given, the vectors grouped them the way a coach would: jumps (Box Jump, Broad Jump, Lateral Bound, 0.86 to 0.88), hinges (Dumbbell RDL with Single-Leg RDL 0.91 and Hip Thrust 0.88), single-leg work (Reverse Lunge with Step-Up 0.91 and Bulgarian Split Squat 0.89), pulls (Inverted Row with One-Arm Dumbbell Row 0.91), and core (Dead Bug with Pallof Press 0.84). Unrelated pairs, such as Box Jump vs Dead Bug, scored about 0.63. See [Nearest neighbors](#nearest-neighbors).
+
+**In an interview (with evidence):** "When I embedded my 20 exercises, nobody told the model what a hinge or a jump was, but the nearest neighbors came out as coaching categories: RDL next to single-leg RDL at 0.91, the three jumps together, the rows together. Unrelated pairs sat around 0.63."
+
+*First seen: Step 0. Extended: between Steps 2 and 3, between Steps 4 and 5, Steps 7 and 8.*
 
 ### Normalized vectors and cosine similarity
 A vector's length (its norm) is the square root of the sum of its squared numbers. Voyage returns every vector with length 1.0; that is what "normalized" means. Cosine similarity measures how alike two vectors' directions are: 1 means the same direction, 0 means unrelated. It is normally the dot product (multiply matching numbers pairwise, then add them all up) divided by the two lengths. When both lengths are 1, that division changes nothing, so cosine similarity is just the dot product. pgvector's `<=>` returns cosine distance, which is 1 minus cosine similarity (0 for identical, as in the [Step 3 table](#pgvector)). Because Voyage's vectors are already normalized, they can go into pgvector as they are. `cosine_similarity()` in `embeddings.py` computes it in plain Python for demos; in the database, pgvector does it.
@@ -169,7 +173,9 @@ A similarity score only means something next to other scores for the same questi
 
 **In an interview:** "I don't treat a similarity score as a confidence level. An unrelated exercise scored 0.46 on one question and the right one scored 0.15 on another, so I read rankings and gaps, and any threshold has to earn its place on the eval set."
 
-*First seen: Step 7.*
+*Step 8 update: ranges on the real catalog.* Comparing the 20 stored exercises with each other (document vs document, a different setting from Step 7's question vs document), related pairs scored about 0.83 to 0.91 and unrelated pairs about 0.63. So even "unrelated" is far from 0 here: all 20 texts are about exercise, and they share the same labeled lines. The gap between related and unrelated is what carries information, not the number itself.
+
+*First seen: Step 7. Extended: Step 8.*
 
 ### Keyword search
 Keyword search finds rows that contain the actual words in the question. Using the running example "beginner RDL variations with dumbbells", the word "RDL" (Romanian deadlift) matches an exercise named "Dumbbell RDL" exactly. It fails when the wording differs: "hip hinge" won't find "Romanian deadlift" unless those words appear in the exercise text. PostgreSQL has keyword search built in, called full-text search.
@@ -268,7 +274,9 @@ An embedding is computed from a piece of text at one moment. If the text is late
 
 **In an interview:** "Embeddings go stale when the source text changes. My seed script clears an exercise's vector whenever its content changes, so a missing embedding gets recomputed instead of a wrong one silently staying in the index."
 
-*First seen: Step 5.*
+*Step 8 update:* The seed script now also clears `embedding_model` when content changes, and `scripts/embed_exercises.py` picks up exactly those rows (plus any made by a different model) on its next run. Editing `exercise_to_text()` also makes every vector stale, but the database can't detect that, so the rule is to re-run with `--all` after editing it. See [Embedding provenance (embedding_model column)](#embedding-provenance-embedding_model-column).
+
+*First seen: Step 5. Extended: Step 8.*
 
 ### Query rewriting
 Query rewriting means an LLM rewrites the user's question into better search terms before the search runs. People ask conversationally and in shorthand; the search works better on clear, explicit terms. With a small glossary of exercise abbreviations in the prompt (RDL = Romanian deadlift, BSS = Bulgarian split squat, SL RDL = single-leg RDL, KB = kettlebell), "BSS alternatives with a KB" could become a search for Bulgarian split squat alternatives using a kettlebell. It is cheap to improve: you edit a prompt, you don't re-index the data. The cost is one extra LLM call per question, which adds time and a small charge. Planned as a Phase 1F experiment, measured against the Step 15 baseline. Not built yet. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -307,7 +315,44 @@ Choosing an embedding model is a commitment. Each model places meaning in its ow
 
 *Step 7 update: guarded in code.* `config.py` holds `embedding_model` and `embedding_dimensions` (1024), with a comment that they must match the `vector(1024)` column and that changing the model means re-embedding every stored row. `embeddings.py` checks every returned vector has 1,024 numbers and fails with "Model and database column no longer match." otherwise. The measured price matched the estimate's basis: 7 tokens cost $0.00000014, which is $0.02 per million.
 
-*First seen: Step 6. Extended: Step 7.*
+*Step 8 update: recorded per row.* Each stored vector now has the model's name beside it in an `embedding_model` column, so after a model change the rows that need re-embedding can be found with a query instead of by memory. See [Embedding provenance (embedding_model column)](#embedding-provenance-embedding_model-column).
+
+*First seen: Step 6. Extended: Steps 7 and 8.*
+
+### What text to embed (document representation)
+An embedding only knows the text it was given, so choosing what text represents each exercise decides what a search can match. In Step 8 three options were weighed. Description only carries meaning, but a question like "beginner dumbbell exercises" has nothing to match, since difficulty and equipment aren't in it. Everything including instructions adds step-by-step cues that describe how to move, not what the exercise is: noise. The choice was name + description + short labeled facts (movement pattern, body region, laterality, primary muscles, equipment, difficulty), no instructions. It lives in one function, `exercise_to_text()`. The labels have a side effect: exercises that share equipment or body region are pulled closer together. Push-Up's nearest neighbor became Inverted Row, a pull (0.85). See [0014](decisions/0014-embedded-text-name-description-labels.md).
+
+**In an interview:** "What you embed is a design decision, not a given. I embed the name, the description, and labeled facts like equipment and difficulty, but not the coaching cues. The labels help questions about equipment match, but they also pull same-equipment exercises together, so the eval compares that against description-only."
+
+*First seen: Step 8.*
+
+### Batch embedding
+Sending many texts to the embedding model in one API call instead of one call per text. In Step 8, all 20 exercise texts went in a single `embed_documents()` call. Fewer calls means less waiting on the network and fewer chances to hit rate limits (a provider's cap on how many requests you may send per minute). The code sorts results by their `index` and checks there is one vector per text, so each vector is stored against the right exercise. At much larger scale, texts would be sent in chunks, because providers cap how many texts or tokens one call may carry.
+
+**In an interview:** "I embed the whole catalog in one batched call and match results back by index. It's faster and cheaper on request overhead than looping one text at a time."
+
+*First seen: Step 8.*
+
+### Embedding provenance (embedding_model column)
+Provenance means "where did this come from". Here it is a text column, `embedding_model`, storing which model produced each row's vector (for example `voyageai/voyage-4-lite`). Vectors from different models can't be compared, and they look identical in the table: 1,024 numbers either way. Without the label, a half-finished model switch would leave a silent mix. With it, `WHERE embedding IS NULL OR embedding_model IS DISTINCT FROM '<current model>'` finds exactly the rows to redo. `scripts/embed_exercises.py` uses that condition, so changing the model setting and re-running the script is the whole migration. See [Embedding model lock-in](#embedding-model-lock-in).
+
+**In an interview:** "Every vector carries the name of the model that made it. Vectors from two models look the same but can't be compared, so the column turns a model switch into a query for stale rows instead of a guess."
+
+*First seen: Step 8.*
+
+### Nearest neighbors
+An item's nearest neighbors are the other items whose vectors are closest to it. With pgvector: order by `<=>` (cosine distance, smallest first) and keep the top few. Similarity, as reported in Step 8, is 1 minus that distance. Listing the three nearest neighbors of every exercise is a quick way to see whether the vectors make sense before building search on them. In Step 8 they mostly did (jumps, hinges, single-leg, pulls, and core each grouped together), with a few odd ones worth explaining: Farmer Carry, the only carry, landed next to Dumbbell Overhead Press (0.82). The same operation with a question's vector instead of an exercise's is semantic search (Step 9). The query used a [LATERAL join](#lateral-join).
+
+**In an interview:** "Before building search, I listed each exercise's three nearest neighbors in SQL and checked them as a coach. Most groupings were right, and the odd ones told me something about the data and about what text I was embedding."
+
+*First seen: Step 8.*
+
+### Search always returns something
+Nearest-neighbor search ranks everything and hands back the top results, whether or not any of them is truly relevant. It never says "nothing matches". In Step 8, Farmer Carry has no real sibling in the catalog (it is the only carry), yet its three neighbors still came back with scores of 0.79 to 0.82, close to the scores of genuinely related pairs. So a top result is not proof of relevance. Results still need judging: by the LLM step that uses them (Step 10), by metadata filters, and by evaluation.
+
+**In an interview:** "Vector search always returns a top five, even when nothing fits. My only carry exercise still got neighbors scoring 0.8, so I never treat 'retrieved' as 'relevant'; filters, the prompt, and the eval have to catch that."
+
+*First seen: Step 8.*
 
 ---
 
@@ -677,14 +722,18 @@ So the scale runs from 0 (identical) to 2 (opposite), and smaller means more sim
 
 *Step 7 update:* Real Voyage vectors have length 1, so `<=>` (cosine distance) works on them directly, with no extra preparation. See [Normalized vectors and cosine similarity](#normalized-vectors-and-cosine-similarity). The `embedding` column is still empty until Step 8.
 
-*First seen: between Steps 2 and 3. Extended: Steps 3 and 4, between Steps 4 and 5, Step 7.*
+*Step 8 update: the column is filled.* All 20 exercises now have a vector, written from Python with pgvector's `Vector` type (from the `pgvector` library, which psycopg understands after `register_vector`). Small detail seen while checking it: pgvector stores each number as a 4-byte float (single precision, about 7 significant digits), so 0.1 comes back as 0.10000000149. The difference is far too small to change a similarity ranking. The vectors sit in the same rows as name, equipment, and difficulty, so later searches can rank by meaning and filter on columns in one query.
+
+*First seen: between Steps 2 and 3. Extended: Steps 3 and 4, between Steps 4 and 5, Steps 7 and 8.*
 
 ### Schema
 A schema is the definition of a table: its columns, each column's type, and the rules each value must follow. It is a contract the database enforces, so bad data is rejected at the door instead of discovered later. In this project it lives in `db/schema.sql`. Changing a schema is cheap while the table is empty (drop it and recreate it in seconds). Once real data and code depend on it, changes are done through migrations: scripted, versioned changes to a live database's structure. One design rule came out of Step 4: anything you want to filter on must be its own column; everything else can live in the description text, where the embedding captures its meaning.
 
 **In an interview:** "The schema is a contract the database enforces. I put anything I need to filter on, like equipment and difficulty, in its own constrained column, and left the rest as descriptive text for the embedding."
 
-*First seen: Step 4.*
+*Step 8 update:* The first schema change on a table with data in it: adding `embedding_model`. See [Migration: adding a column (ALTER TABLE)](#migration-adding-a-column-alter-table).
+
+*First seen: Step 4. Extended: Step 8.*
 
 ### Column types
 The types used in the exercise table:
@@ -726,7 +775,9 @@ A transaction is a group of database statements that succeed or fail together. `
 
 *Step 5 update:* The seed script writes all 20 rows in one transaction: either every row lands or none do. In Python, `get_connection()` is used as a context manager (a `with` block), which commits at the end if nothing failed and closes the connection. See [Validate before write](#validate-before-write).
 
-*First seen: Step 4. Extended: Step 5.*
+*Step 8 update:* The embedding script stores all its vectors in one transaction too, so a failure partway leaves no mix of embedded and unembedded rows from that run.
+
+*First seen: Step 4. Extended: Steps 5 and 8.*
 
 ### Idempotent script
 An idempotent script gives the same result no matter how many times it is run. `db/schema.sql` uses `CREATE EXTENSION IF NOT EXISTS` and `CREATE TABLE IF NOT EXISTS`, so running it again skips what already exists instead of failing. When it was applied in Step 4, Postgres printed `NOTICE: extension "vector" already exists, skipping` (it had been enabled by hand in Step 3). Applying it with `-v ON_ERROR_STOP=1` makes psql stop at the first real error instead of carrying on through the rest of the file.
@@ -735,7 +786,11 @@ An idempotent script gives the same result no matter how many times it is run. `
 
 *Step 5 update:* The seed script is idempotent too, through an [upsert](#upsert). Run 1 printed "Inserted 20, updated 0, unchanged 0"; run 2 printed "Inserted 0, updated 0, unchanged 20", and the table still had 20 rows.
 
-*First seen: Step 4. Extended: Step 5.*
+*Step 8 update: an idempotent pipeline step.* `scripts/embed_exercises.py` only processes what is missing or stale: rows with no embedding, or an embedding from a different model. Run 1 stored 20 embeddings. Run 2 printed "Nothing to embed: every exercise already has an embedding from voyageai/voyage-4-lite", made no API call, and cost nothing. The same `schema.sql` re-run also added a column this time, through `ADD COLUMN IF NOT EXISTS` (see [Migration: adding a column (ALTER TABLE)](#migration-adding-a-column-alter-table)).
+
+**In an interview:** "Every pipeline step is safe to re-run. The embedding script works out what's missing or stale and only pays for that, so a second run is a no-op that costs nothing."
+
+*First seen: Step 4. Extended: Steps 5 and 8.*
 
 ### Slug vs id
 A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.
@@ -766,6 +821,34 @@ Two ways to filter on a list column like `equipment`. `'dumbbell' = ANY(equipmen
 **In an interview:** "'Uses dumbbells' and 'only needs what I own' are different filters. ANY returned a hip thrust that also needs a bench; contained-by answers the client's actual question. That distinction will matter for metadata filtering and for program building."
 
 *First seen: Step 5.*
+
+### Migration: adding a column (ALTER TABLE)
+A migration is a change to the structure of a database that already holds data. Step 8 needed a new column, `embedding_model`, on the existing `exercise` table. Adding it inside `CREATE TABLE IF NOT EXISTS` was not enough: that statement skips the whole thing when the table already exists, so an existing database would never get the column. So `db/schema.sql` now has it in two places: inside `CREATE TABLE`, for fresh setups, and as `ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;`, for databases that already have the table. `IF NOT EXISTS` keeps the file safe to re-run. Applying it printed "relation exists" (the create was skipped) and then `ALTER TABLE` (the column was added). This is a migration in its simplest form; a migration tool (for example Alembic, planned in [0005](decisions/0005-database-access-psycopg-raw-sql.md)) numbers and tracks such changes once there are many.
+
+**In an interview:** "CREATE TABLE IF NOT EXISTS won't add a new column to a table that already exists, so I added it with ALTER TABLE ... ADD COLUMN IF NOT EXISTS. The schema file stays re-runnable on both a fresh and an existing database. With more changes I'd move to a migration tool."
+
+*First seen: Step 8.*
+
+### LATERAL join
+A normal subquery in `FROM` runs once, on its own. A `LATERAL` subquery runs once per row of the table before it, and can use that row's values. That is what "for each exercise, find its 3 closest other exercises" needs: the inner query orders by distance to the current exercise's vector and keeps 3. Step 8 used it to list the nearest neighbors of all 20 exercises at once. The exact query was not saved; its shape was roughly:
+
+```sql
+-- Sketch of the shape, not the exact query run in Step 8.
+SELECT e.name, n.name AS neighbor,
+       round((1 - (e.embedding <=> n.embedding))::numeric, 2) AS similarity
+FROM exercise e
+CROSS JOIN LATERAL (
+    SELECT o.name, o.embedding
+    FROM exercise o
+    WHERE o.slug <> e.slug
+    ORDER BY e.embedding <=> o.embedding
+    LIMIT 3
+) n;
+```
+
+**In an interview:** "To get the top three neighbors for every exercise in one query, I used a LATERAL join: a per-row subquery that orders the other exercises by vector distance and keeps three."
+
+*First seen: Step 8.*
 
 ---
 

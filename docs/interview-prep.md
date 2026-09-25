@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 7.
+Last updated: Step 8.
 
 ---
 
@@ -69,6 +69,7 @@ Evidence so far:
 - Full answer still needs Step 10 (retrieved evidence to the LLM, cited answer), Steps 12 to 14 (documents), and Step 15 (eval baseline).
 - [Step 6](build-log.md#step-6-first-llm-call-via-openrouter-prose-to-structured-client-profile): the G (generation) half now works on its own: a validated LLM call with a typed output. It also showed why generation alone isn't enough: without evidence to check against, the model filled gaps with plausible guesses ([Hallucinated inference](concepts.md#hallucinated-inference)). Still not RAG; retrieval (Steps 7 to 9) and connecting them (Step 10) come next.
 - [Step 7](build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): the first piece of R (retrieve). Text and questions become vectors, and similarity ranks them. Nothing is stored or searched in the database yet (Steps 8 and 9).
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): the stored half of R. All 20 exercises now have vectors in pgvector, and hand-run nearest-neighbor queries showed they group sensibly. Searching them with a question is Step 9; connecting search to the LLM is Step 10.
 
 ## Embeddings
 
@@ -95,6 +96,10 @@ Evidence so far:
   - It works on meaning: with no exercise name in the question, the Romanian deadlift ranked first and the kettlebell swing (also a hinge) second, out of five.
   - Cost: 7 tokens, $0.00000014 ([Tokens and cost per call](concepts.md#tokens-and-cost-per-call), extended).
   - Access: through OpenRouter with the same key, confirmed; no Voyage account needed. See the [0002 update](decisions/0002-embeddings-voyage-4-lite.md#update-2026-09-24-step-7-confirmed-through-openrouter).
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): real clusters on the real catalog. Best evidence so far for this question.
+  - With no categories given, the nearest neighbors came out as coaching groups: jumps (Box Jump, Broad Jump, Lateral Bound, 0.86 to 0.88), hinges (Dumbbell RDL with Single-Leg RDL 0.91), single-leg (Reverse Lunge with Step-Up 0.91), pulls (Inverted Row with One-Arm Dumbbell Row 0.91), core (Dead Bug with Pallof Press 0.84). Unrelated pairs about 0.63. See [Embedding](concepts.md#embedding) (extended) and [Nearest neighbors](concepts.md#nearest-neighbors).
+  - [What text to embed (document representation)](concepts.md#what-text-to-embed-document-representation): name + description + labeled facts, no instructions ([0014](decisions/0014-embedded-text-name-description-labels.md)). Point to make: what you embed is a design choice, and it showed in the results (Push-Up's nearest neighbor was Inverted Row, a pull).
+  - [Batch embedding](concepts.md#batch-embedding): all 20 in one call, in document mode.
 
 ## Retrieval
 
@@ -127,7 +132,11 @@ Evidence so far:
 - [Step 7](build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): the first measured evidence, on five short exercise descriptions. Strong material for this question.
   - **Jargon, measured.** "beginner RDL" ranked the Romanian deadlift first, but at 0.150 with a 0.04 lead, barely above guessing. "beginner Romanian deadlift" gave 0.614 with a 0.12 lead. Point to make: same exercise, same model; one abbreviation cut the score to a quarter. See [Semantic search](concepts.md#semantic-search) (extended). This backs the planned counters: keyword search in the Step 15 baseline and [query rewriting](concepts.md#query-rewriting) with a glossary in Phase 1F ([0012](decisions/0012-keyword-baseline-and-query-rewriting.md)).
   - **Scores are relative.** The unrelated band pull-apart scored 0.459 on "hip hinge exercise with dumbbells", higher than the right answer scored on "beginner RDL". There is no universal relevance cutoff; read rankings and gaps. See [Similarity scores are relative](concepts.md#similarity-scores-are-relative).
-  - Still to show: filters and search on the real 20 exercises (Steps 8 and 9).
+  - Still to show: filters and search on the real 20 exercises (Steps 8 and 9). *Step 8 compared stored exercises with each other; searching with a question is Step 9.*
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): two new points, from comparing all 20 stored exercises in SQL.
+  - **Search always returns something.** Farmer Carry, the only carry in the catalog, still got three neighbors scoring 0.79 to 0.82, close to genuinely related pairs (0.83 to 0.91). A top result is not proof of relevance, so results need judging by the LLM step, filters, and evaluation. See [Search always returns something](concepts.md#search-always-returns-something).
+  - **The embedded text shapes the results.** Labeled facts in the text ("Equipment: bodyweight", "Body region: upper") pull same-equipment and same-region exercises together: Push-Up's nearest neighbors were Inverted Row (a pull) and Dumbbell Overhead Press, both 0.85. See [What text to embed (document representation)](concepts.md#what-text-to-embed-document-representation) and [0014](decisions/0014-embedded-text-name-description-labels.md). Also: labels in the text raise rankings but are not filters; hard rules stay in `WHERE` clauses.
+  - Scores are still relative: related about 0.83 to 0.91, unrelated about 0.63 ([Similarity scores are relative](concepts.md#similarity-scores-are-relative), extended).
 
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -166,6 +175,10 @@ Evidence so far:
   - [Transaction](concepts.md#transaction-begin-and-rollback) and [Validate before write](concepts.md#validate-before-write): whole file validated first, all rows written in one transaction, so the table is never half-loaded.
   - Array operators `= ANY` vs `<@` on a `text[]` column, run by hand in psql. See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by).
   - `db.py` calls `register_vector` so psycopg understands pgvector's type ([0005](decisions/0005-database-access-psycopg-raw-sql.md): hand-written SQL, no ORM).
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): vectors stored beside the metadata, and the first migration. Commit `6ac4ba8`.
+  - All 20 vectors live in the same rows as name, equipment, and difficulty, written with pgvector's `Vector` type in one [transaction](concepts.md#transaction-begin-and-rollback). Detail: pgvector stores 4-byte floats (0.1 becomes 0.10000000149), negligible for similarity. See [pgvector](concepts.md#pgvector) (extended).
+  - Similarity and nearest neighbors computed in plain SQL with `<=>` and a [LATERAL join](concepts.md#lateral-join). No separate vector service needed to inspect the vectors.
+  - [Migration: adding a column (ALTER TABLE)](concepts.md#migration-adding-a-column-alter-table): `CREATE TABLE IF NOT EXISTS` skips existing tables, so the new `embedding_model` column also needed `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Point to make: the schema file stays re-runnable on fresh and existing databases.
 
 ## Evaluation
 
@@ -181,6 +194,9 @@ Evidence so far:
   - Also from the article review: every retrieval method needs evaluation, and with no live users the eval set stands in for user feedback and A/B tests. And an LLM judging its own search results is not an independent check.
 - [Step 6](build-log.md#runs-problems-and-fixes): a first, hand-run evaluation of the LLM step. Two hard test inputs (a messy description and a prompt injection), each output judged field by field, rerun after every prompt change and across three models. Point to make: the tests found failures that validation couldn't (every wrong output was valid). Results in [Tradeoffs](#what-would-you-change-if-this-system-had-100000-users). Comparing models on the full eval set is a revisit signal in [0013](decisions/0013-llm-openrouter-openai-sdk-qwen.md) (Step 15).
 - [Step 7](build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): the first retrieval results, judged by eye on five stand-in descriptions: right answer first on all three questions, but with very different scores and margins. Point to make: [similarity scores are relative](concepts.md#similarity-scores-are-relative), so the eval has to check rankings (did the right exercise come back?), not raw scores.
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): a hand check of the stored vectors before any search: three nearest neighbors for all 20 exercises, judged as a coach would. Most groupings were right; the odd ones (Farmer Carry, Push-Up next to a pull) were explained, not ignored.
+  - **Planned test added:** the embedded-text choice becomes a Step 15 experiment. Compare description-only vs description-plus-labels on the same eval questions and keep the better one. See [0014](decisions/0014-embedded-text-name-description-labels.md). `scripts/embed_exercises.py --all` makes switching variants one re-run.
+  - [Search always returns something](concepts.md#search-always-returns-something): one more reason the eval checks whether the *expected* exercises came back, not just whether something did.
 - No eval set or scores exist yet.
 
 ## Agents
@@ -257,6 +273,11 @@ Evidence so far:
   - [Typed API errors](concepts.md#typed-api-errors): authentication, rate-limit, connection, and other HTTP status errors are caught separately, each with a plain message; successful replies are also checked for truncation, refusal, and parse failure.
   - [Open-weight model hosting variability](concepts.md#open-weight-model-hosting-variability): the first call failed with HTTP 400 because one host (GMICloud) defaulted to reserving the whole 131,072-token context for the reply. Fixes: always set `max_tokens`, and `require_parameters` so only hosts supporting every parameter are used. Point to make: don't trust a provider's defaults. See [Output length cap (max_tokens)](concepts.md#output-length-cap-max_tokens).
   - The model is configuration, not code: `LLM_MODEL` overrides the default without a code change. A missing `OPENROUTER_API_KEY` fails with a clear message at the point of use.
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): a re-runnable data pipeline.
+  - [Idempotent script](concepts.md#idempotent-script) (extended): `scripts/embed_exercises.py` only embeds what is missing or stale. Run 2 printed "Nothing to embed", made no API call, and cost nothing. Deploying to a fresh database is the same recipe plus one more command: apply the schema, seed, embed.
+  - [Embedding provenance (embedding_model column)](concepts.md#embedding-provenance-embedding_model-column): every vector records the model that made it, so a model switch becomes "change the setting, re-run the script", with stale rows found by a query. See the [0002 note](decisions/0002-embeddings-voyage-4-lite.md#note-2026-09-24-step-8-recording-which-model-made-each-vector).
+  - [Stale embeddings](concepts.md#stale-embeddings) (extended): the seed script clears both the vector and the model name when content changes.
+  - [Batch embedding](concepts.md#batch-embedding): one API call for the whole catalog.
 - Actual deployment not yet done.
 
 ## Security
@@ -312,6 +333,7 @@ Evidence so far:
 - The planned request path, from [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate): question → embedding (Voyage) → pgvector similarity over exercises (and from Step 14, document chunks) → prompt with the retrieved evidence → LLM (likely via OpenRouter) → answer citing slugs. Shown in a minimal local UI at Step 10, traced in LangSmith from Step 11, and exposed through FastAPI at Step 16.
 - [Step 6](build-log.md#step-6-first-llm-call-via-openrouter-prose-to-structured-client-profile): the LLM layer. `llm.py` holds `get_client()` (OpenRouter through the `openai` SDK), the system prompt, and `extract_profile(text)`, which returns a validated `ClientProfile` and a usage record. `models.py` holds `ClientProfile`, reusing the exercise table's equipment names so a profile can later be matched against exercises. `config.py` holds the model setting. `scripts/extract_profile.py` is the CLI. Path today: coach text → system prompt + tagged user message → OpenRouter → model → strict JSON → Pydantic validation → `missing_fields()` computed in Python.
 - [Step 7](build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers): the embedding layer. `embeddings.py` holds `embed_documents()`, `embed_query()`, and a demo-only `cosine_similarity()`; it reuses `llm.py`'s OpenRouter client, and `config.py` holds the model and its size (1024). `scripts/embedding_demo.py` is the CLI. See [One module per provider](concepts.md#one-module-per-provider). Path today: text → `embed_documents()` or `embed_query()` → OpenRouter → voyage-4-lite → 1,024 numbers, checked for count and size.
+- [Step 8](build-log.md#step-8-embed-all-exercises-store-vectors-compare-them-by-hand): the indexing path (preparing stored data for search) is built: `data/exercises.json` → `seed_exercises.py` (validate, upsert, clear stale vectors) → `embed_exercises.py` (select missing or stale rows → `exercise_to_text()` → one `embed_documents()` call → store `Vector` + `embedding_model` in one transaction). The question-time path (embed the question, search, answer) starts at Step 9.
 - The full request path is not built yet.
 
 ## Tradeoffs
@@ -344,4 +366,5 @@ Evidence so far:
 - **One provider for both models** ([Step 7](build-log.md#step-7-first-embedding-embed-one-sentence-look-at-the-numbers), [0002 update](decisions/0002-embeddings-voyage-4-lite.md#update-2026-09-24-step-7-confirmed-through-openrouter)): the LLM and embeddings now both go through OpenRouter with one key. Gained: one key, one client, one bill, per-call cost for both. Given up: an OpenRouter outage stops both at once, and Voyage's `input_type` works only because OpenRouter passes it through (verified, not guaranteed). The lock-in that really costs is the embedding model, not the route to it: the fallback is calling Voyage directly with the same model. Point to make at 100,000 users: that single dependency would need a plan (a direct-provider fallback, monitoring).
 - [On-the-fly vs pre-computed embeddings](concepts.md#on-the-fly-vs-pre-computed-embeddings) (between Steps 5 and 6): pre-computing trades freshness and easy model switching for fast search. For a small, stable catalog, re-embedding is one script run, so pre-computing wins. At tens of millions of fast-changing documents, embedding at query time becomes worth weighing. See also [Critiquing RAG advice](#critiquing-rag-advice-interview-material).
 - [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (between Steps 5 and 6): keep semantic-first for learning, but prove it against a keyword baseline. Cost: a slightly bigger eval step and one more Phase 1F experiment. Query rewriting, if kept, adds an LLM call per question.
+- [0014](decisions/0014-embedded-text-name-description-labels.md) (Step 8): labeled facts in the embedded text help questions about equipment or level match, but pull same-equipment and same-region exercises together (Push-Up next to Inverted Row). Any change to the text means re-embedding everything: one batch call at 20 exercises, a real cost at millions. Revisit with the Step 15 eval.
 - Scoping story (Step 4): the developer chose to build the simple exercise table first and defer knowledge sources and a document table, rather than design for the full vision up front. See [Before we started](build-log.md#before-we-started-how-much-does-the-table-lock-us-in).

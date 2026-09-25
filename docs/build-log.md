@@ -1048,3 +1048,125 @@ The demo used five short stand-in descriptions written into the script, not the 
 
 **Decisions.**
 - [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): Step 7 update. Confirmed: `voyage-4-lite` through OpenRouter with the same key, `input_type` passed through, no Voyage account needed. No new decision record.
+
+---
+
+## Step 8: Embed all exercises, store vectors, compare them by hand
+**Date:** 2026-09-24 · **Commit:** `6ac4ba8` feat: embed all exercises and store vectors in pgvector
+
+**Goal.** Fill the `embedding` column for all 20 exercises and check, by hand in SQL, whether the vectors group exercises the way a coach would.
+
+### Before we started: where we are
+
+The developer asked "what have we done so far and what's next?" Claude gave a recap:
+- **Done, Steps 0 to 7.** The docs system; the uv Python project; the private GitHub repo; Postgres with pgvector in Docker; the exercise table with its rules (CHECK constraints); 20 exercises seeded (pending the developer's coach review); structured extraction with an LLM through OpenRouter (Qwen); embeddings through the same OpenRouter key.
+- **Key lessons so far.** Structured output checks shape, not truth. Prompt injection is real. Always set `max_tokens`. Embeddings match meaning but stumble on jargon ("beginner RDL" 0.15 vs "beginner Romanian deadlift" 0.61).
+- **Which RAG pieces exist.** A pipeline diagram marked what is built: embedding a question (Step 7) and the LLM (Step 6). Still to come: search (Steps 8 and 9) and connecting everything into RAG (Step 10).
+- **Remaining plan.** Steps 8 to 16, then Phase 1F.
+- **Open to-dos for the developer.** Review `data/exercises.json` (there are no advanced exercises yet). Optionally lower the OpenRouter key's spending limit from $10 to $5.
+
+The developer then said "step 8 go ahead".
+
+**What we did.**
+- **Chose what text to embed for each exercise.** Three options were explained:
+  - (a) Description only. It carries the meaning, but a question like "beginner dumbbell exercises" would have nothing to match on.
+  - (b) Everything, including instructions. Step-by-step cues describe how to move, not what the exercise is, so they add noise.
+  - (c) **Chosen:** name + description + key facts as short labels (movement pattern, body region, laterality, primary muscles, equipment, difficulty). Instructions left out.
+  - Noted: this choice affects search quality, so it becomes something to test in the Step 15 eval. See [What text to embed (document representation)](concepts.md#what-text-to-embed-document-representation) and [0014](decisions/0014-embedded-text-name-description-labels.md).
+- **`exercise_to_text(ex)`** added to `src/ragmotion/embeddings.py`. It is the single definition of the embedded text. Its docstring says that editing it changes every vector, so re-embed after changes.
+- **New `embedding_model` column** (text). It records which model produced each vector. Vectors from different models can't be compared, so after a model change this shows exactly which rows need re-embedding. See [Embedding provenance (embedding_model column)](concepts.md#embedding-provenance-embedding_model-column).
+  - Added in two places in `db/schema.sql`: inside `CREATE TABLE` for fresh setups, and as `ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;` for the existing table. The second is needed because `CREATE TABLE IF NOT EXISTS` skips a table that already exists, so it would never add the new column. This was explained as a migration in its simplest form. See [Migration: adding a column (ALTER TABLE)](concepts.md#migration-adding-a-column-alter-table).
+- **`scripts/seed_exercises.py`:** when an exercise's content changes, the upsert now clears `embedding_model` along with `embedding`. See [Stale embeddings](concepts.md#stale-embeddings).
+- **New `scripts/embed_exercises.py`:**
+  - Selects exercises with no embedding, or with an embedding from a different model than the current setting.
+  - Builds their texts with `exercise_to_text`.
+  - Embeds them in **one** batch call with `embed_documents` (document mode). See [Batch embedding](concepts.md#batch-embedding).
+  - Stores each vector with pgvector's Python `Vector` type, plus the model name, all in one transaction (all rows or none).
+  - Reports counts.
+  - `--all` re-embeds everything, for use after changing `exercise_to_text` or the model.
+  - Safe to re-run: with nothing missing, it does nothing and costs nothing. See [Idempotent script](concepts.md#idempotent-script).
+- **Checked pgvector's Python `Vector` type** was available. Minor observation: it stores 4-byte floats, so 0.1 is stored as 0.10000000149. That is how pgvector stores values, and it is negligible for similarity. See [pgvector](concepts.md#pgvector).
+- **`CLAUDE.md`:** Step 8 marked done, Step 9 next.
+
+**Commands.**
+
+```bash
+docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 < db/schema.sql
+# NOTICE: extension exists (skipped). NOTICE: relation exists (CREATE TABLE skipped).
+# ALTER TABLE: the embedding_model text column was added to the existing table.
+
+uv run python scripts/embed_exercises.py
+# "Embedding 20 exercises with voyageai/voyage-4-lite (one batch call)"
+# Printed the exact embedded text for band-pull-apart (below), then:
+# "Stored 20 embeddings. 20/20 exercises now embedded with voyageai/voyage-4-lite."
+
+uv run python scripts/embed_exercises.py
+# Second run: "Nothing to embed: every exercise already has an embedding from voyageai/voyage-4-lite"
+```
+
+The pair comparisons and the nearest-neighbor listing were run as SQL by hand in psql. Their exact query text was not saved in the repo. Similarity was computed as `1 - (a.embedding <=> b.embedding)` (1 minus pgvector's cosine distance), and the three-nearest-neighbors list used a `LATERAL` join. See [LATERAL join](concepts.md#lateral-join).
+
+The exact text embedded for one exercise (band-pull-apart):
+
+```
+Band Pull-Apart
+A light horizontal pulling exercise, stretching a resistance band across the chest with straight arms. It targets the rear shoulders and upper back and is often used in warm-ups and to balance out pressing volume.
+Movement pattern: pull. Body region: upper. Laterality: bilateral.
+Primary muscles: rear deltoids, rhomboids, middle trapezius.
+Equipment: band.
+Difficulty: beginner.
+```
+
+**What we saw.**
+
+**Hand-picked pairs** (similarity = 1 - cosine distance):
+
+| Pair | Similarity |
+|---|---|
+| Dumbbell RDL vs Single-Leg RDL | 0.909 |
+| Bulgarian Split Squat vs Dumbbell Reverse Lunge | 0.890 |
+| Box Jump vs Broad Jump | 0.878 |
+| Push-Up vs Dumbbell Overhead Press | 0.853 |
+| Band Pull-Apart vs One-Arm Dumbbell Row | 0.835 |
+| Dumbbell RDL vs Kettlebell Swing | 0.825 |
+| Bulgarian Split Squat vs Push-Up | 0.637 |
+| Box Jump vs Dead Bug | 0.631 |
+
+Related pairs scored 0.83 to 0.91; unrelated pairs about 0.63.
+
+**Three nearest neighbors for all 20 exercises**, highlights:
+- **Jumps:** Box Jump → Broad Jump 0.88, Lateral Bound 0.86. Broad Jump → Lateral Bound 0.88, Box Jump 0.88.
+- **Hinges:** Dumbbell RDL → Single-Leg RDL 0.91, Hip Thrust 0.88. Kettlebell Swing → Dumbbell RDL 0.83, Hip Thrust 0.83, Single-Leg RDL 0.80. Glute Bridge → Hip Thrust 0.87.
+- **Single-leg:** Reverse Lunge → Step-Up 0.91, Bulgarian Split Squat 0.89, Single-Leg RDL 0.88.
+- **Pulls:** Inverted Row ↔ One-Arm Dumbbell Row 0.91.
+- **Core:** Dead Bug ↔ Pallof Press 0.84.
+- **Odd ones:**
+  - Farmer Carry → Dumbbell Overhead Press 0.82, One-Arm Row 0.80, Inverted Row 0.79. It is the only carry in the catalog, so it has no true sibling.
+  - Push-Up → Inverted Row 0.85 (a pull) and Dumbbell Overhead Press 0.85.
+  - Dead Bug → (after Pallof Press) Push-Up 0.77, Glute Bridge 0.75.
+
+**Lessons.**
+1. **The model found coaching categories from text alone.** Jumps, hinges, single-leg, pulls, and core grouped together, and nobody told it those categories. See [Nearest neighbors](concepts.md#nearest-neighbors) and [Embedding](concepts.md#embedding).
+2. **Nearest-neighbor search always returns something,** even when nothing is truly similar (Farmer Carry). So retrieval results still need judging: by the LLM step, by filters, and eventually by evaluation. See [Search always returns something](concepts.md#search-always-returns-something).
+3. **The embedded text shapes the clusters.** The labeled facts (for example "Equipment: bodyweight", "Body region: upper") pull exercises together by equipment and region, not only by meaning. Push-Up's closest match is Inverted Row, a pull. Not wrong, but a real tradeoff in `exercise_to_text`. The Step 15 eval can compare description-only against description-plus-labels. See [0014](decisions/0014-embedded-text-name-description-labels.md).
+4. **Scores are relative, again.** On the real data, related pairs landed around 0.83 to 0.91 and unrelated around 0.63. Consistent with Step 7: the ranking matters, not the raw number. See [Similarity scores are relative](concepts.md#similarity-scores-are-relative).
+
+**Problems and fixes.**
+None.
+
+**Open questions.**
+- The pair and nearest-neighbor SQL queries were run by hand and not saved in the repo. Saving them (for example in a `db/` or `scripts/` file) would make this comparison repeatable after a re-embed. Not discussed.
+- The token count and cost of the 20-exercise batch call were not recorded. (Step 6 estimated about 2,500 tokens, about $0.00005.)
+- Developer to-dos carried over: review `data/exercises.json` (no advanced exercises yet); optionally lower the OpenRouter key limit from $10 to $5.
+- Step 7's open questions (the unused `voyageai` library, the `VOYAGE_API_KEY` entry in `.env.example`) are unchanged.
+
+**Developer questions.**
+- "What have we done so far and what's next?" Answered with the recap in [Before we started](#before-we-started-where-we-are).
+
+**Learned.**
+- New: [What text to embed (document representation)](concepts.md#what-text-to-embed-document-representation), [Batch embedding](concepts.md#batch-embedding), [Embedding provenance (embedding_model column)](concepts.md#embedding-provenance-embedding_model-column), [Nearest neighbors](concepts.md#nearest-neighbors), [Search always returns something](concepts.md#search-always-returns-something), [Migration: adding a column (ALTER TABLE)](concepts.md#migration-adding-a-column-alter-table), [LATERAL join](concepts.md#lateral-join)
+- Extended: [Embedding](concepts.md#embedding) (real clusters), [Similarity scores are relative](concepts.md#similarity-scores-are-relative) (real ranges), [Stale embeddings](concepts.md#stale-embeddings) (model name cleared too), [Embedding model lock-in](concepts.md#embedding-model-lock-in) (provenance column), [Idempotent script](concepts.md#idempotent-script) (the embed script), [Transaction (BEGIN and ROLLBACK)](concepts.md#transaction-begin-and-rollback) (all vectors or none), [pgvector](concepts.md#pgvector) (column filled, `Vector` type, 4-byte floats), [Schema](concepts.md#schema) (first migration)
+
+**Decisions.**
+- [0014. Embedded text: name + description + labeled facts, no instructions](decisions/0014-embedded-text-name-description-labels.md) (new)
+- [0002. Embeddings with Voyage AI voyage-4-lite](decisions/0002-embeddings-voyage-4-lite.md): Step 8 note on the `embedding_model` provenance column.
