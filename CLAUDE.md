@@ -26,13 +26,13 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 7 | First embedding: embed one sentence, look at the numbers | done |
 | 8 | Embed all exercises, store vectors, compare two by hand | done |
 | 9 | Similarity search CLI, judge results by eye | done |
-| 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | next |
-| 11 | LangSmith tracing on the RAG pipeline | |
+| 10 | RAG: retrieved evidence to the LLM, cited answer, plus a minimal local UI (question, answer, evidence) | done |
+| 11 | LangSmith tracing on the RAG pipeline | next |
 | 12 | Document ingestion: pull text out of a real, openly licensed document (e.g. a PDF) | |
 | 13 | Chunking: split into passages, store in a second table with metadata | |
 | 14 | Embed chunks, search exercises + documents together, answers cite both | |
 | 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | |
-| 16 | FastAPI endpoint, tests, README | |
+| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | |
 
 Update the Status column as steps complete.
 
@@ -45,7 +45,7 @@ Update the Status column as steps complete.
 - **psycopg 3** with hand-written SQL. No ORM yet
 - **Voyage AI** `voyage-4-lite` embeddings (1024 dimensions) through OpenRouter as `voyageai/voyage-4-lite`, same OpenRouter key (verified Step 7). Always store text with `embed_documents()` and embed questions with `embed_query()` (`src/ragmotion/embeddings.py`)
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `qwen/qwen3-235b-a22b-2507`, set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
-- CLI scripts first. Minimal local UI at Step 10. FastAPI endpoint at Step 16
+- CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules
 

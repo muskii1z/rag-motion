@@ -64,3 +64,20 @@ class ClientProfile(BaseModel):
         """Core fields the coach didn't provide. Deterministic: computed, not generated."""
         core = ["goal", "sessions_per_week", "session_duration_minutes", "equipment", "experience_level", "age"]
         return [name for name in core if getattr(self, name) in (None, [])]
+
+
+class GroundedAnswer(BaseModel):
+    """The LLM's answer to a question, built only from retrieved exercises (Step 10)."""
+
+    answer: str = Field(
+        description="Answer for a coach, in plain text. Use only the provided evidence. "
+        "Cite each exercise you mention inline as [slug], e.g. [goblet-squat]."
+    )
+    cited_slugs: list[str] = Field(description="The slug of every exercise cited in the answer.")
+    evidence_coverage: Literal["full", "partial", "none"] = Field(
+        description="full: the evidence answers the question. partial: it answers only part. "
+        "none: the evidence does not answer the question."
+    )
+    gaps: str | None = Field(
+        description="If coverage is partial or none, what the evidence is missing, in one sentence. Otherwise null."
+    )

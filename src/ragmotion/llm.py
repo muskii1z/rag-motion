@@ -6,11 +6,15 @@ chosen per request (settings.llm_model), so switching models is one line.
 """
 
 from dataclasses import dataclass
+from typing import TypeVar
 
 from openai import OpenAI
+from pydantic import BaseModel
 
 from ragmotion.config import settings
 from ragmotion.models import ClientProfile
+
+T = TypeVar("T", bound=BaseModel)
 
 # Standing instructions. Kept separate from the coach's text (the user message)
 # so that nothing in a client description can override them.
@@ -54,26 +58,36 @@ def get_client() -> OpenAI:
     return OpenAI(api_key=settings.openrouter_api_key.strip(), base_url=settings.openrouter_base_url)
 
 
-def extract_profile(text: str, model: str | None = None) -> tuple[ClientProfile, LLMUsage]:
-    """Turn a coach's description into a validated ClientProfile."""
+def structured_completion(
+    system_prompt: str,
+    user_content: str,
+    response_model: type[T],
+    *,
+    max_tokens: int,
+    temperature: float = 0,
+    model: str | None = None,
+) -> tuple[T, LLMUsage]:
+    """One LLM call whose reply must fit `response_model` (a Pydantic class).
+
+    Shared by every structured task (profile extraction in Step 6, grounded answers
+    in Step 10) so the safety settings below live in one place.
+    """
     client = get_client()
     model = model or settings.llm_model
 
     completion = client.chat.completions.parse(
         model=model,
         messages=[
-            {"role": "system", "content": PROFILE_SYSTEM_PROMPT},
-            # The coach's text is wrapped in tags so the model can tell data from instructions.
-            {"role": "user", "content": f"<client_description>\n{text}\n</client_description>"},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
         ],
-        # Structured output: the SDK turns ClientProfile into a strict JSON schema,
-        # the model must fill it in, and the reply is validated back into ClientProfile.
-        response_format=ClientProfile,
-        temperature=0,  # extraction should be repeatable, not creative
+        # Structured output: the SDK turns response_model into a strict JSON schema,
+        # the model must fill it in, and the reply is validated back into that class.
+        response_format=response_model,
+        temperature=temperature,
         # Always cap the reply length. Without it, some hosts default to the model's
         # whole context window and reject the request (seen in Step 6 with a Qwen host).
-        # A profile is ~200 tokens; 1000 leaves room while capping cost.
-        max_tokens=1000,
+        max_tokens=max_tokens,
         extra_body={
             # Only route to OpenRouter hosts that support every parameter we send
             # (important for open models like Qwen, which several hosts serve).
@@ -85,11 +99,11 @@ def extract_profile(text: str, model: str | None = None) -> tuple[ClientProfile,
 
     choice = completion.choices[0]
     if choice.finish_reason == "length":
-        raise RuntimeError("The model ran out of output tokens before finishing the profile.")
+        raise RuntimeError(f"The model ran out of output tokens (max_tokens={max_tokens}) before finishing.")
     if choice.message.refusal:
         raise RuntimeError(f"The model refused: {choice.message.refusal}")
     if choice.message.parsed is None:
-        raise RuntimeError("The model's reply could not be parsed into a ClientProfile.")
+        raise RuntimeError(f"The model's reply could not be parsed into {response_model.__name__}.")
 
     usage = completion.usage
     extra = (usage.model_extra or {}) if usage else {}
@@ -98,4 +112,17 @@ def extract_profile(text: str, model: str | None = None) -> tuple[ClientProfile,
         prompt_tokens=usage.prompt_tokens if usage else 0,
         completion_tokens=usage.completion_tokens if usage else 0,
         cost_usd=extra.get("cost"),
+    )
+
+
+def extract_profile(text: str, model: str | None = None) -> tuple[ClientProfile, LLMUsage]:
+    """Turn a coach's description into a validated ClientProfile (Step 6)."""
+    return structured_completion(
+        PROFILE_SYSTEM_PROMPT,
+        # The coach's text is wrapped in tags so the model can tell data from instructions.
+        f"<client_description>\n{text}\n</client_description>",
+        ClientProfile,
+        max_tokens=1000,  # a profile is ~200 tokens
+        temperature=0,  # extraction should be repeatable, not creative
+        model=model,
     )
