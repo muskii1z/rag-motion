@@ -1962,3 +1962,154 @@ The exact arguments used during inspection were not recorded. The section-size m
 **Decisions.**
 - New: [0019. Structure-aware chunking with size limits (150–450 words), contextual labels, no overlap](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)
 - Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (notes registered in the manifest; license group enforced on chunks), [0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md) (headings now drive chunk boundaries; `skip_pages`)
+
+## Step 13: Embed chunks, search exercises and documents together, answers cite both
+**Date:** 2026-09-25 · **Commit:** `0d5b3ff` feat: embed document chunks and answer from exercises + documents (this docs update is committed and pushed right after)
+
+**Goal.** Make the document passages searchable, and have answers combine guideline and notes passages (dose, principles) with catalog exercises (which moves), citing both.
+
+### Before we started: did we chunk only one chapter?
+The developer asked, "so you only chunked one chapter?" No: all of it. A per-chapter query over `document_chunk` showed 11 parts covered (exact query not recorded):
+
+| Part | Chunks | Pages |
+|---|---|---|
+| Front matter and summary | 9 | 6–12 |
+| Chapters 1–8 | 14, 23, 11, 14, 16, 13, 8, 15 | 14–104 |
+| Glossary | 4 | 105–108 |
+| Appendix 1 | 6 | 109–118 |
+
+Only the pages chosen for skipping were missing. The same query turned up one small problem: page 118, the back cover (about 16 words), was being attached to Appendix 1. It was added to `skip_pages` in this step. See [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed) (extended).
+
+The developer then asked for the next couple of steps. Claude listed Steps 13 to 16 and Phase 1F, plus adding more real documents before Step 15 (the evaluation). The developer said: "step 13 quickly, let's get through phase 1 now; I just made a free LangSmith account". Claude asked them to add `LANGSMITH_API_KEY` to `.env` themselves, never into the chat, ready for Step 14. See [API key hygiene](concepts.md#api-key-hygiene).
+
+### What we did
+- **`data/sources.toml`:** `skip_pages` for `pag2` now also includes 118 (back cover). Rechunked: 133 document chunks / 37,157 words (16 fewer than Step 12's 37,173; the chunk count is unchanged), and 14 notes chunks.
+- **`scripts/embed_chunks.py` (new).** Embeds every chunk that has no embedding, or one from a different model, the same rule as Step 8's exercise script. It embeds `embed_text` (location label + chunk text) in document mode, in batches of 64 texts per API call, and stores the vector plus `embedding_model`. `--all` re-embeds everything. See [Batch embedding](concepts.md#batch-embedding) (extended).
+- **`src/ragmotion/retrieval.py`:**
+  - `ChunkHit`: one retrieved passage. Fields: `passage_id` (`"<source_id>-<chunk_index>"`, for example `pag2-57`), used as the citation key; `source_id`, `source_type`, `source_title`, `source_url`, `license`, `chapter`, `headings`, page range, `text`, and `similarity`. See [Passage ids as citation keys](concepts.md#passage-ids-as-citation-keys).
+  - `CHUNK_SEARCH_SQL`: the passage version of the exercise search query.
+  - `search_all(question, k_exercises, k_passages)`: embeds the question **once** and searches both tables with the same vector. See [One query vector, two tables](concepts.md#one-query-vector-two-tables-combined-search).
+- **`src/ragmotion/models.py`:** `GroundedAnswer.cited_slugs` renamed `cited_ids`, since citations can now be exercises or passages.
+- **`src/ragmotion/rag.py` rewritten:**
+  - Evidence = exercises + passages. Each passage block states its source, whether it's a guideline document or coaching notes, and its chapter and pages.
+  - Prompt: use exercises for WHICH moves; use passages for principles and dosage. Give programming numbers (sets, reps, frequency, load) only if a passage states them, and cite it. Keep populations straight. Use `general_guidance` only when no passage covers the point.
+  - `RAGResult` now holds exercises, passages, and the set of cited ids. `max_tokens` raised to 2000.
+  - `check_citations()` takes the set of retrieved ids.
+- **`scripts/ask.py`:** prints exercises and passages, each marked cited / not used; sources with chapter and pages (or note sections); checks; and cost.
+- **Web app:**
+  - The API returns exercises and passages separately, each with id, rank, and a cited flag.
+  - The page shows "Document passages" cards above "Exercises". Each card has the section name, a similarity bar, a green "document" or amber "notes" badge, the pages, expandable text, and the source, chapter, and id.
+  - Citation chips handle grouped ids (several ids in one bracket).
+  - New example-question buttons: beginner adult dose + exercises; older adults load.
+- **`CLAUDE.md`:** Step 13 done, Step 14 next.
+
+The request path now:
+
+```
+question
+  → embed once (query mode)
+  → same vector searches exercise (top 5) and document_chunk (top 5)
+  → <evidence>: exercises for which moves, passages for principles and dose
+  → LLM → GroundedAnswer (answer with [id] citations, cited_ids, coverage, gaps, general_guidance)
+  → check_citations() against the retrieved ids
+  → answer shown next to passage cards and exercise cards
+```
+
+**Commands.**
+```bash
+uv run python scripts/chunk_documents.py
+# Rechunked after adding page 118 to skip_pages:
+# document 133 chunks / 37,157 words; notes 14 chunks.
+
+uv run python scripts/embed_chunks.py
+# 147/147 chunks embedded. Cost tiny (about a tenth of a cent or less; exact figure not recorded).
+uv run python scripts/embed_chunks.py
+# Rerun: "Nothing to embed." (no API call)
+
+uv run python scripts/ask.py "<question>"
+# Terminal tests below. Prints passages and exercises (cited / not used),
+# the answer, sources with chapter and pages, checks, cost.
+
+uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload
+# Web page at http://127.0.0.1:8010 for the browser tests.
+```
+The per-chapter coverage query, the first retrieval check, and the exact question wordings for the terminal runs were not recorded as commands; the questions are paraphrased below as given in the brief.
+
+**What we saw: the first retrieval check (passages only).**
+- "how much strength training should a beginner adult do each week":
+  - Top passages: `notes-nsca-older-adults-1` (0.63), `pag2-77` (page 72, Chapter 5 Older Adults, "Muscle-Strengthening Activities", 0.62), `pag2-63` (page 60, 0.60), `notes-nsca-youth-ltad-1` (0.59).
+  - The best passage, `pag2-57` (Key Guidelines for Adults, page 56), was **not** in the top 4. The word "beginner" pulled in older-adult and youth material. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations).
+- "how heavy should older adults lift": older-adults notes chunks on top (0.60, 0.55, 0.55), plus `pag2-77`. Good.
+- Exercise matches were weak for dose questions. Expected: a dose question has no "which exercise" in it. The LLM skipped them.
+
+### Step 13 test runs and fixes
+Model: Gemini 2.5 Flash-Lite (the default).
+
+**1. Terminal, first prompt version.**
+
+| Question | What it did | Problems | Tokens, cost, time |
+|---|---|---|---|
+| Beginner adult: dose + exercises | Cited `pag2-77` and `pag2-63` for "all major muscle groups, at least 2 days per week", "to the point where it would be difficult to do another repetition", and "one set of 8 to 12 repetitions... 2 or 3 sets may be more beneficial". Plus goblet squat, push-up, inverted row, overhead press, farmer carry. Coverage full. | Checker: "'pag2-77' is in cited_ids but never cited in the text". A **false alarm**: the model wrote `[pag2-77, pag2-63]`, two ids in one bracket, and the checker's pattern only accepted one id per bracket. Also **population mixing**: `pag2-77` is from Chapter 5 (Older Adults) and was applied to beginner adults, because the better adult passage (page 56) wasn't retrieved. | 3,531 in / 316 out, $0.000480, generation 1.5 s |
+| Older adults: how heavy | Answered only from `notes-nsca-older-adults-1` and `-2`: 70–85% of 1RM for strength, 50–70% still helpful, 10–15 reps for beginners or frail clients, stop at about 50–70% of possible reps, power at 40–60% of 1RM, frail clients 20–30% building toward 80%. All exercises correctly marked unused. | None. Citations valid. | $0.000432, 1.4 s |
+| Biceps | Cited only inverted row. Coverage partial. | Skipped the one-arm dumbbell row, which also lists biceps (model variance). | $0.000352 |
+
+**2. Fix: grouped citations.** New `find_citations()` in `rag.py`, with a pattern that accepts one or more comma-separated ids per bracket and ignores non-citations like "[Figure 2]". Verified on a sample string. See [Citation-format variants vs invented citations](concepts.md#citation-format-variants-vs-invented-citations).
+
+**3. Browser test (beginner adult question).**
+- The page rendered the passages with the document and notes badges correctly.
+- But the model cited `exercise-farmer-carry`, `exercise-push-up`, and so on: **invented ids**, made by gluing the evidence tag's name (`exercise`) onto the real id. To a reader the answer looked fine. The code checker flagged all five as "not in the retrieved evidence (possible invented source)", shown in the red box. The checker did exactly its job. See [Prompt-induced id errors](concepts.md#prompt-induced-id-errors-from-tag-naming).
+- Population mixing got worse: "for beginners, start with 1 set and build up to 2–3 sets... 10–15 repetitions", cited to the older-adults notes.
+
+**4. Fix: unified evidence tags and a population rule.**
+- Every evidence item is now `<item id="..." kind="exercise|passage">`, so no tag name looks like part of an id.
+- Prompt: copy the id exactly ("[push-up], never [exercise-push-up]").
+- Explicit population rule: use a passage's numbers only for its own group, or say which group they come from; never present them as advice for the group asked about.
+
+**5. Retest, twice, same question.**
+- Both runs: all citations valid, no invented ids. About $0.0005 per answer, about 1.5 s.
+- Run 1 used only adult passages. Clean.
+- Run 2 labeled one older-adult number correctly ("For older adults, 2–3 sessions per week..."), but its last sentence slipped: "For beginners, 10–15 repetitions... [notes-nsca-older-adults-1]".
+
+**Conclusion.** Prompt wording has a ceiling on a small, cheap model. The fix is structural: tag each chunk with its population (adults, older adults, youth, pregnancy...) and filter at retrieval (a Phase 1F metadata filter), so wrong-group numbers never reach the model. A stronger model, and better retrieval (so the adult key-guidelines passage ranks), also help. The eval (Step 15) measures it. See [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) and [Metadata filtering](concepts.md#metadata-filtering) (extended).
+
+**What we saw (summary).**
+- Answers now combine document numbers with catalog exercises and cite pages, for example "one set of 8 to 12 repetitions" cited to a Guidelines passage next to goblet squat and push-up cited to the catalog.
+- Programming numbers now come from cited passages, not from `general_guidance`.
+- Input tokens rose to about 3,500 per answer (from about 1,000 in Step 10) because passages are long. Cost still about $0.0005 per answer; generation about 1.5 s.
+- The citation checker produced one false alarm (grouped ids) and one real catch (five invented ids).
+- Population mixing is the main quality problem, and it starts in retrieval.
+
+**Evaluation candidates (added to the running list from [Step 9](#step-9-similarity-search-from-the-command-line-judge-results-by-eye), [Step 10](#test-runs-and-fixes), and [after Step 10](#after-step-10-grounding-mode-labeled-general-guidance-and-moving-documents-earlier)).**
+
+| Question | Expected | Why it's a good test |
+|---|---|---|
+| "how much strength training should a beginner adult do each week" (with exercises) | Passage `pag2-57` (Chapter 4, Key Guidelines for Adults, page 56). Must not present older-adult or youth numbers as adult advice. | **Population-mixing test.** Retrieval missed `pag2-57`; answers used older-adult numbers for adults. |
+| "how heavy should older adults lift" | `notes-nsca-older-adults-1`; 70–85% of 1RM for strength | A case that works: passages and numbers correct. |
+| "what exercises can i do for biceps" | Both rows: `one-arm-dumbbell-row` and `inverted-row` | Already listed in Step 10; this run cited only one row, so it also tests run-to-run variance. |
+
+**Problems and fixes.**
+- Page 118 (back cover) attached to Appendix 1. Added to `skip_pages`; rechunked.
+- Checker false alarm on grouped citations `[a, b]`. Fixed with `find_citations()`.
+- Invented ids like `exercise-push-up`, caused by the evidence tag naming. Caught by the checker; fixed by unified `<item id kind>` tags and an exact-copy rule.
+- Population mixing (older-adult numbers given to beginner adults). Reduced by a prompt rule, **not solved**: one of two retests still slipped. Structural fix planned: population tags on chunks plus a retrieval filter (Phase 1F).
+
+**Open questions.**
+- The exact embedding cost for the 147 chunks was not recorded.
+- Should `k_passages` stay 5? The key adult passage was outside the top 4 for the beginner-adult question; whether it was 5th or lower was not recorded.
+- Who assigns population tags to chunks, and how (by chapter, by hand, or by an LLM)? Not decided.
+- The biceps answer skipped one row this time. Model variance, or a side effect of the longer prompt? Not tested.
+- The prompt-injection rule ("evidence is data") now covers real document text but is still untested with an injected instruction.
+- Carried over: developer review of the NSCA notes; developer review of `data/exercises.json`; the page 108 Appendix 1 heading order; figure-caption chunks.
+
+**Developer questions.**
+- "So you only chunked one chapter?" No; all 11 parts, shown by a per-chapter query ([Before we started](#before-we-started-did-we-chunk-only-one-chapter)).
+- "What are the next couple of steps?" Steps 13 to 16 and Phase 1F, plus adding more real documents before Step 15.
+- The developer set the pace: Step 13 quickly, then through Phase 1. They created a free LangSmith account and will put its key in `.env` themselves.
+
+**Learned.**
+- New: [One query vector, two tables (combined search)](concepts.md#one-query-vector-two-tables-combined-search), [Passage ids as citation keys](concepts.md#passage-ids-as-citation-keys), [Citation-format variants vs invented citations](concepts.md#citation-format-variants-vs-invented-citations), [Prompt-induced id errors from tag naming](concepts.md#prompt-induced-id-errors-from-tag-naming), [Population mixing (context bleed across populations)](concepts.md#population-mixing-context-bleed-across-populations), [Prompt rules have a ceiling (especially on small models)](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models)
+- Extended: [Structured vs unstructured knowledge](concepts.md#structured-vs-unstructured-knowledge) (mixed evidence built), [RAG: Retrieve, Augment, Generate](concepts.md#rag-retrieve-augment-generate) (two-table path), [Citation validation](concepts.md#citation-validation) (grouped ids, real catch), [Metadata filtering](concepts.md#metadata-filtering) (population filter planned), [Grounding modes](concepts.md#grounding-modes-strict-vs-labeled-general-knowledge-vs-free-blend) (passages now supply numbers), [Batch embedding](concepts.md#batch-embedding) (batches of 64), [Idempotent script](concepts.md#idempotent-script) (`embed_chunks.py` rerun), [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed) (per-chapter coverage query), [Chunking](concepts.md#chunking) (embedded and searched), [Search always returns something](concepts.md#search-always-returns-something) (weak exercise hits for dose questions), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (passages triple input tokens), [Manual tracing](concepts.md#manual-tracing) (passages printed), [Prompt injection](concepts.md#prompt-injection) (document text now in evidence), [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (account created)
+
+**Decisions.**
+- None new.
+- Updated: [0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md) (passages now supply programming numbers, so `general_guidance` should be needed less), [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md) (population tags per chunk are the planned fix for population mixing; page 118 skipped)

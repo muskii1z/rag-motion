@@ -29,3 +29,8 @@ Implementation (commit `6e90764`):
 - Documents supplying programming principles are ingested (Steps 11 to 13). Then advice such as "power work: low reps, full rest" should come from cited chunks, and `general_guidance` should shrink or be dropped where sources cover it.
 - The Step 15 eval, judged by the domain expert, shows general guidance is often wrong.
 - There are signs that readers treat the labeled section as verified.
+
+## Update 2026-09-25 (Step 13): passages now supply programming numbers
+Document passages (the Physical Activity Guidelines and the NSCA notes) are now retrieved next to exercises. The prompt in `src/ragmotion/rag.py` now says: give programming numbers only if a passage states them, and cite the passage; use `general_guidance` only when no passage covers the point. In Step 13's tests, dose questions were answered with cited numbers (for example "one set of 8 to 12 repetitions... 2 or 3 sets may be more beneficial" from a Guidelines passage; 70–85% of 1RM for strength from the older-adults notes). So `general_guidance` should be needed less, as the "Revisit when" section expected. The decision stands; the field stays for points no passage covers.
+
+New risk this exposes: cited numbers can be real and still wrong for the person asking. Numbers from an older-adults passage were given as beginner-adult advice ([population mixing](../concepts.md#population-mixing-context-bleed-across-populations)). Citation checks can't catch that. See [Step 13](../build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both) and the [0019 update](0019-structure-aware-chunking-150-450-labels-no-overlap.md#update-2026-09-25-step-13-population-tags-planned-page-118-skipped).

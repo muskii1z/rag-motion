@@ -125,7 +125,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 **In an interview:** "Every call prints its model, input and output tokens, and dollar cost, so experiments are priced as they run. Comparing three models on the same tests cost under half a cent in total."
 
-*First seen: Step 6. Extended: Step 7.*
+*Step 13 update: passages make prompts longer.* Adding five document passages to the evidence raised a RAG answer's input from about 1,000 tokens (Step 10) to 3,531 tokens (316 out) for the beginner-adult question. On Gemini 2.5 Flash-Lite that was still $0.000480 per answer, about 1.5 s of generation. Input tokens scale with k (how many passages are retrieved) times chunk size, which is one reason chunk size and k are tuning knobs, not just quality knobs.
+
+*First seen: Step 6. Extended: Steps 7 and 13.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -149,6 +151,13 @@ Open-weight models (models whose trained weights are published, like Qwen and Ki
 *Step 10 update: speed and real cost vary too.* Across Step 10 runs, Qwen's generation time ranged from about 4 to 29 seconds for similar-sized answers, unpredictably. The host serving it was the bottleneck. Its actual cost per call also ran about 2x its listed price, probably depending on which host served the request. Gemini 2.5 Flash-Lite, served by Google, answered the same question in under a second. See [Latency: where the time goes](#latency-where-the-time-goes).
 
 *First seen: Step 6. Extended: Step 10.*
+
+### Prompt rules have a ceiling (especially on small models)
+A prompt rule (an instruction written into the prompt, like "never apply older-adult numbers to other groups") makes a mistake less likely. It does not make it impossible. Small, cheap models follow long lists of rules less reliably, and the more material you put in front of them, the more chances they have to slip. In Step 13, after an explicit population rule was added, two runs of the same question on Gemini 2.5 Flash-Lite gave one clean answer and one that still ended with "For beginners, 10–15 repetitions..." cited to the older-adults notes. The durable fix is structural: change what reaches the model (for example a [metadata filter](#metadata-filtering) that removes wrong-group passages), check the output in code, or use a stronger model. The eval measures which is needed. Same lesson as Step 10's equipment mismatch ([Hard constraints and negation](#hard-constraints-and-negation)).
+
+**In an interview:** "I added a prompt rule against mixing populations and the cheap model still slipped in one of two runs. Prompt wording has a ceiling. If a mistake matters, I remove the chance to make it, with a retrieval filter or a code check, instead of asking the model more firmly."
+
+*First seen: Step 13.*
 
 ---
 
@@ -255,7 +264,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview (with evidence):** "My weakest search was 'exercises that need no equipment': the top five included a barbell exercise and a band exercise. A one-line contained-by filter on the equipment column answers that question exactly. Vectors rank, filters enforce."
 
-*First seen: between Steps 2 and 3. Extended: Steps 4, 5, and 9.*
+*Step 13 update: a filter for documents too (population).* Filters aren't only for the exercise catalog. Asked about beginner adults, passage search returned older-adult and youth passages, and the model used their numbers for adults ([Population mixing](#population-mixing-context-bleed-across-populations)). A prompt rule reduced this but didn't stop it. The planned Phase 1F fix is a new metadata field on each chunk, its population (adults, older adults, youth, pregnancy...), and a `WHERE` filter at retrieval, so passages for the wrong group never reach the model. Not built; how chunks get their tags is not decided.
+
+**In an interview (with evidence):** "Metadata filters matter for documents as much as for the catalog. My passages about older adults outranked the adult guidelines for a beginner-adult question, and the model borrowed their numbers. The fix is a population tag on every chunk and a filter at retrieval."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, and 13.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -373,7 +386,9 @@ Sending many texts to the embedding model in one API call instead of one call pe
 
 **In an interview:** "I embed the whole catalog in one batched call and match results back by index. It's faster and cheaper on request overhead than looping one text at a time."
 
-*First seen: Step 8.*
+*Step 13 update: batches of 64.* The 147 document and notes chunks are much longer than exercise texts, so `scripts/embed_chunks.py` sends them 64 per call (`BATCH = 64`) instead of all at once, printing progress after each batch. It embeds `embed_text` (location label + passage) in document mode and stores the vector plus `embedding_model`. Result: 147/147 embedded, for about a tenth of a cent or less (exact figure not recorded).
+
+*First seen: Step 8. Extended: Step 13.*
 
 ### Embedding provenance (embedding_model column)
 Provenance means "where did this come from". Here it is a text column, `embedding_model`, storing which model produced each row's vector (for example `voyageai/voyage-4-lite`). Vectors from different models can't be compared, and they look identical in the table: 1,024 numbers either way. Without the label, a half-finished model switch would leave a silent mix. With it, `WHERE embedding IS NULL OR embedding_model IS DISTINCT FROM '<current model>'` finds exactly the rows to redo. `scripts/embed_exercises.py` uses that condition, so changing the model setting and re-running the script is the whole migration. See [Embedding model lock-in](#embedding-model-lock-in).
@@ -402,7 +417,9 @@ Nearest-neighbor search ranks everything and hands back the top results, whether
 
 *Step 10 update: the biceps search, and what the LLM did with it.* The catalog has no biceps exercise (no curls). "what exercises can i do for biceps" still returned five: Dumbbell Overhead Press 0.578, One-Arm Dumbbell Row 0.558, Farmer Carry 0.557, Inverted Row 0.556, Push-Up 0.550. All five within 0.03 of each other is a warning sign: when nothing stands out, nothing truly matches. In Step 10 the LLM kept only the two rows (the only exercises listing biceps as a primary muscle) and marked the other three "not used". See [The LLM can filter evidence, not add it](#the-llm-can-filter-evidence-not-add-it).
 
-*First seen: Step 8. Extended: Steps 9 and 10.*
+*Step 13 update: two searches, two sets of filler.* Every question now searches both exercises and passages, so a pure dose question ("how heavy should older adults lift") still gets five exercises back. They matched weakly, and the model correctly left all of them unused. The same holds the other way: a question about moves still gets five passages.
+
+*First seen: Step 8. Extended: Steps 9, 10, and 13.*
 
 ### Top-k retrieval
 Top-k retrieval means "return the k best-ranked results", where k is a number you pick (here 5 by default; `--k` changes it). In SQL it is `ORDER BY <distance> LIMIT k`. It always returns exactly k results when there are at least k rows, whether or not k good answers exist. Choosing k is a tradeoff: a larger k is more likely to include the right answer (better recall) but hands more filler to the next step. In Step 9, question 2 had one real answer and four fillers.
@@ -421,6 +438,15 @@ A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner on
 **In an interview (with evidence):** "My RAG answer told a beginner with only dumbbells and bands to do a step-up and a hip thrust, which need a box and a bench. The evidence said so; the model didn't check. I didn't fix that with a prompt rule, because equipment is a hard fact: it belongs in a filter and a validation step in code."
 
 *First seen: Step 9. Extended: Step 10.*
+
+### One query vector, two tables (combined search)
+Step 13 made a second corpus (collection of texts) searchable: the 147 document and notes chunks, embedded with the same model (voyage-4-lite) and the same document mode as the exercises. Because both tables' vectors live in the same meaning space, one question needs only one embedding. `search_all(question, k_exercises, k_passages)` in `retrieval.py` embeds the question once, in query mode, then runs two SQL searches with that same vector: top 5 exercises and top 5 passages. Each list is ranked separately and handed to the LLM as two kinds of evidence. Separate lists matter because the two tables answer different things (exercises say which moves; passages say how much and why), and a single merged top 5 could be all one kind. It only works because both tables used the same embedding model; a different model's vectors couldn't be compared ([Embedding model lock-in](#embedding-model-lock-in)).
+
+For dose questions ("how much strength training should a beginner adult do each week"), the exercise results were weak, as expected: the question names no movement. The LLM left them unused. Passage scores sat close together (0.59 to 0.63 for the top four), and the best passage was not among them; see [Population mixing](#population-mixing-context-bleed-across-populations).
+
+**In an interview:** "I embed the question once and use the same vector against two tables: the exercise catalog and the document chunks. They were embedded by the same model, so the scores are comparable, but I keep two ranked lists, because 'which exercises' and 'how much training' come from different kinds of source."
+
+*First seen: Step 13.*
 
 ---
 
@@ -459,7 +485,26 @@ question ("what exercises can i do for biceps")
 
 **In an interview (with evidence):** "My RAG pipeline embeds the question, pulls the top five exercises from pgvector, sends them to the model as tagged evidence, gets back a structured answer with inline slug citations and a coverage label, and then checks every citation in Python before showing it next to the evidence. Retrieval takes about 0.4 seconds; generation is most of the time."
 
-*First seen: Step 5. Extended: Step 10.*
+*Step 13 update: two kinds of evidence.*
+
+```
+question ("how much strength training should a beginner adult do each week")
+   ▼  embed once (query mode)                                              ← RETRIEVE
+   ├─ exercise table: top 5 exercises
+   └─ document_chunk table: top 5 passages (Guidelines pages, NSCA notes)
+   ▼  <evidence>: <item id="..." kind="exercise|passage"> blocks            ← AUGMENT
+   │     passages say source, document or notes, chapter, pages
+   ▼  LLM: exercises for WHICH moves, passages for principles and dose     ← GENERATE  ~1.5 s
+   │     cites [pag2-63], [goblet-squat], ...
+   ▼  check_citations() against the retrieved ids                          ← CHECK
+   ▼  answer next to passage cards and exercise cards
+```
+
+About 3,500 input tokens and $0.0005 per answer on Gemini 2.5 Flash-Lite. See [One query vector, two tables](#one-query-vector-two-tables-combined-search) and [Passage ids as citation keys](#passage-ids-as-citation-keys).
+
+**In an interview (with evidence):** "Now one question searches two tables with the same vector: exercises and document chunks. The model takes dose and principles from the Guidelines passages, with page citations, and the moves from my catalog, and code checks every id. An answer about beginner strength training cites 'one set of 8 to 12 repetitions' to a page of the Guidelines and the goblet squat to my catalog."
+
+*First seen: Step 5. Extended: Steps 10 and 13.*
 
 ### Seeding
 Seeding means loading the first data into a database. It is the simplest form of ingestion (getting outside content into the system). The exercise data is already clean and structured, so seeding is just "validate and insert". Document ingestion (Steps 11 to 13; planned as Steps 12 to 14 until the reorder after Step 10) adds two steps before inserting: extract the text from a file such as a PDF, and split it into chunks. In Step 5, `scripts/seed_exercises.py` loads `data/exercises.json` (20 exercises) into the `exercise` table. The seed file lives in git, so any machine can rebuild the table from a clone.
@@ -477,7 +522,9 @@ Structured knowledge is stored as rows with fixed columns, like the exercise tab
 
 **In an interview:** "Documents tell you why and how to train; the catalog tells you what exists and what it needs. An agent building a program needs to filter by equipment and level, which you can't do reliably on paragraphs. So I built the catalog first, then added document ingestion on top."
 
-*First seen: Step 4. Extended: Step 5.*
+*Step 13 update: both in one answer.* The mixed-evidence answer described in Step 4 now works. For the beginner-adult question, the answer took "all major muscle groups, at least 2 days per week" and "one set of 8 to 12 repetitions... 2 or 3 sets may be more beneficial" from Guidelines passages (with pages) and goblet squat, push-up, inverted row, overhead press, and farmer carry from the catalog. The prompt assigns roles: exercises for *which* moves, passages for principles and dose. The web page shows them as two card lists, "Document passages" (green "document" or amber "notes" badge) above "Exercises". Caveat: in that first run the dose passages were from the older-adults chapter; see [Population mixing](#population-mixing-context-bleed-across-populations).
+
+*First seen: Step 4. Extended: Steps 5 and 13.*
 
 ### Chunking
 Chunking means splitting long documents into passages of a few paragraphs each, so each passage can be embedded and retrieved on its own. A whole textbook chapter is too long and covers too many ideas for one [embedding](#embedding) to represent well, and too long to hand to the LLM in full. The chunks would be stored with their embeddings in a second table, next to the exercise table. The master context document calls this the knowledge ingestion pipeline. **Not built yet**; suggested for after Step 10.
@@ -494,7 +541,9 @@ Chunking means splitting long documents into passages of a few paragraphs each, 
 
 **In an interview (with evidence):** "I chunk at headings with a 150-to-450-word band, never across chapters and never mid-sentence. The Guidelines became 133 chunks with a median of 253 words, each tagged with its chapter, section, pages, and license, so an answer can cite 'Chapter 4, page 56'."
 
-*First seen: Step 4. Extended: Step 5, after Step 10, Step 11, Step 12.*
+*Step 13 update: embedded and searched.* All 147 chunks (133 document, 14 notes) now have embeddings and are searched next to the exercises. A per-chapter check confirmed every part of the Guidelines was chunked (front matter, Chapters 1–8, Glossary, Appendix 1); the back cover (page 118) was added to `skip_pages`, leaving 37,157 chunked words. One retrieval lesson: chunks are single-topic, but they don't say which population they're for unless their label or text does, which led to [population mixing](#population-mixing-context-bleed-across-populations). Population tags per chunk are planned ([0019 update](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)).
+
+*First seen: Step 4. Extended: Step 5, after Step 10, Step 11, Step 12, Step 13.*
 
 ### Content licensing in RAG
 Whatever text you ingest into a RAG system ends up stored in your database, and possibly in your repo. Copyrighted textbooks, such as NASM's materials or the NSCA's *Essentials of Strength Training and Conditioning*, can't go into a repo meant to become a public portfolio. Three options came up in Step 4: (a) write your own notes summarizing principles in your own words, citing the original source for each, and ingest the notes; (b) use openly licensed sources, such as government guidelines (for example the U.S. Physical Activity Guidelines for Americans) or open-access research papers; (c) keep copyrighted material local only, out of git and unpublished, which is fine for learning but can't be shown. This matches the master context document's rule: only use content we have permission to use or redistribute. No source has been chosen yet.
@@ -605,7 +654,11 @@ Checking the model's citations with ordinary code instead of trusting them. `che
 
 **In an interview:** "The model returns its citations as a list and inline in the text, and Python cross-checks both against what was actually retrieved. If the model cites a source it was never given, that's flagged as a possible invented source before anyone sees the answer."
 
-*First seen: Step 10. Extended: after Step 10.*
+*Step 13 update: ids of two kinds, one false alarm, one real catch.* The check now works on ids of both exercises and passages: `check_citations()` takes the set of retrieved ids, and the model's list is `cited_ids`. Text citations are found by `find_citations()`, which accepts several comma-separated ids in one bracket (`[pag2-77, pag2-63]`) after the old one-id pattern raised a false alarm. In a browser run it then caught five invented ids (`exercise-push-up` and similar), shown in the red box on the page, in an answer that read perfectly well. See [Citation-format variants vs invented citations](#citation-format-variants-vs-invented-citations). Limit, also from Step 13: the check proves a cited source was retrieved, not that it was used for the right population ([Population mixing](#population-mixing-context-bleed-across-populations)).
+
+**In an interview (with evidence):** "In one browser test the answer looked fine, and my checker flagged five citations as not in the evidence. The model had invented ids like 'exercise-push-up'. Nobody reading the answer would have noticed."
+
+*First seen: Step 10. Extended: after Step 10, Step 13.*
 
 ### Evidence coverage and gaps
 Two fields in the answer where the model says how well the evidence answers the question: `evidence_coverage` is `"full"`, `"partial"`, or `"none"`, and `gaps` says in one sentence what is missing. They let the system admit a gap instead of padding. In Step 10 they helped but were unreliable. Qwen said "partial" for biceps and named the missing curls; Gemini 2.5 Flash-Lite said "full" twice on the same question and didn't mention them. Gemini also said "full" for "exercises that need no equipment" while two bodyweight exercises were missing. Qwen's gaps once said the evidence lacked "bounds or hops" when a Lateral Bound was right there. And the label changed between runs of the same question ("partial", then "full"; the prompt had also changed in between). So the coverage label is a useful signal, not a fact, and eval questions should be run more than once.
@@ -628,7 +681,9 @@ The first test showed the value of the label. Asked for "explosive exercises to 
 
 **In an interview:** "I let the model add general training knowledge, but only in a separate field labeled 'not from your sources', never mixed into the cited answer. The first time it used that field, it suggested 60 to 120 seconds of rest for power work, which is questionable. Because it was labeled, a coach could see it was unverified instead of trusting it like the cited facts."
 
-*First seen: after Step 10.*
+*Step 13 update: numbers now come from passages.* With documents searchable, the prompt says: give programming numbers only if a passage states them, and cite it; use `general_guidance` only when no passage covers the point. Both dose questions in Step 13 were answered with cited numbers (for example 70–85% of 1RM for older adults, from the NSCA notes), so the labeled general-guidance field should be needed less. See the [0016 update](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md).
+
+*First seen: after Step 10. Extended: Step 13.*
 
 ### Separating sourced facts from model knowledge in the UI
 Keeping sourced and unsourced content apart only helps if the separation survives all the way to what the reader sees. In rag-motion it is kept at every layer. **Data:** `GroundedAnswer` has a separate `general_guidance` field (text or null), so the two can't run together in one paragraph. **Checks:** `check_citations()` flags any `[slug]` inside the general guidance, so unsourced text can't borrow a citation's credibility ([Citation validation](#citation-validation)). **Terminal:** `scripts/ask.py` prints it under "GENERAL GUIDANCE (from the model's general knowledge, NOT from your sources)". **Web page:** it sits in its own dashed box labeled "General guidance: not from your sources. From the model's general training knowledge, not verified against your database." Null is allowed, and the section simply doesn't appear.
@@ -636,6 +691,34 @@ Keeping sourced and unsourced content apart only helps if the separation survive
 **In an interview:** "The label is enforced in the data shape, in a code check, and in the UI, not just in the prompt. The cited answer and the model's general advice are different fields, shown in different boxes, and general advice isn't allowed to carry citations."
 
 *First seen: after Step 10.*
+
+### Passage ids as citation keys
+A citation key is the short, stable name the model writes in brackets to point at a piece of evidence. Exercises already had one, their slug (`[goblet-squat]`). In Step 13 each passage got one too: `passage_id` = `<source_id>-<chunk_index>`, for example `pag2-57` (the Physical Activity Guidelines, chunk 57) or `notes-nsca-older-adults-1`. The model cites `[pag2-57]`; code looks the id up and shows the source title, chapter, and pages, so the reader sees "Chapter 4, page 56" without the model having to write it. `GroundedAnswer.cited_slugs` was renamed `cited_ids`, since a citation can now be either kind. One caution: `chunk_index` comes from the chunker, so re-chunking a source with different settings can give the same id to a different passage. Saved eval answers that name ids should record which chunker they were written against ([Chunker version on every row](#chunker-version-on-every-row)).
+
+**In an interview:** "Every passage has a short id like pag2-57, built from its source and position. The model only has to copy that id; code turns it into the source, chapter, and page, so a citation can't carry a wrong page number."
+
+*First seen: Step 13.*
+
+### Citation-format variants vs invented citations
+When a citation check fails, there are two very different causes. **Format variant:** the model cited real evidence but wrote it in a form the checker didn't expect. In Step 13 the model wrote `[pag2-77, pag2-63]`, two ids in one bracket, and the checker, whose pattern (a regular expression, a text-matching rule) accepted one id per bracket, reported "'pag2-77' is in cited_ids but never cited in the text". A false alarm: the checker was wrong. Fix: `find_citations()` accepts one or more comma-separated ids per bracket and ignores non-citations like "[Figure 2]". **Invented citation:** the model cited an id that was never retrieved. In a browser test it wrote `[exercise-push-up]`, `[exercise-farmer-carry]`, and three more; none exist. The checker flagged all five as "not in the retrieved evidence (possible invented source)". The answer looked fine to a reader; only the check caught it. Lesson: when a check fires, first ask whether the check or the model is wrong, and keep the checker strict about ids while flexible about formatting. See [Citation validation](#citation-validation) and [Prompt-induced id errors](#prompt-induced-id-errors-from-tag-naming).
+
+**In an interview:** "My citation checker fired twice in one step for opposite reasons. Once it was the checker's fault: the model grouped two real ids in one bracket. Once it was a real catch: five made-up ids that looked perfectly plausible in the answer. I loosened the format parsing and kept the id check strict."
+
+*First seen: Step 13.*
+
+### Prompt-induced id errors from tag naming
+How you label evidence in the prompt can cause the model's mistakes. In the first Step 13 prompt, exercises and passages sat in differently named tags (an exercise's tag included the word `exercise`). In one run the model glued the tag name onto the id and cited `[exercise-push-up]` instead of `[push-up]`. The fix changed the prompt's structure, not just its wording: every evidence item is now `<item id="..." kind="exercise|passage">`, so the id stands alone in one attribute, plus a rule to copy the id exactly ("[push-up], never [exercise-push-up]"). In two retests, no invented ids appeared. The general point: the model imitates the text around an id, so make the id the only thing that looks like an id.
+
+**In an interview:** "The model started citing 'exercise-push-up' because my evidence tags had 'exercise' in their name, and it merged the two. I unified the tags so the id sits alone in one attribute, and the invented ids stopped. Prompt layout is part of the interface."
+
+*First seen: Step 13.*
+
+### Population mixing (context bleed across populations)
+Training guidance is population-specific: the right dose for older adults, youth, or pregnancy differs from the adult guidelines. Population mixing is when an answer for one group uses numbers written for another. It is a form of context bleed (material retrieved for one context leaking into an answer about another). In Step 13, for "how much strength training should a beginner adult do each week", retrieval returned older-adult and youth passages first (the word "beginner" sits close to their wording), and missed the adult key-guidelines passage (`pag2-57`, page 56). The model then applied them: once citing a Chapter 5 (Older Adults) passage for adults, once writing "for beginners... 10–15 repetitions" cited to the older-adults notes. Every citation was valid, so citation checks can't catch this; the source is real, just for the wrong group. A prompt rule reduced it but didn't stop it ([Prompt rules have a ceiling](#prompt-rules-have-a-ceiling-especially-on-small-models)). The structural fix, planned for Phase 1F: tag each chunk with its population (adults, older adults, youth, pregnancy...) and filter at retrieval, so wrong-group passages never reach the model ([Metadata filtering](#metadata-filtering)). Better retrieval, so the right passage ranks, and a stronger model also help. A population-mixing question is now an eval candidate.
+
+**In an interview:** "My most interesting RAG bug had perfectly valid citations. Asked about beginner adults, retrieval returned older-adult passages, and the model gave older-adult rep ranges as adult advice. It's a coaching error, not a citation error, so the fix is a population tag on each chunk and a filter at retrieval, not a sterner prompt."
+
+*First seen: Step 13.*
 
 ---
 
@@ -713,7 +796,11 @@ When a step removes content, check that what disappeared is exactly what you mea
 
 *Step 12 update:* Chunking dropped the Guidelines from 40,287 cleaned words to 37,173 chunked words. The difference is the pages deliberately skipped (inside cover, table of contents, credits, infographic, agency directory) and the scraps under 4 words.
 
-*First seen: Step 11. Extended: Step 12.*
+*Step 13 update: check coverage, not just totals.* The developer asked whether only one chapter had been chunked. A count of chunks and page ranges per chapter answered it: 11 parts, from the front matter (9 chunks, pages 6–12) through Chapters 1–8 and the Glossary to Appendix 1 (6 chunks, pages 109–118). Only the chosen skip pages were missing. The same table exposed a small leak: page 118, the back cover (about 16 words), was attached to Appendix 1. Adding it to `skip_pages` took the total to 37,157 words, 16 fewer.
+
+**In an interview:** "When someone asked if I'd only chunked one chapter, I didn't argue; I ran a per-chapter count. It proved full coverage and also showed the back cover sneaking into the appendix."
+
+*First seen: Step 11. Extended: Steps 12 and 13.*
 
 ### Chunking approaches (fixed size, section, structure-aware, semantic)
 There are four common ways to cut documents into chunks. **Fixed size** cuts every N words or tokens (for example 300 or 800 words), usually with overlap, meaning the end of one chunk is repeated at the start of the next. It is simple but cuts mid-sentence and mixes topics. **Section by section** makes one chunk per heading: one topic each, but sizes vary wildly. **Structure-aware with size limits** splits at headings, then merges tiny sections and splits huge ones at paragraph breaks. **Semantic** chunking embeds every sentence and splits where the meaning shifts; it adapts to the text but costs one embedding call per sentence, is harder to debug, and usually gains little. The industry default is fixed size, about 500–1,000 tokens with 10–20% overlap; structure-aware is the common upgrade for documents with clear headings. Step 12 chose structure-aware ([0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)).
@@ -1154,7 +1241,9 @@ An idempotent script gives the same result no matter how many times it is run. `
 
 *Step 12 update: delete and re-insert.* `scripts/chunk_documents.py` makes re-runs safe differently from the seed script's upsert: for each source, it deletes that source's rows for the current chunker and inserts the fresh chunks, in one transaction. A rerun gave identical counts, with no duplicates. Side effect: those rows' embeddings are cleared too, and get recomputed in Step 13 (see [Stale embeddings](#stale-embeddings)).
 
-*First seen: Step 4. Extended: Steps 5, 8, and 12.*
+*Step 13 update:* `scripts/embed_chunks.py` follows the Step 8 pattern: it selects chunks with no embedding or one from a different model. Run 1 embedded 147/147; run 2 printed "Nothing to embed." and made no API call. Re-chunking a source clears its vectors, so the next run of this script re-embeds exactly those.
+
+*First seen: Step 4. Extended: Steps 5, 8, 12, and 13.*
 
 ### Slug vs id
 A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.
@@ -1265,7 +1354,9 @@ Prompt injection is when instructions hidden inside data hijack the model. In St
 
 *Step 10 update: evidence is data too.* In the RAG step, the retrieved exercises go inside `<evidence>` tags and the question inside `<question>` tags, with a rule that everything inside them is data, not instructions. Today the evidence is the developer's own catalog, so the risk is low; it rises when document chunks arrive (Steps 11 to 13). This rule was not tested with an injected instruction in Step 10. Citation checks in code ([Citation validation](#citation-validation)) are one of the design defenses.
 
-*First seen: Step 6. Extended: Step 10.*
+*Step 13 update: document text is now in the evidence.* Passages from the Guidelines and the NSCA notes are now sent to the model inside `<evidence>`. Both are vetted sources the project chose, so the risk is still low, but this is the point where retrieved text becomes model input. The evidence-is-data rule has still not been tested with an injected instruction.
+
+*First seen: Step 6. Extended: Steps 10 and 13.*
 
 ### HTML escaping
 HTML is the language web pages are written in. If text from a user or a model is inserted into a page as-is, any HTML tags or scripts inside it would run in the browser (an attack called cross-site scripting, XSS). Escaping turns special characters like `<` and `>` into harmless codes, so the text is shown, not run. In Step 10 the web page escapes all user and model text before showing it. Model output counts as untrusted: it can repeat anything that was in its input, including text from documents later on.
@@ -1287,10 +1378,12 @@ Observability means being able to see what a system did and why. LangSmith is a 
 
 **In an interview (updated):** "I printed every stage by hand first. I'd planned to add LangSmith before document ingestion, then moved it after, because tracing earns its keep once there's chunking to debug. The plan is a tradeoff I made on purpose: first chunking bugs get debugged from printed stages."
 
-*First seen: Step 5 (planned, not built). Extended: after Step 10.*
+*Step 13 update:* The developer created a free LangSmith account. Claude asked them to put `LANGSMITH_API_KEY` in `.env` themselves, not in the chat ([API key hygiene](#api-key-hygiene)), ready for Step 14. The Step 13 bugs (grouped-citation false alarm, invented ids, population mixing) were all found through printed stages; they are the kind of problem traces should make faster to see.
+
+*First seen: Step 5 (planned, not built). Extended: after Step 10, Step 13.*
 
 ### Manual tracing
-Printing every stage of a request yourself, before adopting a tracing tool. `scripts/ask.py` (Step 10) prints five stages: (1) the retrieved exercises with their scores, each marked "cited" or "not used"; (2) the answer with coverage and gaps; (3) the sources, with each exercise's `source` field; (4) the citation checks; (5) cost and time, split into retrieval and generation. The web page shows the same things. This is how the Step 10 problems were found: "not used" marks showed the model filtering evidence, and the timing split showed generation, not retrieval, was slow. LangSmith (Step 14, moved from Step 11 after Step 10) will record the same stages automatically. *After Step 10:* `ask.py` also prints a labeled general-guidance section when the model provides one ([Separating sourced facts from model knowledge in the UI](#separating-sourced-facts-from-model-knowledge-in-the-ui)).
+Printing every stage of a request yourself, before adopting a tracing tool. `scripts/ask.py` (Step 10) prints five stages: (1) the retrieved exercises with their scores, each marked "cited" or "not used"; (2) the answer with coverage and gaps; (3) the sources, with each exercise's `source` field; (4) the citation checks; (5) cost and time, split into retrieval and generation. The web page shows the same things. This is how the Step 10 problems were found: "not used" marks showed the model filtering evidence, and the timing split showed generation, not retrieval, was slow. LangSmith (Step 14, moved from Step 11 after Step 10) will record the same stages automatically. *After Step 10:* `ask.py` also prints a labeled general-guidance section when the model provides one ([Separating sourced facts from model knowledge in the UI](#separating-sourced-facts-from-model-knowledge-in-the-ui)). *Step 13:* it now prints passages and exercises separately, each marked cited or not used, and sources with chapter and pages (or note sections). Printing the chapter makes population mixing visible: a beginner-adult answer citing `pag2-77` shows at once that the passage comes from Chapter 5, Older Adults.
 
 **In an interview:** "Before adding a tracing tool I printed every stage by hand: what was retrieved, what was cited, the checks, tokens, cost, and time per stage. That's how I learned what a trace needs to show, and it's how I spotted that generation, not retrieval, was eating the time."
 

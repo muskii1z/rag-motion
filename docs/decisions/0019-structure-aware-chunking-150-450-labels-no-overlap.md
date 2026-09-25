@@ -36,3 +36,8 @@ The numbers are a first guess. Plain fixed-size chunking is kept as a comparison
 - Step 15's evaluation compares this against fixed-size chunking (and other size settings), and a variant retrieves better.
 - Documents with different structure are added (research papers, the US Army drill manual), and the heading rules don't fit them.
 - Appendix questions retrieve oddly (check the page 108 heading-order issue).
+
+## Update 2026-09-25 (Step 13): population tags planned; page 118 skipped
+- **Page 118 skipped.** A per-chapter coverage query showed the back cover (page 118, about 16 words) attached to Appendix 1. It was added to `skip_pages` in `data/sources.toml`. Rechunked: 133 document chunks / 37,157 words (16 fewer), 14 notes chunks.
+- **Population tags are the planned fix for population mixing.** Once chunks were embedded and searched, "how much strength training should a beginner adult do each week" retrieved older-adult and youth passages first and missed the adult key-guidelines chunk (`pag2-57`, page 56). The model then used older-adult numbers as adult advice. A prompt rule reduced this but didn't stop it (one of two retests still slipped). Plan (Phase 1F): add a population field to each chunk (adults, older adults, youth, pregnancy...) and filter on it at retrieval. How chunks get their tag (for example from the chapter, by hand, or by an LLM) is not decided. See [Population mixing](../concepts.md#population-mixing-context-bleed-across-populations) and [Step 13](../build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both).
+- New revisit signal: population mixing still shows up in the Step 15 eval after the filter is in place.
