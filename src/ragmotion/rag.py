@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, field
 
 from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
 
 from ragmotion.llm import LLMUsage, structured_completion
 from ragmotion.models import GroundedAnswer
@@ -132,9 +133,13 @@ def _summarize_result(r: "RAGResult") -> dict:
     }
 
 
-@traceable(run_type="chain", name="answer_question", process_outputs=_summarize_result)
+@traceable(run_type="chain", name="answer_question", process_inputs=lambda inputs: {"question": inputs["question"]},
+           process_outputs=_summarize_result)
 def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mode: str = "semantic") -> RAGResult:
     """mode: "semantic" (default), "keyword", or "hybrid" retrieval (see retrieval.SEARCH_MODES)."""
+    run = get_current_run_tree()
+    if run:  # settings go to trace metadata so the trace list previews the question itself
+        run.add_metadata({"retrieval_mode": mode, "k_exercises": k_exercises, "k_passages": k_passages})
     t0 = time.perf_counter()
     exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages)
     t1 = time.perf_counter()

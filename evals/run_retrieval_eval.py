@@ -14,6 +14,8 @@ from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime
 
+from langsmith import tracing_context
+
 from ragmotion.chunking import chunker_label
 from ragmotion.config import settings
 from ragmotion.evaluation import load_eval_set, score_retrieval
@@ -44,14 +46,17 @@ def main() -> None:
           f"chunker {chunker_label()} | embeddings {settings.embedding_model}\n")
 
     results = {}
-    for mode, search in SEARCH_MODES.items():
-        results[mode] = []
-        for q in questions:
-            exercises, passages = search(q.question, k_exercises=K, k_passages=K)
-            score = score_retrieval(q, exercises, passages)
-            results[mode].append({"id": q.id, "category": q.category, **asdict(score),
-                                  "retrieved_exercises": [h.slug for h in exercises],
-                                  "retrieved_passages": [p.passage_id for p in passages]})
+    # No LangSmith traces here: this eval makes no LLM calls, and ~87 search-only traces per run
+    # buried the real questions in the Tracing list.
+    with tracing_context(enabled=False):
+        for mode, search in SEARCH_MODES.items():
+            results[mode] = []
+            for q in questions:
+                exercises, passages = search(q.question, k_exercises=K, k_passages=K)
+                score = score_retrieval(q, exercises, passages)
+                results[mode].append({"id": q.id, "category": q.category, **asdict(score),
+                                      "retrieved_exercises": [h.slug for h in exercises],
+                                      "retrieved_passages": [p.passage_id for p in passages]})
 
     # ---- Overall table ----
     print(f"{'mode':<9} " + " ".join(f"{m:>15}" for m in METRICS))
