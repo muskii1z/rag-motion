@@ -23,3 +23,17 @@ Keyword-only search matches or beats semantic search in the Step 15 results. The
 ## Note (2026-09-25, after Step 10)
 
 The plan was reordered: document ingestion is now Steps 11 to 13 and LangSmith tracing Step 14 (see the [0011 update](0011-phase-1-plan-revision-ingestion-and-langsmith.md#update-2026-09-25-after-step-10-ingestion-moved-before-langsmith)). The step numbers in this record are unaffected: evaluation is still Step 15 and Phase 1F still comes after Step 16. LangSmith still arrives before the Step 15 eval.
+
+## Update (2026-09-25, Step 15): measured outcome
+The comparison this record asked for was run in [Step 15](../build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): 29 questions, top 5, the same questions for all three modes. Keyword search is Postgres full-text search (English stemming, stop words removed, OR over the question's words, ranked by `ts_rank_cd`), computed per query rather than from a stored `tsvector` index because the tables are tiny. Hybrid is the parallel version this record chose: 20 candidates from each search, merged with Reciprocal Rank Fusion (RRF, equal weights).
+
+| Mode | Exercise recall | Exercise MRR | Passage recall | Passage MRR |
+|---|---|---|---|---|
+| semantic | 0.89 | 0.94 | 1.00 | 0.70 |
+| keyword | 0.66 | 0.67 | 0.75 | 0.42 |
+| hybrid | 0.84 | 0.87 | 0.92 | 0.76 |
+
+- **Revisit signal not triggered.** Keyword-only did not match or beat semantic; it lost clearly on every metric except the forbidden rate (tied at 0.10). So the embedding path stays. Coaches phrase questions by meaning, and the catalog doesn't reuse their words; the article's "start with keyword" fits documentation search where users type exact terms.
+- **Keyword search didn't fix jargon either.** For "beginner RDL", keyword search missed both RDL exercises, because the letters "RDL" appear nowhere in the catalog text. That strengthens the case for query rewriting with an abbreviation glossary.
+- **RRF hybrid:** slightly worse than semantic overall (keyword noise pushed out good semantic results), but best passage MRR (the right passage ranked higher) and better on literal-word questions (biceps).
+- **Phase 1F:** revisit hybrid with tuned weights, and add query rewriting, both measured against this baseline. See [0021](0021-evaluation-design-code-scored-langsmith-semantic-default.md).

@@ -225,7 +225,13 @@ Keyword search finds rows that contain the actual words in the question. Using t
 
 *Step 10 update: a case where keyword search would win.* For "what exercises can i do for biceps", the word "biceps" literally appears in the text of the two exercises that train it (One-Arm Dumbbell Row and Inverted Row). Keyword search would have put them first. Semantic search put Dumbbell Overhead Press first, which has no biceps at all: the embedding matched the general feel of "upper-body dumbbell exercise". A real example for the Step 15 keyword-vs-semantic comparison.
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 10.*
+*Step 15 update: built and measured.* `keyword_search_all()` in `retrieval.py` uses Postgres full-text search. `to_tsvector('english', ...)` turns each row's text into lexemes: words reduced to a base form by English stemming ("squats" and "squat" match), with stop words ("the", "for", "with") removed. The question becomes a `tsquery` (a search expression) that ORs its words together, so any shared word counts. Rows are ranked by `ts_rank_cd`, which scores how many query words appear and how close together. The text vectors are computed on every query, fine at about 170 rows; at scale they would be stored in a column with a GIN index (a lookup structure from each word to the rows containing it), so the search doesn't reread every row.
+
+Measured on the 29-question eval set (top 5), keyword search lost clearly to semantic search: exercise recall 0.66 vs 0.89, passage recall 0.75 vs 1.00, passage MRR 0.42 vs 0.70 ([Step 15](build-log.md#step-15-retrieval-baseline)). Coaches phrase questions by meaning, and the catalog and documents don't reuse their words. It did win the case Step 10 predicted: for biceps it returned exactly the two rows that mention "biceps". **A correction to the running example:** this entry's first paragraph assumed an exercise named "Dumbbell RDL". The real catalog spells it out ("Romanian deadlift"), so for "beginner RDL" keyword search found neither RDL: the letters "RDL" appear nowhere in the text. Exact-term matching only helps when the exact term is in the data. See [0012 update](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+**In an interview (with evidence):** "I measured keyword search instead of assuming. On my data it lost clearly: 0.66 exercise recall against 0.89 for semantic. It won the one question where the literal word mattered, 'biceps', and it failed on 'RDL', because my catalog spells out 'Romanian deadlift'. Keyword search only helps if the user's words are in the text."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 10 and 15.*
 
 ### Semantic search
 Semantic search compares [embeddings](#embedding) instead of words, using [pgvector](#pgvector) inside the database. It matches by meaning, so "hip hinge" can find "Romanian deadlift" even with no words in common. Its weak spot is exact terms: "RDL" is just three letters to the embedding model, so it may rank loosely related exercises above the one literally named "Dumbbell RDL".
@@ -247,7 +253,11 @@ Semantic search compares [embeddings](#embedding) instead of words, using [pgvec
 
 **In an interview (with evidence):** "On my own catalog, semantic search nailed 'unilateral lower-body' and 'explosive exercises to help me run faster', but 'exercises that need no equipment' returned an inverted row that needs a barbell. It's great at meaning and bad at yes/no facts, which is why filters are next on the list."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 7 and 9.*
+*Step 15 update: measured against keyword and hybrid.* On the 29-question eval set (top 5), semantic search was best or tied on nearly every metric: exercise recall 0.89, exercise hit 1.00, exercise MRR 0.94, passage recall 1.00, passage hit 1.00. It stays the default ([0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md)). It still failed the same hard-rule questions as Step 9: for "no equipment" it missed Broad Jump and Lateral Bound and returned Inverted Row and Pallof Press. See [Filtering problems vs search problems](#filtering-problems-vs-search-problems).
+
+**In an interview (with evidence):** "On my 29-question baseline, semantic search beat keyword by over 0.2 in exercise recall and found every expected passage. Where it failed, every other mode failed too, which told me those were filtering problems, not search problems."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 7, 9, and 15.*
 
 ### Metadata filtering
 Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
@@ -268,7 +278,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview (with evidence):** "Metadata filters matter for documents as much as for the catalog. My passages about older adults outranked the adult guidelines for a beginner-adult question, and the model borrowed their numbers. The fix is a population tag on every chunk and a filter at retrieval."
 
-*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, and 13.*
+*Step 15 update: the need is now measured.* In the eval, the two constraint questions and the beginner-adult population question retrieved forbidden items in **every** search mode: bench and box exercises for "dumbbells only", a barbell and a band exercise for "no equipment" (semantic and hybrid), older-adult and youth passages for a beginner adult. At the answer level, only 2 of the 5 questions with forbidden items were answered without citing one. No search mode fixes a yes/no rule, so Phase 1F adds the filters: `equipment <@` the client's equipment, and a population tag on chunks. See [Filtering problems vs search problems](#filtering-problems-vs-search-problems).
+
+**In an interview (with evidence):** "My eval showed that keyword, semantic, and hybrid search all returned a hip thrust for a client with only dumbbells, and all returned older-adult passages for a beginner adult. When every search mode fails the same way, better search isn't the fix. A filter is."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, 13, and 15.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -277,7 +291,18 @@ Hybrid search runs [keyword search](#keyword-search) and [semantic search](#sema
 
 *Between Steps 5 and 6 update:* Not every "hybrid" is built this way. Some designs run keyword search first and only reorder its results with embeddings, which can't recover anything keyword search missed. This project plans the parallel version. See [Retrieve-then-rerank vs parallel hybrid](#retrieve-then-rerank-vs-parallel-hybrid).
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6.*
+*Step 15 update: built and measured.* `hybrid_search_all()` takes 20 candidates from semantic and 20 from keyword search and merges them with [Reciprocal Rank Fusion](#reciprocal-rank-fusion-rrf), keeping the top 5. On the eval set it was **not** better overall: exercise recall 0.84 (semantic 0.89), passage recall 0.92 (semantic 1.00), forbidden rate 0.14 (semantic 0.10). With equal weights, keyword search's noise pushed some good semantic results out. It did help where the literal word matters (biceps: one-arm row and inverted row ranked first and second), and it had the best passage MRR, 0.76 vs 0.70, meaning the right passage tended to rank higher. On the beginner-adult question it lost the expected adult passage entirely. Semantic stays the default; tuned weights are a Phase 1F experiment ([0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md)).
+
+**In an interview (with evidence):** "Hybrid search is supposed to be the best of both, but on my data a standard equal-weight hybrid came out slightly worse than semantic alone, because the weaker keyword results diluted the good ones. It ranked the right passage higher more often, so it's worth tuning, but it has to earn its place with numbers."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 15.*
+
+### Reciprocal Rank Fusion (RRF)
+A way to merge ranked lists from different searches without comparing their scores. Keyword scores (`ts_rank_cd`) and semantic scores (cosine similarity) are on different scales, so adding them would be meaningless. RRF uses only positions: an item gets 1 / (60 + rank) from each list it appears in, and those are summed. First place in one list is worth 1/61 (about 0.0164), 20th place 1/80 (0.0125), and appearing in both lists adds the two together, so items both searches agree on rise. The constant 60 is a common default that keeps the top rank from dominating. In rag-motion, `hybrid_search_all()` takes 20 candidates from each search, fuses them, and keeps the top 5; `RRF_K = 60` in `retrieval.py`. Plain RRF weights both lists equally, which in Step 15 let weaker keyword results push out good semantic ones. Giving each list its own weight is a Phase 1F experiment.
+
+**In an interview:** "To merge keyword and vector results I use Reciprocal Rank Fusion: each item scores one over sixty plus its rank in each list, summed. It ignores the raw scores, which aren't comparable, and rewards agreement. The equal-weight version hurt on my data, so the next experiment is weighting the lists."
+
+*First seen: Step 15.*
 
 ### Reranking
 Reranking is a second stage after retrieval. First, retrieve a wide set of candidates (say the top 20). Then a second, more careful model reorders them and the best 5 are kept. It is slower but more accurate, which is why it only runs on a short list. Voyage AI sells reranking models, so this could stay with a provider the project already uses. It is the only part of the production-style pipeline that needs a model outside Postgres.
@@ -320,7 +345,11 @@ See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
 **In an interview:** "I don't assume embeddings beat keyword search. My eval baseline compares keyword-only, vector-only, and combined on the same questions, and every later technique, including LLM query rewriting, has to beat that baseline to stay."
 
-*First seen: between Steps 2 and 3. Extended: Step 5, between Steps 5 and 6.*
+*Step 15 update: the baseline exists.* The evaluation this entry planned is built: 29 questions, three retrieval modes, and full-answer checks. Baseline (top 5): semantic exercise recall 0.89 and passage recall 1.00; keyword 0.66 and 0.75; equal-weight hybrid 0.84 and 0.92. Answers with semantic retrieval: citations valid 29/29, coverage label correct 25/29, forbidden citations avoided 2/5. Each Phase 1F technique now has a number to beat. See [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
+
+**In an interview (with numbers):** "My baseline is semantic RAG at 0.89 exercise recall and 1.00 passage recall on 29 questions. A standard hybrid scored slightly lower, and every mode failed the equipment and population questions. So the next change is metadata filters, and each change after that is rerun against the same baseline."
+
+*First seen: between Steps 2 and 3. Extended: Step 5, between Steps 5 and 6, Step 15.*
 
 ### Stale embeddings
 An embedding is computed from a piece of text at one moment. If the text is later edited but the embedding isn't recomputed, the vector still describes the old text. Search then matches the old meaning, and nothing reports an error. The seed script guards against this: when an exercise's content changes, the upsert sets `embedding = NULL`. A missing vector is visible and easy to find (`WHERE embedding IS NULL`), so the embedding step (Step 8) can recompute exactly those rows. A wrong vector would be invisible.
@@ -338,7 +367,9 @@ Query rewriting means an LLM rewrites the user's question into better search ter
 
 *Step 7 update: first evidence.* Spelling out one abbreviation by hand, which is what query rewriting would do automatically, raised the correct exercise's score from 0.150 ("beginner RDL") to 0.614 ("beginner Romanian deadlift"), and its lead over second place from 0.04 to 0.12. Five documents is a tiny test; the Phase 1F experiment will measure it on the full eval set.
 
-*First seen: between Steps 5 and 6. Extended: Step 7.*
+*Step 15 update: keyword search doesn't replace it.* One argument for keyword search was exact abbreviations. The eval showed it doesn't help here: for "beginner RDL", keyword search missed both RDL exercises, because "RDL" never appears in the catalog text. Jargon recall was 0.83 for semantic and hybrid and 0.67 for keyword. The only fix that targets the problem is expanding the abbreviation before searching, which is what query rewriting does. Still planned for Phase 1F, measured against the Step 15 baseline.
+
+*First seen: between Steps 5 and 6. Extended: Steps 7 and 15.*
 
 ### Query decomposition (multi-intent questions)
 A multi-intent question asks for several things at once. "Explosive lower-body program to run faster" is really several searches: power training principles, jump exercises, single-leg strength, and how to progress. One embedding of the whole question blends those meanings together and may retrieve a bit of each and not enough of any. Query decomposition means splitting the question into sub-questions, searching for each one separately, and combining the results. This fits Phase 2, where an agent builds whole programs. Not built yet.
@@ -437,7 +468,9 @@ A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner on
 
 **In an interview (with evidence):** "My RAG answer told a beginner with only dumbbells and bands to do a step-up and a hip thrust, which need a box and a bench. The evidence said so; the model didn't check. I didn't fix that with a prompt rule, because equipment is a hard fact: it belongs in a filter and a validation step in code."
 
-*First seen: Step 9. Extended: Step 10.*
+*Step 15 update: measured across all search modes.* The eval's two constraint questions had the lowest exercise recall of any category (semantic 0.68, keyword 0.38, hybrid 0.68), and every mode retrieved forbidden exercises for at least one of them. In the semantic answer run, both constraint questions failed the forbidden-citation check. See [Filtering problems vs search problems](#filtering-problems-vs-search-problems).
+
+*First seen: Step 9. Extended: Steps 10 and 15.*
 
 ### One query vector, two tables (combined search)
 Step 13 made a second corpus (collection of texts) searchable: the 147 document and notes chunks, embedded with the same model (voyage-4-lite) and the same document mode as the exercises. Because both tables' vectors live in the same meaning space, one question needs only one embedding. `search_all(question, k_exercises, k_passages)` in `retrieval.py` embeds the question once, in query mode, then runs two SQL searches with that same vector: top 5 exercises and top 5 passages. Each list is ranked separately and handed to the LLM as two kinds of evidence. Separate lists matter because the two tables answer different things (exercises say which moves; passages say how much and why), and a single merged top 5 could be all one kind. It only works because both tables used the same embedding model; a different model's vectors couldn't be compared ([Embedding model lock-in](#embedding-model-lock-in)).
@@ -658,14 +691,20 @@ Checking the model's citations with ordinary code instead of trusting them. `che
 
 **In an interview (with evidence):** "In one browser test the answer looked fine, and my checker flagged five citations as not in the evidence. The model had invented ids like 'exercise-push-up'. Nobody reading the answer would have noticed."
 
-*First seen: Step 10. Extended: after Step 10, Step 13.*
+*Step 15 update: measured at scale.* As the `citations_valid` evaluator in the answer eval, the check passed 29 of 29 answers with semantic retrieval, so the Step 13 fixes held across the whole eval set. With hybrid retrieval it passed 27 of 29 (notes-older-load and notes-youth-start); the cause was not investigated yet. A separate evaluator, `no_forbidden_citations`, covers the gap noted in Step 13: a valid citation of the wrong population.
+
+*First seen: Step 10. Extended: after Step 10, Steps 13 and 15.*
 
 ### Evidence coverage and gaps
 Two fields in the answer where the model says how well the evidence answers the question: `evidence_coverage` is `"full"`, `"partial"`, or `"none"`, and `gaps` says in one sentence what is missing. They let the system admit a gap instead of padding. In Step 10 they helped but were unreliable. Qwen said "partial" for biceps and named the missing curls; Gemini 2.5 Flash-Lite said "full" twice on the same question and didn't mention them. Gemini also said "full" for "exercises that need no equipment" while two bodyweight exercises were missing. Qwen's gaps once said the evidence lacked "bounds or hops" when a Lateral Bound was right there. And the label changed between runs of the same question ("partial", then "full"; the prompt had also changed in between). So the coverage label is a useful signal, not a fact, and eval questions should be run more than once.
 
 **In an interview:** "I have the model label evidence coverage and list gaps, so it can say 'the catalog has no curls' instead of inventing one. But I measured that label flipping between runs and being over-confident on a cheaper model, so I treat it as a signal to evaluate, not a guarantee."
 
-*First seen: Step 10.*
+*Step 15 update: overclaiming measured.* The answer eval compares the model's `evidence_coverage` label with the expected one. With semantic retrieval and Gemini 2.5 Flash-Lite, 25 of 29 matched. Three of the four misses were overclaiming: "full" where "partial" was expected (band pulling, biceps, explosive speed). The Step 10 weakness is now a number, 3 in 29. The fourth miss went the other way: for "no equipment" the model said "partial", because retrieval had missed two bodyweight jumps. That is arguably the honest answer given what it saw, so the expected value may be wrong; the coach will settle it.
+
+**In an interview (with evidence):** "I don't just ask the model whether the evidence covers the question. I check its answer against an expected label. On my baseline it overclaimed full coverage on 3 of 29 questions, which gives me a number to improve instead of a vague sense that it's overconfident."
+
+*First seen: Step 10. Extended: Step 15.*
 
 ### The LLM can filter evidence, not add it
 The generation step can only work with what retrieval hands it. It can drop bad evidence, but it can't recover evidence that was never retrieved. In Step 10, for "exercises that need no equipment", the model correctly dropped Inverted Row (barbell) and Pallof Press (band). But Broad Jump and Lateral Bound, both bodyweight, were never retrieved, so the answer couldn't include them, and it still claimed "full" coverage. An answer's completeness is capped by retrieval recall (the share of the right items the search actually found). That is why Phase 1F focuses on retrieval: filters, hybrid search, reranking, and query rewriting.
@@ -697,7 +736,9 @@ A citation key is the short, stable name the model writes in brackets to point a
 
 **In an interview:** "Every passage has a short id like pag2-57, built from its source and position. The model only has to copy that id; code turns it into the source, chapter, and page, so a citation can't carry a wrong page number."
 
-*First seen: Step 13.*
+*Step 15 update: the eval avoids the caution.* The eval set doesn't name expected passages by id. It uses matchers (source plus pages, heading, or chapter), so its expectations stay valid after re-chunking. See [Eval matchers that survive re-chunking](#eval-matchers-that-survive-re-chunking).
+
+*First seen: Step 13. Extended: Step 15.*
 
 ### Citation-format variants vs invented citations
 When a citation check fails, there are two very different causes. **Format variant:** the model cited real evidence but wrote it in a form the checker didn't expect. In Step 13 the model wrote `[pag2-77, pag2-63]`, two ids in one bracket, and the checker, whose pattern (a regular expression, a text-matching rule) accepted one id per bracket, reported "'pag2-77' is in cited_ids but never cited in the text". A false alarm: the checker was wrong. Fix: `find_citations()` accepts one or more comma-separated ids per bracket and ignores non-citations like "[Figure 2]". **Invented citation:** the model cited an id that was never retrieved. In a browser test it wrote `[exercise-push-up]`, `[exercise-farmer-carry]`, and three more; none exist. The checker flagged all five as "not in the retrieved evidence (possible invented source)". The answer looked fine to a reader; only the check caught it. Lesson: when a check fires, first ask whether the check or the model is wrong, and keep the checker strict about ids while flexible about formatting. See [Citation validation](#citation-validation) and [Prompt-induced id errors](#prompt-induced-id-errors-from-tag-naming).
@@ -718,7 +759,9 @@ Training guidance is population-specific: the right dose for older adults, youth
 
 **In an interview:** "My most interesting RAG bug had perfectly valid citations. Asked about beginner adults, retrieval returned older-adult passages, and the model gave older-adult rep ranges as adult advice. It's a coaching error, not a citation error, so the fix is a population tag on each chunk and a filter at retrieval, not a sterner prompt."
 
-*First seen: Step 13.*
+*Step 15 update: measured.* The eval's population question ("beginner adult") retrieved forbidden older-adult or youth material in all three search modes (semantic: `pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`), and hybrid lost the expected adult passage entirely. In the answer eval the model cited older-adult material. The reverse also showed up: for a youth question (notes-youth-start), keyword and hybrid retrieved older-adult notes. More evidence for population tags and a retrieval filter.
+
+*First seen: Step 13. Extended: Step 15.*
 
 ---
 
@@ -849,7 +892,94 @@ Every row in `document_chunk` stores the method and settings that produced it, f
 
 **In an interview:** "Each chunk records which chunker and settings made it. So I can store two chunking strategies at once and let the evaluation pick, instead of arguing about it."
 
-*First seen: Step 12.*
+*Step 15 update:* the chunking comparison was not run in Step 15; the baseline uses `structure-v1(min=150,max=450)` only. The eval is ready for it: expected passages are matchers, not chunk ids ([Eval matchers that survive re-chunking](#eval-matchers-that-survive-re-chunking)), and the retrieval results record the chunker.
+
+*First seen: Step 12. Extended: Step 15.*
+
+---
+
+## Evaluation
+
+### Retrieval eval vs answer eval
+A RAG system has two stages that fail in different ways, so they are scored separately. A **retrieval eval** asks only: did the right items come back in the top k? It needs no LLM, so it runs in seconds, costs nothing, and can compare search modes on identical questions. An **answer eval** runs the whole pipeline (retrieve, build the prompt, generate) and checks the final answer: are the citations valid, is the coverage claim right, did it avoid forbidden items? Scoring both tells you which stage to fix. If retrieval never found the evidence, no prompt change will help ([The LLM can filter evidence, not add it](#the-llm-can-filter-evidence-not-add-it)). In Step 15: `evals/run_retrieval_eval.py` (three search modes, no LLM) and `evals/run_answer_eval.py` (a LangSmith experiment over the full pipeline, about 1.5 cents per 29-question run).
+
+**In an interview:** "I evaluate retrieval and answers separately. The retrieval eval is free and instant, so I can compare search modes on the same questions; the answer eval runs the full pipeline and checks citations, coverage, and forbidden items. If retrieval missed the evidence, I don't waste time on the prompt."
+
+*First seen: Step 15.*
+
+### Eval set (test questions with expected answers)
+An eval set (also called a golden set) is a fixed list of test questions, each with a description of what a good result contains. It stays fixed so scores can be compared across changes. rag-motion's is `evals/eval_set.yaml`: 29 questions in 7 categories (exercise-selection 10, jargon 3, constraint 2, dose 7, population 1, notes 3, coverage-gap 3). Each question can list expected exercises (by slug), forbidden exercises, expected and forbidden passages (by [matcher](#eval-matchers-that-survive-re-chunking)), and the expected coverage. Several questions come from failures seen earlier (biceps, "no equipment", band pulling, beginner adult), and three ask about topics the corpus doesn't cover (plyometrics programming, sprint acceleration, protein), where the honest answer is "partial" or "none". The expected answers were drafted by Claude and are pending the developer's review as a coach: each question has `reviewed: false`, and the file header says so. Until reviewed, a score measures agreement with a draft, not with an expert.
+
+**In an interview:** "My eval set is 29 questions, many built from failures I'd already seen: equipment constraints, jargon, population mixing. It also includes questions my sources can't answer, where the right answer is 'not covered'. The expected answers were AI-drafted and flagged as pending my review as a coach, so I call the baseline provisional."
+
+*First seen: Step 15.*
+
+### Retrieval metrics (recall, hit rate, MRR)
+Three standard ways to score a ranked list, where k is how many results you look at (5 here).
+- **Recall@k:** the share of expected items that appear in the top k. Finding 4 of 5 expected exercises gives 0.8.
+- **Hit@k:** 1 if at least one expected item is in the top k, else 0. Averaged over questions, it is the share of questions with at least one right result.
+- **MRR (mean reciprocal rank):** for each question, 1 divided by the rank of the first expected item (1st place 1.0, 2nd 0.5, 3rd 0.33, not found 0), averaged over questions. It measures whether a right item is near the top, not just present.
+
+Recall asks "did we find them all?"; MRR asks "did we put a right one first?". In Step 15, semantic search had perfect passage recall (1.00) but MRR 0.70, while hybrid had lower passage recall (0.92) but the best MRR (0.76): it found slightly fewer, but ranked what it found higher. Each metric is averaged only over questions that list expected items of that kind (18 questions for exercises, 12 for passages).
+
+**In an interview:** "I track recall, hit rate, and MRR at k equals 5. Recall tells me whether all the right items came back; MRR tells me whether one of them came first. They can disagree: my hybrid search found fewer passages than semantic but ranked them higher."
+
+*First seen: Step 15.*
+
+### Forbidden rate
+The share of questions where retrieval returned at least one item that must not be used: an exercise needing equipment the client lacks, or a passage written for a different population. Recall rewards finding the right things; this penalizes surfacing wrong ones. That matters because the model tends to use what it is given. In Step 15 it was 0.10 for semantic and keyword and 0.14 for hybrid, over all 29 questions, and the same constraint and population questions failed in every mode. At the answer level the matching check is `no_forbidden_citations`: did the answer actually cite a forbidden item? (2 of 5 applicable questions passed.)
+
+**In an interview:** "Besides recall, I measure a forbidden rate: how often search returns something that must not be used, like a bench exercise for someone without a bench. High recall with forbidden items mixed in is still a bad result for a coach."
+
+*First seen: Step 15.*
+
+### Eval matchers that survive re-chunking
+A way of naming an expected passage by what it is, not by its chunk id. `passage_matches()` in `evaluation.py` says a retrieved passage matches if its source is the same **and** any of its pages is in the list, **or** one of its headings contains the given text, **or** its chapter starts with the given chapter. A matcher with only a source matches any passage from that source. Why: chunk ids like `pag2-57` come from a chunk's position, so re-chunking can give that id to a different passage ([Passage ids as citation keys](#passage-ids-as-citation-keys)). An eval pinned to ids would silently break the moment you test a new chunker, which is one of the experiments the eval exists for. Cost: a generous page list makes a question easier to pass (a possible reason every dose question scored 1.00).
+
+**In an interview:** "My expected passages are written as 'this source, these pages' or 'this heading', not chunk numbers. Chunk ids shift when you re-chunk, and I want to compare chunking strategies on the same eval without rewriting it."
+
+*First seen: Step 15.*
+
+### Code-based evaluators vs LLM-as-judge
+An evaluator is the function that scores one output. **Code-based:** a plain function checks something structural. **LLM-as-judge:** another model reads the answer and grades it, which can judge fuzzy qualities but costs a call per check, varies between runs, and means a model grading model output. Step 15 chose code, four evaluators:
+- `citations_valid`: every citation points to retrieved evidence.
+- `coverage_correct`: the coverage label equals the expected one.
+- `used_expected_evidence`: at least one expected exercise or passage was cited.
+- `no_forbidden_citations`: no forbidden exercise or wrong-population passage was cited.
+
+Each returns `None` when it doesn't apply (for example, no forbidden items listed), so pass rates count only relevant questions. Reasons: deterministic (same answer, same score), free, and no self-grading, following the master context document's warning. Limit: code can't tell whether prose is correct or general guidance is sound. That needs the coach, or later an LLM judge checked against the coach's own grades.
+
+**In an interview:** "I scored answers with code, not an LLM judge: valid citations, correct coverage label, used expected evidence, no forbidden citations. It's deterministic and free, and I know exactly what each number means. The tradeoff is that code can't judge whether the advice is good; that's what a coach's review is for."
+
+*First seen: Step 15.*
+
+### LangSmith datasets and experiments
+In LangSmith, a **dataset** is a stored list of examples: inputs plus reference outputs (here, the 29 questions with their expected answers). An **experiment** is one run of a target function (here, the full RAG pipeline) over a dataset, with evaluators scoring every output. The results are stored and can be compared side by side with other experiments. The `langsmith` SDK's `evaluate()` does this (the 0.14 API was checked before use). Versioning: the dataset is named `rag-motion-eval-<first 8 characters of the YAML file's SHA-256>` (a fingerprint of the file's contents), so editing the questions creates a new dataset instead of overwriting the old one, and old results stay attached to the questions they were scored on. Experiments are named by mode (`answers-semantic-525eca7f`, `answers-hybrid-5feae34f`) and record the retrieval mode, LLM, and embedding model. Each example's run is also traced, so a failed question can be opened step by step. Questions run 4 at a time (`max_concurrency=4`).
+
+**In an interview:** "My eval questions live in LangSmith as a versioned dataset, named by a hash of the file, so editing questions never overwrites old results. Each pipeline variant is an experiment on that dataset, and I compare semantic against hybrid side by side, down to the trace of any failed question."
+
+*First seen: Step 15.*
+
+### Small-sample noise
+With few test questions, one question changing moves the average a lot. Hit rate over the 18 exercise questions moves by about 0.056 (1/18) if a single question flips from hit to miss. So Step 15 adopted a rule: treat differences under about 0.05 as noise. Keyword's 0.66 exercise recall against semantic's 0.89 is a real gap; semantic 0.89 against hybrid 0.84 sits right at the edge. Answers also vary from run to run, and each question ran once per experiment, so answer-level differences of one or two questions (such as 29/29 vs 27/29 valid citations) need repeat runs before they mean much.
+
+**In an interview:** "With 29 questions I treat anything under about five points as noise. One question flipping moves a small average a lot. So I'd say semantic clearly beats keyword on my data, but I wouldn't claim it clearly beats hybrid yet."
+
+*First seen: Step 15.*
+
+### Eval-driven development (baseline first)
+Build the evaluation before making improvements, record a baseline, change one thing, rerun, and keep the change only if it beats the baseline by more than noise. In Step 15 this shaped the plan: the eval came before adding more documents, so that adding the plyometrics review, the sprint review, and the Army field manual becomes a measured change, and any damage (for example, the extractor breaking on two-column papers) shows up as a drop. Phase 1F follows the same loop: metadata filters, hybrid weights, reranking, and query rewriting, one at a time.
+
+**In an interview:** "I built the eval before adding more documents, so I have a 'before' number. Every change after that, new sources, filters, reranking, gets rerun against the same questions and stays only if it wins."
+
+*First seen: Step 15.*
+
+### Filtering problems vs search problems
+Two different causes of wrong results. A **search problem** is about ranking: the right item exists and can be found, but it ranks too low. Better embeddings, hybrid search, reranking, or query rewriting can fix it. A **filtering problem** is a yes/no rule the search can't express ("only what I own", "adults only"). No ranking method enforces it; a [metadata filter](#metadata-filtering) does. A useful test: if every search mode fails the same question in the same way, it is probably a filtering problem. In Step 15, the constraint and population questions returned forbidden items in all three modes, while jargon and exercise-selection results changed with the mode.
+
+**In an interview:** "My eval separated two kinds of failure. Jargon and exercise choice changed with the search method; equipment and population questions failed in every method. Those aren't search problems, they're filtering problems, so the fix is a WHERE clause, not a better ranker."
+
+*First seen: Step 15.*
 
 ---
 
@@ -1406,7 +1536,9 @@ Observability means being able to see what a system did and why. LangSmith is a 
 
 **In an interview (Step 14):** "Every request is traced in LangSmith: the retrieved documents with their scores, the exact prompt, tokens, cost, and time per step. The first trace told me something my printed timings hid: nearly all of retrieval time is the embedding API call, not the database."
 
-*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13 and 14.*
+*Step 15 update: evals built.* The eval runs in the order planned: our own scoring code first (`evaluation.py`, and a local retrieval script with no LLM), then the full-answer eval as a LangSmith experiment. The 29 questions are uploaded as a dataset, the pipeline runs once per question, and four code-based evaluators score each answer. Two experiments so far: `answers-semantic-525eca7f` and `answers-hybrid-5feae34f`, on dataset `rag-motion-eval-116f4e9c`. See [LangSmith datasets and experiments](#langsmith-datasets-and-experiments).
+
+*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15.*
 
 ### Tracing and traces
 Tracing means recording what happens inside each request automatically. A **trace** is the record of one request, shaped like a tree. Each box in the tree is a **run** (one step), with its inputs, outputs, start and end time, and, for model calls, tokens and cost. Runs have types, which LangSmith uses to display them: **chain** (a step that calls other steps, like `answer_question`), **retriever** (returns documents, like `search_all`), **embedding**, **llm** (a model call), and **tool** (a helper like `check_citations`). In Step 14 the tree for one question was:

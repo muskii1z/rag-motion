@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 14 (LangSmith tracing on the RAG pipeline).
+Last updated: Step 15 (evaluation baseline for retrieval and answers).
 
 ---
 
@@ -56,6 +56,8 @@ Evidence so far:
   - `structured_completion()` in `llm.py` works with any Pydantic model and holds every guard once (`max_tokens`, `require_parameters`, usage accounting, truncation/refusal/parse checks). See [One module per provider](concepts.md#one-module-per-provider) (extended).
   - A new failure of structured output: the model pasted its own field names ("evidence_coverage: partial") into the answer text. Fixed with a prompt rule.
   - Default model is now `google/gemini-2.5-flash-lite` ([0013 update](decisions/0013-llm-openrouter-openai-sdk-qwen.md#update-2026-09-25-step-10-default-switched-to-gemini-25-flash-lite)).
+- [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **structured output made the answers scorable by code.** Because `evidence_coverage` and `cited_ids` are separate typed fields, the answer eval compares them directly with expected values: the coverage label matched 25 of 29 expected labels, and citations were checked for validity, expected evidence, and forbidden items without any LLM judge. See [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge).
+  - Point to make: "I structured the answer so it could be tested. A free-text answer would have needed another model to grade it."
 
 ## RAG
 
@@ -101,6 +103,7 @@ Evidence so far:
   - Programming numbers now come from cited passages instead of the model's labeled general guidance ([0016 update](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)). That is the "partly temporary" part of the grounding mode coming true.
   - Honest limit: the first beginner-adult answer used Chapter 5 (Older Adults) numbers for adults. Real source, wrong group. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations).
   - Point to make: "A chatbot would give me a plausible '3 sets of 10'. My system gives me the Guidelines' own wording with a page number next to exercises from my catalog, and code checks every citation. And when it went wrong, the citation told me exactly which chapter it had borrowed from."
+- **[Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): point 4 (measurable) is now real.** Retrieval and answers have baseline scores on 29 questions: semantic retrieval found every expected passage (recall 1.00) and 0.89 of expected exercises; answers had valid citations 29 of 29 times. A plain prompt has no retrieved evidence to measure recall against and no citations to check. See [Retrieval eval vs answer eval](concepts.md#retrieval-eval-vs-answer-eval) and [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
 
 ### How did you handle PDF extraction? (interview material)
 Not a question from the brief, but a common one for RAG roles: ingestion quality decides retrieval quality.
@@ -135,6 +138,7 @@ Evidence so far:
 
 **Teach-back-ready:**
 > I compared four ways to chunk: fixed-size windows with overlap, which is the common default; one chunk per section; structure-aware with size limits; and semantic splitting. Before choosing, I measured the document: its 256 sections had a median of 116 words, 54 were under 50 words, and two were over 600. So one-chunk-per-section would give me dozens of useless scraps, and fixed windows would cut mid-sentence and mix topics. I went structure-aware: split at headings, never cross a chapter, merge small sections up to about 150 words, split big ones at paragraph breaks below about 450. Instead of overlap, each chunk is embedded with a label like "Guidelines > Chapter 4. Active Adults > Key Guidelines for Adults", so even a short passage knows what it's about. Every chunk stores its source, pages, and license, so answers can cite a page, and it stores the chunker settings, so I can put a fixed-size version next to it and let my evaluation decide which retrieves better.
+- [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **the eval is ready to compare chunkers, but the comparison hasn't been run.** Expected passages are written as matchers (source + pages, heading, or chapter), not chunk ids, so the same eval works on any chunker. See [Eval matchers that survive re-chunking](concepts.md#eval-matchers-that-survive-re-chunking). The baseline used `structure-v1(min=150,max=450)` only; the fixed-size comparison is still to do.
 
 ## Embeddings
 
@@ -220,9 +224,16 @@ Evidence so far:
   - The passage scores were bunched within 0.04, the same "compressed scores" warning as Step 9 ([Similarity scores are relative](concepts.md#similarity-scores-are-relative)).
   - Two searches, two sets of filler: a pure dose question still returns five exercises; they matched weakly and the model left them unused ([Search always returns something](concepts.md#search-always-returns-something), extended).
   - Point to make: "My retrieval ranked older-adult passages above the adult guidelines for a question about beginner adults. Every score looked reasonable. Vectors can't know who a passage is for; that has to be a tag and a filter."
+- **[Step 15](build-log.md#step-15-retrieval-baseline): measured on 29 questions, all three search modes. The strongest evidence so far.**
+  - **Every mode failed the hard rules.** For "dumbbells only", keyword, semantic, and hybrid all returned bench or box exercises (step-up, hip thrust). For "no equipment", semantic and hybrid returned Inverted Row and Pallof Press and missed both bodyweight jumps. For "beginner adult", all three returned older-adult or youth material; hybrid lost the adult passage entirely. Constraint exercise recall: semantic 0.68, keyword 0.38, hybrid 0.68.
+  - **So it isn't a ranking problem.** When every search method fails the same question the same way, the fix is a metadata filter, not a better ranker. See [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems), [Metadata filtering](concepts.md#metadata-filtering) (extended), [Forbidden rate](concepts.md#forbidden-rate).
+  - **Keyword and hybrid measured.** Keyword alone: exercise recall 0.66, passage recall 0.75, against semantic's 0.89 and 1.00. Equal-weight hybrid (RRF): 0.84 and 0.92, but the best passage MRR (0.76 vs 0.70). Keyword won only where the literal word mattered (biceps), and it didn't fix jargon: "RDL" isn't in the catalog text. See [Keyword search](concepts.md#keyword-search), [Hybrid search](concepts.md#hybrid-search), [Reciprocal Rank Fusion (RRF)](concepts.md#reciprocal-rank-fusion-rrf) (all Step 15).
+  - Point to make: "I tested keyword, vector, and hybrid search on the same 29 questions. Vector search won on meaning, but all three returned a hip thrust for someone without a bench, and all three returned older-adult passages for a beginner adult. That's the measured case for filters: similarity ranks, it doesn't enforce."
 
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
+
+*Step 15 follow-up: tested, not just argued.* The article's "start with keyword search" was measured on this project's data: keyword recall 0.66 vs semantic 0.89 for exercises, 0.75 vs 1.00 for passages ([0012 update](decisions/0012-keyword-baseline-and-query-rewriting.md)). Point to make: "The advice fits documentation search, where users type exact terms. My users are coaches describing what they want, and my catalog doesn't reuse their words. I didn't dismiss the advice; I ran it, and the numbers said no for this data."
 
 ## PostgreSQL
 
@@ -274,6 +285,10 @@ Evidence so far:
 ## Evaluation
 
 ### How do you know your RAG system works?
+
+**Interview-ready summary of the baseline (Step 15):**
+> I built a 29-question eval set from real coaching questions and past failures, with expected and forbidden exercises and passages, and I score retrieval and full answers separately, with code rather than an LLM judge. Semantic search clearly beat keyword search on my data, 0.89 against 0.66 exercise recall and 1.00 against 0.75 passage recall, and a standard equal-weight hybrid came out slightly worse than semantic alone, so semantic stays the default. On full answers, citations were valid 29 out of 29 times, but the model overclaimed coverage on 3 questions and cited forbidden material on 3 of the 5 questions that test for it, and every search mode failed the equipment and population questions, which tells me those are filtering problems, so metadata filters come next. The expected answers are still pending my review as a coach, and with 29 questions I treat differences under about five points as noise.
+
 Evidence so far:
 - Planned, not done. See [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag), discussed [between Steps 2 and 3](build-log.md#between-steps-2-and-3-understanding-the-database-and-search-types).
   - Step 15 (was Step 11 before the [Step 5 plan change](build-log.md#before-we-started-four-questions-and-a-plan-change)) builds an evaluation set (questions paired with the exercises, and now also document passages, that should come back) and records a baseline score. It moved after document ingestion (Steps 12 to 14 then; Steps 11 to 13 since the reorder after Step 10) so the baseline measures the whole system, not just the catalog. See [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md).
@@ -321,7 +336,25 @@ Evidence so far:
   - **Two more candidates:** "how heavy should older adults lift" (expect `notes-nsca-older-adults-1`, 70–85% of 1RM; a case that works) and biceps again (expect both rows; this time the model cited only one).
   - **Repeat runs matter.** After the prompt fix, two runs of the same question gave one clean answer and one that slipped in its last sentence. One run proves nothing about a small model.
   - The eval set now needs expected *passages*, not just expected exercises, and passage ids depend on the chunker ([Passage ids as citation keys](concepts.md#passage-ids-as-citation-keys)).
-- No eval set or scores exist yet.
+- *Until Step 15, no eval set or scores existed.* Built in Step 15:
+- **[Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): the full answer now exists.** Commit `1ab5c64`. Decision: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
+  - **Two evals, because two stages fail differently.** Retrieval eval: did the right items come back in the top 5? No LLM, instant, free, compares search modes. Answer eval: the full pipeline, checked by code. See [Retrieval eval vs answer eval](concepts.md#retrieval-eval-vs-answer-eval).
+  - **The eval set.** 29 questions in 7 categories: exercise-selection 10, jargon 3, constraint 2, dose 7, population 1, notes 3, coverage-gap 3. Each lists expected and forbidden exercises and passages, and the expected coverage. Many come straight from the failures recorded in Steps 9, 10, and 13 (above). Three ask about topics the sources don't cover, where "partial" or "none" is the right answer. See [Eval set](concepts.md#eval-set-test-questions-with-expected-answers).
+  - **Robust to re-chunking.** Expected passages are matchers (source + pages, heading, or chapter), not chunk ids, which answers the Step 13 caution. See [Eval matchers that survive re-chunking](concepts.md#eval-matchers-that-survive-re-chunking).
+  - **Retrieval metrics:** recall@5, hit@5, MRR, and a forbidden rate. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr) and [Forbidden rate](concepts.md#forbidden-rate).
+
+    | Mode | Exercise recall | Exercise hit | Exercise MRR | Passage recall | Passage hit | Passage MRR | Forbidden |
+    |---|---|---|---|---|---|---|---|
+    | semantic | 0.89 | 1.00 | 0.94 | 1.00 | 1.00 | 0.70 | 0.10 |
+    | keyword | 0.66 | 0.78 | 0.67 | 0.75 | 0.75 | 0.42 | 0.10 |
+    | hybrid | 0.84 | 1.00 | 0.87 | 0.92 | 0.92 | 0.76 | 0.14 |
+
+  - **Answer metrics**, four code-based evaluators in a LangSmith experiment (Gemini 2.5 Flash-Lite, about 1.5 cents per run). Semantic retrieval: `citations_valid` 29/29, `coverage_correct` 25/29, `used_expected_evidence` 28/28, `no_forbidden_citations` 2/5. Hybrid: 27/29, 25/29, 28/28, 2/5. See [the answer baseline](build-log.md#step-15-answer-baseline) and [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge).
+  - **What the numbers say** ([interpretation](build-log.md#step-15-interpretation)): semantic wins; keyword loses clearly; equal-weight hybrid isn't automatically better; citations are reliable; the model overclaims coverage (3 of 29, "full" where "partial" was right); constraints and populations fail in every mode, so they need filters.
+  - **Caveats, said up front.** The expected answers are Claude's drafts pending coach review (all 29 marked `reviewed: false`), and every dose question scoring 1.00 may mean the page lists were generous. 29 questions is small, so differences under about 0.05 are noise ([Small-sample noise](concepts.md#small-sample-noise)). Each question ran once per answer experiment. One expected value may be wrong: for "no equipment" the model said "partial" because retrieval missed two jumps, which is arguably honest.
+  - **Eval before more data.** The developer asked whether to add documents first; the eval came first so that adding documents is a measured change. See [Eval-driven development](concepts.md#eval-driven-development-baseline-first).
+  - Not done yet: the chunker comparison, the embedded-text comparison, a model comparison, repeat runs, and a human-judged check of general guidance.
+  - Point to make: "I know it works because I measure it, and I know where it doesn't. Semantic retrieval finds every expected passage on my 29 questions, citations are always valid, and the failures cluster in exactly two places, equipment constraints and population, which I can fix with filters and re-measure."
 
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
@@ -336,6 +369,8 @@ Evidence so far:
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): **invented citations caught in code.** The model cited `[exercise-push-up]` and four similar ids that were never retrieved. The answer read well; `check_citations()` flagged all five as "possible invented source" in a red box on the page. Cause: the evidence tag's name got glued onto the id. Fix: one uniform `<item id kind>` tag and an exact-copy rule; no invented ids in two retests. See [Prompt-induced id errors](concepts.md#prompt-induced-id-errors-from-tag-naming).
   - The subtler failure: **real citations, wrong population.** Older-adult numbers presented as beginner-adult advice, with valid citations. Not "making things up", but still wrong, and invisible to citation checks. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations).
 - No automated groundedness score exists yet.
+- [Step 15](build-log.md#step-15-answer-baseline): **measured, not just checked once.** Across all 29 eval questions with semantic retrieval, every citation pointed to retrieved evidence (29/29), and every question with expected evidence cited at least one expected item (28/28). Two new failure counts: the model claimed "full" coverage when evidence was partial on 3 of 29 questions, and cited forbidden (wrong-population or unusable) items on 3 of the 5 questions that test for it. See [Evidence coverage and gaps](concepts.md#evidence-coverage-and-gaps) (extended).
+  - Honest limit: `citations_valid` proves each cited id was retrieved, not that the sentence says what the passage says. There is still no claim-level groundedness score.
 
 ## Agents
 
@@ -370,6 +405,8 @@ Evidence so far:
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): **a cited, well-written answer that a coach would still reject.** For "how much strength training should a beginner adult do each week", one answer said "for beginners, start with 1 set and build up to 2–3 sets... 10–15 repetitions", cited to the NSCA older-adults notes. The citation was valid and the numbers were really in the source; they were just for a different population. After a prompt fix, one of two runs still ended with "For beginners, 10–15 repetitions... [notes-nsca-older-adults-1]". Code checks can confirm a source was retrieved; only someone who knows training knows it's the wrong group for this client. A population filter (Phase 1F) will reduce it; the coach's review is what catches the rest. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations).
   - The UI helps the reviewer: each passage card shows a "document" or "notes" badge, source, chapter, and pages, so a coach can see at a glance that "Chapter 5, Older Adults" was cited for an adult.
   - Point to make: "My answer was grounded, cited, and passed every automated check, and it still gave older-adult rep ranges to a beginner adult. That's why a coach approves programs: the checks prove where a number came from, not that it's right for this person."
+- [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **the coach is also the judge of the eval.** The 29 expected answers were drafted by Claude and marked `reviewed: false`, with a header saying they await the coach's review. Until then the scores measure agreement with a draft. Already one case needs the expert: for "no equipment", is "partial" coverage the honest answer when retrieval missed two jumps? And code evaluators can't judge whether advice is right. See [Eval set](concepts.md#eval-set-test-questions-with-expected-answers) and [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
+  - Point to make: "Even my test answers go through a human. An AI drafted them to get started, and they're flagged as provisional until I've reviewed them as a coach."
 - No approval step is built yet (Phase 2).
 
 ## Observability
@@ -395,6 +432,8 @@ Evidence so far:
   - **How it was built:** the LLM client is wrapped once (`wrap_openai`), and our own functions are decorated (`@traceable`); the SDK's wrapper doesn't cover embeddings, which was checked by reading the SDK before relying on it. See [Auto-instrumentation vs decorators](concepts.md#auto-instrumentation-vs-decorators-wrap_openai-and-traceable).
   - **Verified, not assumed:** Claude queried LangSmith's API after each test to confirm the traces arrived and had the expected steps.
   - Point to make: "When a bad answer comes in, I don't rerun and hope to reproduce it. I open its trace: what was retrieved, what exact prompt the model got, what it returned, and what my checks flagged."
+- [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **from single traces to experiments.** The eval questions are a LangSmith dataset, versioned by a hash of the YAML file, and each pipeline variant runs as an experiment (`answers-semantic-525eca7f`, `answers-hybrid-5feae34f`) with its scores stored and comparable side by side. Every question's run is traced, so a failure can be opened step by step. Next use: the two hybrid citation problems (notes-older-load, notes-youth-start) haven't been investigated; the plan is to open their traces. See [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments).
+  - Point to make: "Tracing tells me what happened on one request. Experiments tell me how a change affects all 29 questions, and I can click from a failed score straight into its trace."
 - Still true: no agent exists yet (Phase 2). The same approach (a trace per request, a run per step) is what would be used to debug an agent's decisions.
 
 ## Production
@@ -453,6 +492,7 @@ Evidence so far:
   - **Tracing privacy.** In production, traces would contain real users' prompts, so the tracing service becomes part of the data-handling plan. Today's data is fictional and public, so hosted LangSmith is fine; real client data would need review, masking, or self-hosting. See [Privacy of traces](concepts.md#privacy-of-traces).
   - **Config for third-party SDKs.** Tracing is switched on by environment variables (`LANGSMITH_TRACING`, `LANGSMITH_PROJECT`, `LANGSMITH_API_KEY`), which a host's secret settings would provide. Locally, `config.py` loads `.env` into the environment with `load_dotenv`, because pydantic-settings alone didn't expose it to the SDK. See [Environment variables vs a settings object](concepts.md#environment-variables-vs-a-settings-object).
   - Small hygiene: a harmless warning printed on every structured call (from the wrapper serializing `parse()` responses) was silenced by exact message only, with a comment, rather than turning off all warnings.
+- [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **eval cost is small and known.** A full answer-eval run (29 questions through the whole pipeline) cost about 1.5 cents on Gemini 2.5 Flash-Lite; the retrieval eval makes no LLM calls. The Step 5 estimate was 30 to 60 cents per eval run with a mid-priced model, so the cheap model keeps repeated evaluation affordable. Questions run 4 at a time.
 - Actual deployment not yet done.
 
 ## Security
@@ -589,6 +629,11 @@ Evidence so far:
   (Times from the first traced question; the LLM step was named "ChatOpenAI" in that first trace and renamed right after.)
   - Where tracing sits in the code: `llm.py` wraps the OpenRouter client once (`wrap_openai`), so every model call is traced; `embeddings.py`, `retrieval.py`, and `rag.py` decorate their main functions with `@traceable`. `config.py` loads `.env` into the environment so the SDK finds its settings. `extract_profile` (Step 6) is traced too.
   - The trace mirrors the architecture: one root per request, one child per stage. Point to make: "If you want to see my architecture, open a trace. Each box is a module: retrieval, embedding, the model call, and the citation check."
+- **[Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): a third path, evaluation, reuses the request path.**
+  1. `evals/eval_set.yaml` → `load_eval_set()` (`evaluation.py`) → `EvalQuestion` objects.
+  2. **Retrieval eval** (`evals/run_retrieval_eval.py`): for each mode in `SEARCH_MODES` (`semantic` → `search_all`, `keyword` → `keyword_search_all`, `hybrid` → `hybrid_search_all`), retrieve top 5 → `score_retrieval()` → tables and JSON in `evals/results/`.
+  3. **Answer eval** (`evals/run_answer_eval.py`): upload the YAML as a LangSmith dataset (name from the file's hash) → `evaluate()` calls the same `answer_question(mode=...)` the web page uses → four code evaluators → experiment in LangSmith plus a printed summary.
+  - Design point: the eval calls the production functions, not copies of them, so it tests what users actually get. The search mode is a parameter, so comparing variants needs no code changes.
 
 ## Tradeoffs
 
@@ -652,3 +697,16 @@ Evidence so far:
   - Same pattern as Step 10's equipment mismatch. See [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) and the [0019 update](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md#update-2026-09-25-step-13-population-tags-planned-page-118-skipped).
   - Point to make: "When a mistake matters, I stop asking the model more firmly and change what it's allowed to see."
 - **One merged list vs two lists** ([Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both)): exercises and passages are retrieved as two separate top-5 lists rather than one merged ranking (the design as built; a merged ranking was not discussed as an option). Gained: every answer has both kinds of evidence available. Given up: filler on both sides (a dose question still gets five exercises) and more input tokens (about 3,500 per answer). See [One query vector, two tables](concepts.md#one-query-vector-two-tables-combined-search).
+- **Keyword vs semantic vs hybrid, measured** ([Step 15](build-log.md#step-15-retrieval-baseline), [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md), [0012 update](decisions/0012-keyword-baseline-and-query-rewriting.md)):
+
+  | Mode | Exercise recall | Passage recall | Passage MRR | Forbidden | Verdict |
+  |---|---|---|---|---|---|
+  | semantic | 0.89 | 1.00 | 0.70 | 0.10 | default |
+  | keyword | 0.66 | 0.75 | 0.42 | 0.10 | loses clearly |
+  | hybrid (RRF, equal weights) | 0.84 | 0.92 | 0.76 | 0.14 | tune weights first |
+
+  - Keyword search is cheap and exact, but coaches don't use the catalog's words. Hybrid costs a second query and a merge step, ranks the right passage higher, but lost recall with equal weights. At scale, keyword search would need a stored `tsvector` with a GIN index instead of computing it per query.
+  - Point to make: "Hybrid is the textbook answer, but my numbers said equal-weight hybrid was slightly worse than semantic alone. I kept semantic and put weighted hybrid on the experiment list, instead of adopting the textbook answer."
+- **Code evaluators vs LLM judges** ([Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge)): code checks are deterministic, free, and independent of the model being tested. Given up: judging quality of prose or advice, which needs the coach or a judge model validated against the coach's grades. At 100,000 users, sampled human review plus cheap code checks on every answer would be the starting point (not built).
+- **Versioned eval datasets** ([LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments)): a new dataset per version of the question file keeps every old result comparable, at the cost of many datasets to clean up later.
+- **Model choice is still open on eval numbers.** Step 10 said the eval would decide between Gemini (fast, overclaims) and Qwen (slow, more honest). Step 15 ran Gemini only: overclaiming measured at 3 of 29. Running the same experiment with another model is now one setting change; not done yet.

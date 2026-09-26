@@ -2200,3 +2200,156 @@ None recorded for this step. The developer's "api key added" was taken as the go
 **Decisions.**
 - New: [0020. Observability with LangSmith: wrap the LLM client, decorate pipeline steps](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md)
 - Updated: [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (LangSmith step done)
+
+## Step 15: Evaluation baseline for retrieval and answers
+**Date:** 2026-09-25 · **Commit:** `1ab5c64` feat: evaluation set and baseline scores (retrieval and answers) (this docs update is committed and pushed right after)
+
+**Goal.** Turn "it seems to work" into numbers, and record the baseline (the starting scores) that every later change, such as more documents or the Phase 1F experiments, is measured against.
+
+### Before we started
+- **Developer question, after Step 14:** "should we add the other docs, or do we have enough to test right now?"
+- **Answer:** enough to test now. Claude recommended building the eval first, then adding about 3 documents and re-running it, for four reasons:
+  1. A baseline gives a "before" number.
+  2. Adding documents then becomes measurable. This is eval-driven development (measure, change one thing, measure again), the way AI teams work, and strong portfolio evidence. See [Eval-driven development](concepts.md#eval-driven-development-baseline-first).
+  3. The new documents (two-column research papers) may break the extractor, which was tuned on one PDF ([0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md)). The eval would show it.
+  4. It moves Phase 1 toward the finish faster.
+- The current corpus (the collection of searchable texts) covers every failure mode found so far, but not plyometrics, sprinting, or program design. Questions on those should honestly come back "not covered", and the eval includes some on purpose.
+- **Plan agreed:** Step 15 now (eval questions drafted, including known gaps). Then add the plyometric umbrella review, the Haugen 2019 sprint review (CC BY) and the US Army ATP 7-22.02 (public domain), re-run the eval, then Step 16. The developer said "go".
+
+### What we did
+- **Explained the two kinds of evaluation.** See [Retrieval eval vs answer eval](concepts.md#retrieval-eval-vs-answer-eval).
+  - **Retrieval eval:** did the right items come back in the top 5? No LLM, so it is instant and free, and it can compare search modes.
+  - **Answer eval:** run the full pipeline, then check each answer with code: valid citations, the right coverage claim, no citations of wrong-population or unusable items.
+- **Built keyword and hybrid search** in `src/ragmotion/retrieval.py`.
+  - `keyword_search_all()`: Postgres full-text search. The question and each row's text are turned into lexemes (words reduced to a base form, "squats" to "squat"), with English stemming and stop words ("the", "for") removed. Any shared word counts (OR over the question's words). Results are ranked by `ts_rank_cd`. The text vectors are computed per query because the table is tiny (about 170 rows); at scale they would be a stored column with a GIN index. See [Keyword search](concepts.md#keyword-search) (extended).
+  - `hybrid_search_all()`: 20 candidates from semantic and 20 from keyword search, merged with Reciprocal Rank Fusion (each item scores the sum of 1/(60 + rank) over the lists it appears in), top 5 kept. See [Reciprocal Rank Fusion (RRF)](concepts.md#reciprocal-rank-fusion-rrf).
+  - `SEARCH_MODES` maps `"semantic"`, `"keyword"`, and `"hybrid"` to the three functions.
+  - `rag.answer_question()` gained `mode="semantic" | "keyword" | "hybrid"`.
+- **Quick check** on "what exercises can I do for biceps" (the Step 10 case):
+  - semantic: overhead press, one-arm row, farmer carry (top 3);
+  - keyword: inverted row, one-arm row (only the two rows contain "biceps");
+  - hybrid: one-arm row, inverted row, overhead press.
+- **Mapped the Guidelines' chunk headings and pages** so the expected passages could be written accurately.
+- **Wrote `evals/eval_set.yaml`: 29 questions.** The header says the expected answers were **drafted by Claude, pending coach review**, and each question has `reviewed: false`. See [Eval set](concepts.md#eval-set-test-questions-with-expected-answers).
+
+  | Category | Count | What it tests |
+  |---|---|---|
+  | exercise-selection | 10 | picking catalog exercises |
+  | jargon | 3 | RDL, BSS, KB |
+  | constraint | 2 | "no equipment"; "dumbbells only" (forbids bench and box exercises) |
+  | dose | 7 | adult aerobic, adult strength days, intensity, kids, older adults balance, pregnancy, safety |
+  | population | 1 | beginner adult (forbids older-adult and youth notes and Chapter 5) |
+  | notes | 3 | older adults load, youth starting age, weightlifting progression |
+  | coverage-gap | 3 | plyometrics programming, sprint acceleration, protein (expected partial, partial, none) |
+
+  - Fields: `expected_exercises`, `forbidden_exercises`, `expected_passages`, `forbidden_passages`, `expected_coverage`.
+  - **Passages are named by matchers, not chunk ids.** A matcher is source plus pages, a heading, or a chapter. So expectations survive re-chunking. This answers the Step 13 caution that ids like `pag2-57` can point to a different passage after re-chunking. See [Eval matchers that survive re-chunking](concepts.md#eval-matchers-that-survive-re-chunking).
+- **Wrote `src/ragmotion/evaluation.py`.** `EvalQuestion`, `load_eval_set()`, `passage_matches()`, and `score_retrieval()`. The scorer computes recall@k, hit@k, MRR (1 / rank of the first expected item) and forbidden (1 if any forbidden item was retrieved), plus lists of misses and forbidden items found. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr) and [Forbidden rate](concepts.md#forbidden-rate).
+- **Wrote `evals/run_retrieval_eval.py`.** Runs all 3 modes at k=5. Prints overall and per-category tables, and per-question misses with `--details`. Saves JSON to `evals/results/retrieval-<timestamp>.json`. The baseline is committed as `evals/results/retrieval-20260925-190133.json`.
+- **Wrote `evals/run_answer_eval.py [--mode]`, a LangSmith experiment.** See [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments).
+  - Checked the langsmith 0.14 `evaluate()` API before writing it.
+  - Uploads the eval set as a dataset named `rag-motion-eval-<first 8 characters of the YAML's sha256>`. Each version of the file gets a new dataset, so edits never overwrite old results. Nothing is deleted.
+  - The target is the full pipeline. The evaluators are plain code functions, no LLM judge: `citations_valid`, `coverage_correct`, `used_expected_evidence`, `no_forbidden_citations`. Each returns score `None` when it doesn't apply to a question. See [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge).
+  - `max_concurrency=4` (4 questions run at once).
+  - Prints a local summary, the failures, and the experiment name.
+- **`CLAUDE.md`:** Step 15 done (baseline; expected answers pending coach review), Step 16 next. New stack line for evaluation. Semantic stays the default retrieval.
+
+**Commands.**
+```bash
+uv run python evals/run_retrieval_eval.py --details
+# All 3 modes on 29 questions at k=5, no LLM calls. Overall and per-category tables,
+# per-question misses. Saved evals/results/retrieval-20260925-190133.json.
+
+uv run python evals/run_answer_eval.py
+# Full pipeline, semantic retrieval. LangSmith experiment answers-semantic-525eca7f
+# on dataset rag-motion-eval-116f4e9c.
+
+uv run python evals/run_answer_eval.py --mode hybrid
+# Same, hybrid retrieval. Experiment answers-hybrid-5feae34f.
+```
+Invocations shown in the form documented in each script's docstring; the exact flags used were not recorded. Not recorded as commands: the biceps quick check and the chunk heading and page mapping.
+
+### Step 15 retrieval baseline
+29 questions, top 5, chunker `structure-v1(min=150,max=450)`, embedding model voyage-4-lite. Exercise metrics average over the 18 questions that list expected exercises; passage metrics over the 12 that list expected passages; forbidden over all 29 (counts from the saved JSON).
+
+| Mode | Exercise recall | Exercise hit | Exercise MRR | Passage recall | Passage hit | Passage MRR | Forbidden |
+|---|---|---|---|---|---|---|---|
+| semantic | **0.89** | **1.00** | **0.94** | **1.00** | **1.00** | 0.70 | **0.10** |
+| keyword | 0.66 | 0.78 | 0.67 | 0.75 | 0.75 | 0.42 | **0.10** |
+| hybrid | 0.84 | **1.00** | 0.87 | 0.92 | 0.92 | **0.76** | 0.14 |
+
+By category (semantic | keyword | hybrid):
+
+| Category | Metric | semantic | keyword | hybrid |
+|---|---|---|---|---|
+| exercise-selection | exercise recall | 0.95 | 0.78 | 0.87 |
+| jargon | exercise recall | 0.83 | 0.67 | 0.83 |
+| constraint | exercise recall | 0.68 | 0.38 | 0.68 |
+| dose | passage recall | 1.00 | 1.00 | 1.00 |
+| population | exercise recall | 0.60 | 0.40 | 0.60 |
+| population | passage recall | 1.00 | 1.00 | 0.00 |
+| notes | passage recall | 1.00 | 0.33 | 1.00 |
+| coverage-gap | exercise recall | 1.00 | 0.50 | 1.00 |
+
+Notable questions:
+- **"beginner RDL" (jargon):** keyword search missed both RDLs. The letters "RDL" appear nowhere in the catalog text (the exercises are spelled out, e.g. `dumbbell-romanian-deadlift`), so there was nothing to match.
+- **constraint-no-equipment:** semantic and hybrid missed Broad Jump and Lateral Bound and retrieved forbidden Inverted Row and Pallof Press. The same failure as Step 9.
+- **constraint-dumbbells-only:** all modes retrieved forbidden bench or box exercises (step-up, hip thrust).
+- **pop-beginner-adult:** all modes retrieved forbidden older-adult or youth material. Semantic: `pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`. Hybrid lost the expected adult passage entirely (passage recall 0).
+- **From the saved JSON:** the forbidden items per mode were semantic 3 questions (no-equipment, dumbbells-only, beginner adult), keyword 3 (dumbbells-only, beginner adult, and notes-youth-start, where older-adult notes came back for a youth question), hybrid 4 (the semantic three plus notes-youth-start).
+
+### Step 15 answer baseline
+LangSmith experiments on dataset `rag-motion-eval-116f4e9c`, model `google/gemini-2.5-flash-lite`, about 1.5 cents per run of 29 questions. Each question ran once per experiment.
+
+| Check | semantic (`answers-semantic-525eca7f`) | hybrid (`answers-hybrid-5feae34f`) |
+|---|---|---|
+| citations_valid | 29/29 | 27/29 |
+| coverage_correct | 25/29 (0.86) | 25/29 |
+| used_expected_evidence | 28/28 | 28/28 |
+| no_forbidden_citations | 2/5 (0.40) | 2/5 |
+
+Semantic failures:
+- constraint-dumbbells-only: cited a forbidden exercise (and claimed coverage "full").
+- constraint-no-equipment: coverage (claimed "partial") and cited a forbidden exercise.
+- ex-band-pull, ex-biceps, ex-explosive-speed: coverage claimed "full", expected "partial". **Overclaiming**: Gemini's gap-honesty weakness seen in Step 10, now measured at 3 of 29. See [Evidence coverage and gaps](concepts.md#evidence-coverage-and-gaps) (extended).
+- pop-beginner-adult: cited older-adult material.
+
+Hybrid failures: similar, plus notes-weightlifting-progression claimed "partial" coverage, and two citation problems (notes-older-load and notes-youth-start). The cause of those two was not investigated yet.
+
+### Step 15 interpretation
+1. **Semantic wins on this data; keyword loses clearly.** Coaches phrase questions by meaning, and the catalog doesn't reuse their words. The article reviewed between Steps 5 and 6 says "start with keyword search". That fits documentation search, where users type exact terms. This is evidence against applying it blindly. See [0012 note](decisions/0012-keyword-baseline-and-query-rewriting.md).
+2. **Hybrid isn't automatically better.** Equal-weight RRF let keyword noise push out good semantic results. It helped only where the literal word matters (biceps), and it gave the best passage MRR (0.76: the right passage ranked higher). Tuning its weights is a Phase 1F experiment.
+3. **Keyword search doesn't fix jargon either.** "RDL" isn't in the text. Only query rewriting (expanding abbreviations before search) addresses it. See [Query rewriting](concepts.md#query-rewriting) (extended).
+4. **All modes fail the constraint and population questions.** These are filtering problems, not search-quality problems. Hard evidence for Phase 1F metadata filters: equipment "only needs what I own" with `<@`, and population tags on chunks. See [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems).
+5. **Answers:** citations are reliable with semantic retrieval (29/29, so the Step 13 fixes hold across 29 questions). The model overclaims coverage. Constraints and populations fail at the answer level too.
+
+**Caveats.**
+- The expected answers are Claude's drafts, pending coach review. The dose questions all scored 1.00, which may mean the page lists were generous.
+- 29 questions is small. Treat differences under about 0.05 as noise. See [Small-sample noise](concepts.md#small-sample-noise).
+- A possible draft error: for "no equipment", the model said "partial" because retrieval missed the two bodyweight jumps. That is arguably honest, given what it saw. The coach should settle the expected value.
+
+**Decision:** semantic stays the default; hybrid needs weight tuning before it earns a place. See [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
+
+### Problems and fixes
+None recorded while building. The failures above are findings, not bugs in the eval code. One unexplained result is left open: the two hybrid citation problems.
+
+### Open questions
+- **Hybrid citation problems** on notes-older-load and notes-youth-start: cause not investigated. Next move: open those two traces in LangSmith.
+- **Coach review of all 29 expected answers** (`reviewed: false` on every question). Includes: are the dose page lists too generous, and should "no equipment" expect "full" or "partial"?
+- **One run per question.** Run-to-run variance (seen in Steps 10, 13, and 14) was not measured; repeat runs would show how stable the 25/29 and 2/5 are.
+- **Keyword-mode answer experiment** was not run (only semantic and hybrid are recorded).
+- **Planned Step 15 experiments not run yet:** fixed-size vs structure-aware chunking ([0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md)), description-only vs description-plus-labels embedded text ([0014](decisions/0014-embedded-text-name-description-labels.md)), and comparing LLMs on the eval set ([0013](decisions/0013-llm-openrouter-openai-sdk-qwen.md)). The harness now exists for all three.
+- **No check of `general_guidance` accuracy.** After Step 10 the eval was said to need a human-judged check on that field. The code evaluators don't cover it.
+- **Next documents:** the license of the plyometric umbrella review was not stated in the brief; it should be checked against [0017](decisions/0017-knowledge-source-licensing-policy.md) before ingestion.
+- Carried over: LangSmith free-tier limits unchecked; population tags (who assigns them, and how); the untested prompt-injection rule.
+
+### Developer questions
+- **"Should we add the other docs, or do we have enough to test right now?"** Enough to test now. Build the eval first for a "before" number, so adding documents becomes a measured change and any extractor breakage on two-column papers shows up. The four reasons are listed under "Before we started" in this step.
+
+**Learned.**
+- New: [Retrieval eval vs answer eval](concepts.md#retrieval-eval-vs-answer-eval), [Eval set (test questions with expected answers)](concepts.md#eval-set-test-questions-with-expected-answers), [Retrieval metrics (recall, hit rate, MRR)](concepts.md#retrieval-metrics-recall-hit-rate-mrr), [Forbidden rate](concepts.md#forbidden-rate), [Eval matchers that survive re-chunking](concepts.md#eval-matchers-that-survive-re-chunking), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge), [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments), [Small-sample noise](concepts.md#small-sample-noise), [Eval-driven development (baseline first)](concepts.md#eval-driven-development-baseline-first), [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems), [Reciprocal Rank Fusion (RRF)](concepts.md#reciprocal-rank-fusion-rrf)
+- Extended: [Keyword search](concepts.md#keyword-search) (built and measured), [Semantic search](concepts.md#semantic-search) (measured win), [Hybrid search](concepts.md#hybrid-search) (built and measured), [Query rewriting](concepts.md#query-rewriting) (keyword doesn't fix jargon), [Metadata filtering](concepts.md#metadata-filtering) (all modes fail constraints), [Evidence coverage and gaps](concepts.md#evidence-coverage-and-gaps) (overclaiming measured), [Citation validation](concepts.md#citation-validation) (29/29), [Passage ids as citation keys](concepts.md#passage-ids-as-citation-keys) (matchers), [Population mixing](concepts.md#population-mixing-context-bleed-across-populations) (measured), [Basic vs production-style RAG](concepts.md#basic-vs-production-style-rag) (baseline numbers), [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (evals built)
+
+**Decisions.**
+- New: [0021. Evaluation design: 29-question eval set, code-based scoring, LangSmith experiments; semantic stays default](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md)
+- Updated: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (measured outcome)

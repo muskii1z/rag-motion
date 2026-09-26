@@ -13,7 +13,7 @@ One file per real decision, numbered in order. Each records the context, options
 - [0009. Local database on port 5434, bound to 127.0.0.1](0009-local-db-port-5434-localhost-only.md) (Step 3)
 - [0010. Exercise table: metadata columns with CHECK constraints](0010-exercise-table-check-constraints.md) (Step 4, note on the mirrored Pydantic lists added in Step 5)
 - [0011. Phase 1 plan revision: ingestion and LangSmith get concrete steps](0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Step 5, Step 15 and Phase 1F scope extended by 0012; order amended after Step 10: ingestion Steps 11 to 13, LangSmith Step 14; Step 14 note: LangSmith built, see 0020)
-- [0012. Evaluate keyword search as a baseline; add query rewriting to Phase 1F](0012-keyword-baseline-and-query-rewriting.md) (between Steps 5 and 6; note after Step 10: its step numbers are unaffected by the reorder)
+- [0012. Evaluate keyword search as a baseline; add query rewriting to Phase 1F](0012-keyword-baseline-and-query-rewriting.md) (between Steps 5 and 6; note after Step 10: its step numbers are unaffected by the reorder; Step 15 update: measured, keyword loses clearly, RRF hybrid slightly worse overall but best passage MRR)
 - [0013. LLM via OpenRouter with the openai SDK; default Qwen3 235B](0013-llm-openrouter-openai-sdk-qwen.md) (Step 6, supersedes 0003; default switched to Gemini 2.5 Flash-Lite in Step 10)
 - [0014. Embedded text: name + description + labeled facts, no instructions](0014-embedded-text-name-description-labels.md) (Step 8)
 - [0015. Local web UI: FastAPI + one static HTML page](0015-local-web-ui-fastapi-static-html.md) (Step 10)
@@ -22,3 +22,4 @@ One file per real decision, numbered in order. Each records the context, options
 - [0018. PDF extraction with PyMuPDF and layout-based cleaning](0018-pdf-extraction-pymupdf-layout-cleaning.md) (Step 11; Step 12 note: headings now drive chunk boundaries, first per-source setting `skip_pages` in the manifest)
 - [0019. Structure-aware chunking with size limits (150–450 words), contextual labels, no overlap](0019-structure-aware-chunking-150-450-labels-no-overlap.md) (Step 12; Step 13 update: page 118 skipped, population tags per chunk planned to fix population mixing)
 - [0020. Observability with LangSmith: wrap the LLM client, decorate pipeline steps](0020-observability-langsmith-wrap-client-decorate-steps.md) (Step 14)
+- [0021. Evaluation design: 29-question eval set, code-based scoring, LangSmith experiments; semantic stays default](0021-evaluation-design-code-scored-langsmith-semantic-default.md) (Step 15)
