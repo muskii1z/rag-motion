@@ -15,6 +15,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from ragmotion.config import settings
+from ragmotion.db import get_connection
+from ragmotion.ingestion import load_sources
 from ragmotion.rag import answer_question
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -30,6 +33,27 @@ class AskRequest(BaseModel):
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/info")
+def info() -> dict:
+    """What the assistant knows and which models it uses, for the sidebar and header."""
+    with get_connection() as conn:
+        chunk_counts = dict(conn.execute(
+            "SELECT source_id, count(*) FROM document_chunk WHERE embedding IS NOT NULL GROUP BY source_id"
+        ).fetchall())
+        exercise_count = conn.execute("SELECT count(*) FROM exercise WHERE embedding IS NOT NULL").fetchone()[0]
+    sources = [
+        {"id": s.id, "title": s.title, "type": s.type, "passages": chunk_counts.get(s.id, 0)}
+        for s in load_sources().values()
+    ]
+    return {
+        "llm_model": settings.llm_model,
+        "embedding_model": settings.embedding_model,
+        "retrieval": "semantic",
+        "sources": sources,
+        "exercises": exercise_count,
+    }
 
 
 @app.post("/api/ask")

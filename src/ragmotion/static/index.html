@@ -4,189 +4,522 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>rag-motion</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%234B4FE8'/%3E%3Cstop offset='1' stop-color='%2334C6E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%23fff'/%3E%3Cpath d='M7 45C20 60 45 57 58 17C48 42 27 51 7 45Z' fill='url(%23g)'/%3E%3Ctext x='9' y='40' font-family='Arial' font-weight='900' font-size='24' fill='%231E1B3A'%3ERM%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --text: #1c1f24; --muted: #5d6573; --border: #e1e4ea;
-    --accent: #2f6fed; --accent-soft: #e8efff; --good: #1f8a4c; --good-soft: #e3f4ea;
-    --warn: #a86400; --warn-soft: #fdf1dc; --bad: #b3261e; --bad-soft: #fbe4e2;
+    --sky: #B9D5FF;
+    --lilac: #D6C4FF;
+    --blush: #F1D3F6;
+    --glass: rgba(255, 255, 255, 0.5);
+    --glass-strong: rgba(255, 255, 255, 0.82);
+    --glass-edge: rgba(255, 255, 255, 0.9);
+    --ink: #1E1B3A;
+    --muted: #66648A;
+    --indigo: #4B4FE8;
+    --indigo-soft: rgba(75, 79, 232, 0.10);
+    --cyan: #34C6E0;
+    --doc: #1F7A55;
+    --doc-soft: #DDF3E8;
+    --note: #9A5B12;
+    --note-soft: #FBEBD6;
+    --bad: #B42318;
+    --bad-soft: #FDE7E4;
+    --shadow: 0 10px 40px rgba(60, 48, 140, 0.12);
+    --radius: 22px;
+    --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --body: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #111317; --panel: #1a1d23; --text: #e7e9ee; --muted: #9aa3b2; --border: #2b3039;
-      --accent: #7aa2ff; --accent-soft: #1f2a44; --good: #5cc98a; --good-soft: #17301f;
-      --warn: #f0b04a; --warn-soft: #33270f; --bad: #ff8a80; --bad-soft: #3a1a18;
+      --sky: #1A2344; --lilac: #251C45; --blush: #2C1C3D;
+      --glass: rgba(30, 28, 58, 0.62); --glass-strong: rgba(34, 32, 66, 0.9); --glass-edge: rgba(255, 255, 255, 0.08);
+      --ink: #ECEBFA; --muted: #A5A3C8; --indigo: #8C8FFF; --indigo-soft: rgba(140, 143, 255, 0.14);
+      --doc: #6FD3A4; --doc-soft: rgba(111, 211, 164, 0.14); --note: #F2B766; --note-soft: rgba(242, 183, 102, 0.14);
+      --bad: #FF8A7A; --bad-soft: rgba(255, 138, 122, 0.12); --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
-  form { display: flex; gap: 8px; }
-  input[type=text] { flex: 1; padding: 11px 14px; font-size: 15px; border-radius: 8px;
-    border: 1px solid var(--border); background: var(--panel); color: var(--text); }
-  button { padding: 0 18px; border: 0; border-radius: 8px; background: var(--accent); color: #fff;
-    font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .55; cursor: default; }
-  .examples { margin: 10px 0 24px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .examples button { background: var(--panel); color: var(--muted); border: 1px solid var(--border);
-    font-weight: 400; padding: 4px 10px; font-size: 13px; border-radius: 999px; }
-  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
-  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
-  .full { background: var(--good-soft); color: var(--good); }
-  .partial { background: var(--warn-soft); color: var(--warn); }
-  .none { background: var(--bad-soft); color: var(--bad); }
-  .answer { white-space: pre-wrap; margin-top: 10px; }
-  .cite { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 4px; background: var(--accent-soft);
-    color: var(--accent); cursor: pointer; text-decoration: none; }
-  .gaps { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); font-size: 14px; }
-  .general { margin-top: 14px; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--muted); font-size: 14px; color: var(--muted); }
-  .general p { margin: 6px 0 0; color: var(--text); }
-  .problems { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 14px; }
-  .ok { margin-top: 14px; font-size: 13px; color: var(--good); }
-  .card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; transition: box-shadow .2s; }
-  .card.unused { opacity: .6; }
-  .card.flash { box-shadow: 0 0 0 3px var(--accent); }
-  .card-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-  .card-name { font-weight: 600; }
-  .meta { color: var(--muted); font-size: 13px; }
-  .bar { height: 4px; border-radius: 2px; background: var(--border); margin: 8px 0; overflow: hidden; }
-  .bar > div { height: 100%; background: var(--accent); }
-  .desc { font-size: 13px; margin-top: 6px; }
-  .kind { font-weight: 600; }
-  .kind.document { color: var(--good); }
-  .kind.notes { color: var(--warn); }
-  details.desc summary { cursor: pointer; list-style: none; }
-  details.desc p { white-space: pre-wrap; margin: 8px 0 0; }
-  .footer { margin-top: 14px; color: var(--muted); font-size: 12px; }
-  .status { color: var(--muted); }
+  [hidden] { display: none !important; }  /* our display rules must not un-hide elements */
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink); font: 15px/1.6 var(--body);
+    background: radial-gradient(1200px 700px at 10% 0%, var(--sky), transparent 60%),
+                radial-gradient(1000px 800px at 100% 100%, var(--blush), transparent 60%),
+                linear-gradient(135deg, var(--sky), var(--lilac) 55%, var(--blush));
+    background-attachment: fixed;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+
+  .shell {
+    display: grid; grid-template-columns: 280px 1fr; height: 100vh; padding: 16px; gap: 16px;
+  }
+  .glass {
+    background: var(--glass); border: 1px solid var(--glass-edge); border-radius: var(--radius);
+    box-shadow: var(--shadow); backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { display: flex; flex-direction: column; padding: 20px 16px; overflow: hidden; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; }
+  .brand-name { font: 800 22px/1 var(--display); letter-spacing: -0.02em; }
+  .brand-name span { color: var(--indigo); }
+  .side-btn {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border: 0; border-radius: 14px;
+    background: var(--glass-strong); font-weight: 600; text-align: left; transition: transform .15s ease;
+  }
+  .side-btn:hover { transform: translateY(-1px); }
+  .search {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 9px 14px; border-radius: 14px; background: var(--glass-strong);
+  }
+  .search input { border: 0; background: transparent; outline: none; width: 100%; font: inherit; color: inherit; }
+  .side-label {
+    margin: 22px 6px 8px; font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  .sources { display: flex; flex-direction: column; gap: 6px; }
+  .source-row { display: flex; gap: 10px; align-items: flex-start; padding: 6px; border-radius: 10px; font-size: 13px; line-height: 1.35; }
+  .source-row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; }
+  .source-row .count { color: var(--muted); font: 12px var(--mono); }
+  .history { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+  .history button {
+    display: flex; gap: 8px; align-items: flex-start; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
+    background: transparent; text-align: left; font-size: 14px; line-height: 1.35;
+  }
+  .history button:hover, .history button[aria-current="true"] { background: var(--glass-strong); }
+  .history .arrow { color: var(--muted); flex: none; }
+  .history-empty { color: var(--muted); font-size: 13px; padding: 4px 8px; }
+
+  /* ---------- Main ---------- */
+  .main { position: relative; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 0; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
+    background: var(--glass-strong); border: 1px solid var(--glass-edge); font: 12px var(--mono); color: var(--muted);
+  }
+  .pill b { color: var(--ink); font-weight: 500; }
+  #model-pill { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-btn { display: none; border: 0; background: var(--glass-strong); border-radius: 12px; padding: 8px 10px; }
+
+  .thread { flex: 1; overflow-y: auto; padding: 16px 20px 8px; scroll-behavior: smooth; }
+  .thread-inner { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+  .welcome { flex: 1; display: grid; place-items: center; text-align: center; padding: 24px; }
+  .welcome h1 { font: 800 clamp(30px, 4.4vw, 50px)/1.05 var(--display); letter-spacing: -0.035em; margin: 18px 0 10px; }
+  .welcome p { color: var(--muted); max-width: 520px; margin: 0 auto; }
+
+  .composer-wrap { padding: 8px 20px 18px; }
+  .composer { max-width: 820px; margin: 0 auto; }
+  .composer form {
+    display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; border-radius: 999px;
+    background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
+  }
+  .composer input { flex: 1; border: 0; outline: none; background: transparent; font: inherit; font-size: 16px; color: inherit; min-width: 0; }
+  .send {
+    width: 44px; height: 44px; border-radius: 50%; border: 0; display: grid; place-items: center; flex: none;
+    background: linear-gradient(135deg, var(--indigo), var(--cyan)); color: #fff;
+  }
+  .send:disabled { opacity: .5; cursor: default; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+  .chip {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-strong);
+    font-size: 13px; font-weight: 500; transition: transform .15s ease, background .15s ease;
+  }
+  .chip:hover { transform: translateY(-1px); background: var(--indigo-soft); }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  /* ---------- Messages ---------- */
+  .msg-user {
+    align-self: flex-end; max-width: 78%; padding: 12px 18px; border-radius: 20px 20px 6px 20px; color: #fff;
+    background: linear-gradient(135deg, var(--indigo), #6A5CF0); box-shadow: var(--shadow); animation: rise .35s ease both;
+  }
+  .msg-bot { align-self: flex-start; width: 100%; padding: 18px 20px; animation: rise .35s ease both; }
+  .msg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .msg-head .who { font: 700 14px var(--display); }
+  .coverage { font: 500 11px var(--mono); padding: 3px 9px; border-radius: 999px; }
+  .coverage.full { background: var(--doc-soft); color: var(--doc); }
+  .coverage.partial { background: var(--note-soft); color: var(--note); }
+  .coverage.none { background: var(--bad-soft); color: var(--bad); }
+  .answer { white-space: pre-wrap; }
+  .answer ul { margin: 6px 0; padding-left: 20px; white-space: normal; }
+  .cite {
+    display: inline-block; font: 500 11px/1.6 var(--mono); padding: 0 7px; margin: 0 1px; border-radius: 6px; border: 0;
+    background: var(--indigo-soft); color: var(--indigo); vertical-align: 1px;
+  }
+  .cite.doc { background: var(--doc-soft); color: var(--doc); }
+  .cite.notes { background: var(--note-soft); color: var(--note); }
+  .box { margin-top: 12px; padding: 10px 14px; border-radius: 14px; font-size: 14px; }
+  .box.gaps { background: var(--note-soft); }
+  .box.general { border: 1px dashed var(--muted); color: var(--muted); }
+  .box.general p { margin: 4px 0 0; color: var(--ink); }
+  .box.problems { background: var(--bad-soft); color: var(--bad); }
+  .msg-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; font: 12px var(--mono); color: var(--muted); }
+  .msg-foot .ok { color: var(--doc); }
+  .link-btn { border: 0; background: var(--indigo-soft); color: var(--indigo); padding: 5px 12px; border-radius: 999px; font: 500 12px var(--mono); }
   .error { color: var(--bad); }
+
+  .thinking { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+  .thinking svg { width: 42px; height: 42px; }
+  .thinking .trail { stroke-dasharray: 60 140; animation: sweep 1.2s linear infinite; }
+
+  /* ---------- Sources drawer ---------- */
+  .drawer {
+    position: absolute; top: 16px; right: 16px; bottom: 16px; width: min(420px, calc(100% - 32px));
+    display: flex; flex-direction: column; background: var(--glass-strong); transform: translateX(110%);
+    transition: transform .3s cubic-bezier(.2,.8,.2,1); z-index: 5;
+  }
+  .drawer.open { transform: none; }
+  .drawer-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 18px 10px; }
+  .drawer-head h2 { font: 700 18px/1.2 var(--display); margin: 0; }
+  .drawer-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .close { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--ink); color: var(--glass-strong); flex: none; }
+  .drawer-body { overflow-y: auto; padding: 4px 18px 18px; }
+  .drawer-body h3 { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
+  .card { padding: 12px 14px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-edge); margin-bottom: 8px; transition: box-shadow .2s; }
+  .card.unused { opacity: .55; }
+  .card.flash { box-shadow: 0 0 0 2px var(--indigo); }
+  .card-top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+  .card-title { font-weight: 600; font-size: 14px; line-height: 1.3; }
+  .tag { font: 500 10px var(--mono); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .tag.cited { background: var(--indigo-soft); color: var(--indigo); }
+  .tag.unused { background: transparent; color: var(--muted); border: 1px solid currentColor; }
+  .tag.doc { background: var(--doc-soft); color: var(--doc); }
+  .tag.notes { background: var(--note-soft); color: var(--note); }
+  .card-meta { margin-top: 4px; font: 11px/1.5 var(--mono); color: var(--muted); }
+  .sim { height: 3px; border-radius: 2px; background: var(--indigo-soft); margin-top: 8px; overflow: hidden; }
+  .sim > div { height: 100%; background: linear-gradient(90deg, var(--indigo), var(--cyan)); }
+  details.snip { margin-top: 8px; font-size: 13px; }
+  details.snip summary { cursor: pointer; color: var(--muted); list-style: none; }
+  details.snip summary::-webkit-details-marker { display: none; }
+  details.snip p { white-space: pre-wrap; margin: 6px 0 0; }
+
+  /* ---------- Logo motion ---------- */
+  .logo .swoosh { transform-origin: 20% 80%; }
+  .logo.animate .swoosh { animation: swoosh-in .9s cubic-bezier(.2,.9,.2,1) both .1s; }
+  .logo.animate .letters { animation: rise .6s ease both .35s; }
+  @keyframes swoosh-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes sweep { to { stroke-dashoffset: -200; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; padding: 10px; }
+    .sidebar { position: fixed; inset: 10px auto 10px 10px; width: min(300px, calc(100% - 20px)); z-index: 10;
+               transform: translateX(-115%); transition: transform .3s ease; background: var(--glass-strong); }
+    .sidebar.open { transform: none; }
+    .menu-btn { display: inline-flex; }
+    #proto-pill { display: none; }
+    .topbar { justify-content: flex-start; }
+    .msg-user { max-width: 90%; }
+    .drawer { top: 10px; right: 10px; bottom: 10px; width: calc(100% - 20px); }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>rag-motion</h1>
-  <p class="sub">Answers built from your guideline documents, coaching notes, and exercise catalog, with every source shown. Local prototype.</p>
+<div class="shell">
+  <aside class="sidebar glass" id="sidebar" aria-label="Sidebar">
+    <div class="brand">
+      <svg class="logo animate" width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="rm-grad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#4B4FE8"/><stop offset="1" stop-color="#34C6E0"/>
+          </linearGradient>
+        </defs>
+        <path class="swoosh" d="M5 46C19 62 46 58 60 14C49 42 27 52 5 46Z" fill="url(#rm-grad)"/>
+        <text class="letters" x="7" y="40" font-family="Bricolage Grotesque, Arial Black, sans-serif" font-weight="800" font-size="25" letter-spacing="-1.5" fill="currentColor">RM</text>
+      </svg>
+      <span class="brand-name">rag<span>·</span>motion</span>
+    </div>
 
-  <form id="ask-form">
-    <input id="q" type="text" placeholder="Ask about exercises, e.g. beginner lower-body exercises with dumbbells" autocomplete="off" required minlength="3" maxlength="500">
-    <button id="ask-btn" type="submit">Ask</button>
-  </form>
-  <div class="examples" id="examples"></div>
+    <button class="side-btn" id="new-chat" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      New question
+    </button>
+    <label class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="history-search" type="search" placeholder="Search past questions" aria-label="Search past questions">
+    </label>
 
-  <div id="out"></div>
-</main>
+    <div class="side-label">Knowledge</div>
+    <div class="sources" id="sources"><div class="history-empty">Loading…</div></div>
+
+    <div class="side-label">Past questions</div>
+    <div class="history" id="history"></div>
+  </aside>
+
+  <main class="main glass">
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" type="button" aria-label="Open sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <span class="pill" id="model-pill">loading models…</span>
+      <span class="pill" id="proto-pill">local prototype</span>
+    </div>
+
+    <section class="welcome" id="welcome">
+      <div>
+        <svg class="logo animate" width="120" height="120" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="swoosh" d="M5 46C19 62 46 58 60 14C49 42 27 52 5 46Z" fill="url(#rm-grad)"/>
+          <text class="letters" x="7" y="40" font-family="Bricolage Grotesque, Arial Black, sans-serif" font-weight="800" font-size="25" letter-spacing="-1.5" fill="currentColor">RM</text>
+        </svg>
+        <h1>What are we training today?</h1>
+        <p>Answers come only from your guidelines, coaching notes, and exercise catalog, and every claim links to its source.</p>
+      </div>
+    </section>
+
+    <section class="thread" id="thread" hidden aria-live="polite">
+      <div class="thread-inner" id="thread-inner"></div>
+    </section>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <form id="ask-form">
+          <input id="q" type="text" placeholder="Ask about exercises, dosage, or programming" autocomplete="off" required minlength="3" maxlength="500" aria-label="Your question">
+          <button class="send" id="send" type="submit" aria-label="Ask">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+        <div class="chips" id="chips"></div>
+        <div class="hint">Each question is answered on its own. Follow-ups don't see earlier messages.</div>
+      </div>
+    </div>
+
+    <aside class="drawer glass" id="drawer" aria-label="Sources" aria-hidden="true">
+      <div class="drawer-head">
+        <div>
+          <h2>Sources for this answer</h2>
+          <p id="drawer-q"></p>
+        </div>
+        <button class="close" id="drawer-close" type="button" aria-label="Close sources">✕</button>
+      </div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </aside>
+  </main>
+</div>
 
 <script>
 const EXAMPLES = [
-  "How much strength training should a beginner adult do each week, and which exercises?",
-  "How heavy should older adults lift to build strength?",
-  "I'm a beginner with dumbbells and bands. Good lower-body exercises?",
-  "explosive exercises to help me run faster",
-  "what exercises can I do for biceps",
-  "exercises that need no equipment",
+  ["Strength dose for beginners", "How much strength training should a beginner adult do each week, and which exercises could they start with?"],
+  ["Older adults: how heavy?", "How heavy should older adults lift to build strength?"],
+  ["Explosive work for speed", "Explosive exercises to help me run faster"],
+  ["Youth strength training", "At what age can kids safely start resistance training?"],
+  ["Olympic lift progressions", "How should an athlete progress from pulling derivatives to the full Olympic lifts?"],
+  ["No-equipment exercises", "Exercises that need no equipment"],
 ];
+const HISTORY_KEY = "rag-motion-history-v1";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-for (const ex of EXAMPLES) {
-  const b = document.createElement("button");
-  b.type = "button"; b.textContent = ex;
-  b.onclick = () => { $("q").value = ex; ask(ex); };
-  $("examples").appendChild(b);
-}
-$("ask-form").onsubmit = (e) => { e.preventDefault(); ask($("q").value.trim()); };
+let history = loadHistory();   // [{question, data}]
+let activeIndex = null;
 
-function renderAnswer(text) {
-  // Escape first, then add light formatting and clickable [slug] citations.
-  return esc(text)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([a-z0-9]+(?:-[a-z0-9]+)*(?:\s*,\s*[a-z0-9]+(?:-[a-z0-9]+)*)*)\]/g, (_, group) =>
-      group.split(",").map(id => `<a class="cite" data-id="${id.trim()}">${id.trim()}</a>`).join(" "));
+// ---------- storage (per-browser convenience; the app works without it) ----------
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory() {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 30))); } catch { /* ignore */ }
 }
 
-function bar(sim) {
-  return `<div class="bar"><div style="width:${Math.max(0, Math.min(1, sim)) * 100}%"></div></div>`;
-}
-function badge(cited) {
-  return `<span class="badge ${cited ? "full" : "none"}">${cited ? "cited" : "not used"}</span>`;
-}
-function exerciseCard(h) {
-  return `<div class="card ${h.cited ? "" : "unused"}" id="card-${esc(h.id)}">
-    <div class="card-top"><span class="card-name">${esc(h.name)}</span>${badge(h.cited)}</div>
-    ${bar(h.similarity)}
-    <div class="meta">similarity ${h.similarity.toFixed(3)} · ${esc(h.movement_pattern)} · ${esc(h.difficulty)} · ${esc(h.equipment.join(", "))}</div>
-    <div class="desc">${esc(h.description)}</div>
-    <div class="meta" style="margin-top:6px">Exercise catalog [${esc(h.id)}] · ${esc(h.source)}</div>
-  </div>`;
-}
-function passageCard(p) {
-  const kind = p.source_type === "document" ? "document" : "notes";
-  const where = p.page_start ? `pages ${p.page_start}–${p.page_end}` : "project notes";
-  const section = (p.headings && p.headings.length) ? p.headings.join("; ") : p.chapter;
-  const snippet = p.text.replace(/^## .*$/gm, "").trim();
-  return `<div class="card ${p.cited ? "" : "unused"}" id="card-${esc(p.id)}">
-    <div class="card-top"><span class="card-name">${esc(section)}</span>${badge(p.cited)}</div>
-    ${bar(p.similarity)}
-    <div class="meta">similarity ${p.similarity.toFixed(3)} · <span class="kind ${kind}">${kind}</span> · ${esc(where)}</div>
-    <details class="desc"><summary>${esc(snippet.slice(0, 180))}${snippet.length > 180 ? "…" : ""}</summary><p>${esc(snippet)}</p></details>
-    <div class="meta" style="margin-top:6px">${esc(p.source_title)} · ${esc(p.chapter)} [${esc(p.id)}]</div>
-  </div>`;
-}
-
-async function ask(question) {
-  if (question.length < 3) return;
-  $("ask-btn").disabled = true;
-  $("out").innerHTML = `<p class="status">Searching the database, then writing a grounded answer. Usually 5 to 20 seconds…</p>`;
+// ---------- sidebar ----------
+async function loadInfo() {
   try {
-    const res = await fetch("/api/ask", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question, k: 5}),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : res.statusText);
-
-    const t = data.timings_ms, u = data.usage;
-    const cost = u.cost_usd == null ? "cost not reported" : `$${u.cost_usd.toFixed(6)}`;
-    const checks = data.citation_problems.length
-      ? `<div class="problems"><strong>Citation problems (checked in code):</strong><br>${data.citation_problems.map(esc).join("<br>")}</div>`
-      : `<div class="ok">✓ Every citation points to retrieved evidence (checked in code, not by the LLM).</div>`;
-
-    $("out").innerHTML = `
-      <div class="grid">
-        <section class="panel">
-          <h2>Answer</h2>
-          <span class="badge ${esc(data.evidence_coverage)}">evidence coverage: ${esc(data.evidence_coverage)}</span>
-          <div class="answer">${renderAnswer(data.answer)}</div>
-          ${data.gaps ? `<div class="gaps"><strong>What the evidence doesn't cover:</strong> ${esc(data.gaps)}</div>` : ""}
-          ${data.general_guidance ? `<div class="general"><strong>General guidance: not from your sources.</strong> From the model's general training knowledge, not verified against your database.<p>${esc(data.general_guidance)}</p></div>` : ""}
-          ${checks}
-          <div class="footer">retrieval ${t.retrieval} ms · generation ${t.generation} ms · ${esc(u.model)} · ${u.prompt_tokens} in / ${u.completion_tokens} out tokens · ${cost}</div>
-        </section>
-        <section class="panel">
-          <h2>Document passages (${data.passages.length})</h2>
-          ${data.passages.map(passageCard).join("")}
-          <h2 style="margin-top:18px">Exercises (${data.exercises.length})</h2>
-          ${data.exercises.map(exerciseCard).join("")}
-        </section>
-      </div>`;
-
-    document.querySelectorAll(".cite").forEach(a => a.onclick = () => {
-      const el = document.getElementById("card-" + a.dataset.id);
-      if (!el) return;
-      el.scrollIntoView({behavior: "smooth", block: "center"});
-      el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200);
-    });
-  } catch (err) {
-    $("out").innerHTML = `<p class="error">Something went wrong: ${esc(err.message)}</p>`;
-  } finally {
-    $("ask-btn").disabled = false;
+    const res = await fetch("/api/info");
+    const info = await res.json();
+    const short = (m) => m.split("/").pop();
+    $("model-pill").innerHTML = `<b>${esc(short(info.llm_model))}</b> · ${esc(short(info.embedding_model))} · ${esc(info.retrieval)} search`;
+    const rows = info.sources.map(s => `
+      <div class="source-row">
+        <span class="dot" style="background:var(${s.type === "document" ? "--doc" : "--note"})"></span>
+        <div>${esc(s.title.replace(/^Notes: /, ""))}<div class="count">${s.type} · ${s.passages} passages</div></div>
+      </div>`);
+    rows.push(`<div class="source-row"><span class="dot" style="background:var(--indigo)"></span>
+      <div>Exercise catalog<div class="count">${info.exercises} exercises</div></div></div>`);
+    $("sources").innerHTML = rows.join("");
+  } catch {
+    $("sources").innerHTML = `<div class="history-empty">Couldn't load sources. Is the server running?</div>`;
+    $("model-pill").textContent = "server not reachable";
   }
 }
+
+function renderHistory() {
+  const term = $("history-search").value.trim().toLowerCase();
+  const items = history.map((h, i) => ({...h, i})).filter(h => !term || h.question.toLowerCase().includes(term));
+  $("history").innerHTML = items.length
+    ? items.map(h => `<button type="button" data-i="${h.i}" aria-current="${h.i === activeIndex}">
+        <span class="arrow">↗</span><span>${esc(h.question)}</span></button>`).join("")
+    : `<div class="history-empty">${history.length ? "No matches." : "Questions you ask appear here."}</div>`;
+  $("history").querySelectorAll("button").forEach(b => b.onclick = () => showFromHistory(+b.dataset.i));
+}
+
+// ---------- rendering ----------
+function passageKind(id, data) {
+  const p = data.passages.find(x => x.id === id);
+  return p ? (p.source_type === "document" ? "doc" : "notes") : "";
+}
+function renderAnswerText(text, data) {
+  const html = esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  return html.replace(/\[([a-z0-9]+(?:-[a-z0-9]+)*(?:\s*,\s*[a-z0-9]+(?:-[a-z0-9]+)*)*)\]/g, (_, group) =>
+    group.split(",").map(raw => { const id = raw.trim();
+      return `<button type="button" class="cite ${passageKind(id, data)}" data-id="${id}">${id}</button>`; }).join(""));
+}
+const COVERAGE = { full: "fully covered by your sources", partial: "partly covered", none: "not covered by your sources" };
+
+function botMessage(data, index) {
+  const t = data.timings_ms, u = data.usage;
+  const cost = u.cost_usd == null ? "" : ` · $${u.cost_usd.toFixed(4)}`;
+  const nSources = data.passages.length + data.exercises.length;
+  const checks = data.citation_problems.length
+    ? `<div class="box problems"><strong>Citation problems found by code checks:</strong><br>${data.citation_problems.map(esc).join("<br>")}</div>` : "";
+  return `<article class="msg-bot glass" data-index="${index}">
+    <div class="msg-head">
+      <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M5 46C19 62 46 58 60 14C49 42 27 52 5 46Z" fill="url(#rm-grad)"/><text x="7" y="40" font-family="Bricolage Grotesque, Arial Black, sans-serif" font-weight="800" font-size="25" letter-spacing="-1.5" fill="currentColor">RM</text></svg>
+      <span class="who">rag-motion</span>
+      <span class="coverage ${esc(data.evidence_coverage)}">${COVERAGE[data.evidence_coverage] || esc(data.evidence_coverage)}</span>
+    </div>
+    <div class="answer">${renderAnswerText(data.answer, data)}</div>
+    ${data.gaps ? `<div class="box gaps"><strong>Not in your sources:</strong> ${esc(data.gaps)}</div>` : ""}
+    ${data.general_guidance ? `<div class="box general">General guidance, not from your sources<p>${esc(data.general_guidance)}</p></div>` : ""}
+    ${checks}
+    <div class="msg-foot">
+      ${data.citation_problems.length ? "" : `<span class="ok">✓ every citation checked</span>`}
+      <button type="button" class="link-btn" data-sources="${index}">View ${nSources} sources</button>
+      <span>${((t.total ?? (t.retrieval + t.generation)) / 1000).toFixed(1)} s${cost}</span>
+    </div>
+  </article>`;
+}
+
+function card(item, kind) {
+  const cited = `<span class="tag ${item.cited ? "cited" : "unused"}">${item.cited ? "cited" : "not used"}</span>`;
+  const sim = `<div class="sim"><div style="width:${Math.max(0, Math.min(1, item.similarity)) * 100}%"></div></div>`;
+  if (kind === "exercise") {
+    return `<div class="card ${item.cited ? "" : "unused"}" id="card-${esc(item.id)}">
+      <div class="card-top"><span class="card-title">${esc(item.name)}</span>${cited}</div>
+      <div class="card-meta">${esc(item.movement_pattern)} · ${esc(item.difficulty)} · ${esc(item.equipment.join(", "))}</div>
+      ${sim}
+      <details class="snip"><summary>${esc(item.description.slice(0, 110))}…</summary><p>${esc(item.description)}</p></details>
+      <div class="card-meta">exercise catalog · [${esc(item.id)}]</div>
+    </div>`;
+  }
+  const docType = item.source_type === "document" ? "doc" : "notes";
+  const where = item.page_start ? `pages ${item.page_start}–${item.page_end}` : "project notes";
+  const section = item.headings?.length ? item.headings.join("; ") : item.chapter;
+  const snippet = item.text.replace(/^## .*$/gm, "").trim();
+  return `<div class="card ${item.cited ? "" : "unused"}" id="card-${esc(item.id)}">
+    <div class="card-top"><span class="card-title">${esc(section)}</span>${cited}</div>
+    <div class="card-meta"><span class="tag ${docType}">${item.source_type}</span> ${esc(where)}</div>
+    ${sim}
+    <details class="snip"><summary>${esc(snippet.slice(0, 140))}…</summary><p>${esc(snippet)}</p></details>
+    <div class="card-meta">${esc(item.source_title)} · [${esc(item.id)}]</div>
+  </div>`;
+}
+
+function openDrawer(index, focusId) {
+  const { question, data } = history[index];
+  const byCited = (a, b) => (b.cited - a.cited) || (a.rank - b.rank);
+  $("drawer-q").textContent = question;
+  $("drawer-body").innerHTML =
+    `<h3>Document passages · ${data.passages.length}</h3>${[...data.passages].sort(byCited).map(p => card(p, "passage")).join("")}` +
+    `<h3>Exercises · ${data.exercises.length}</h3>${[...data.exercises].sort(byCited).map(e => card(e, "exercise")).join("")}`;
+  $("drawer").classList.add("open");
+  $("drawer").setAttribute("aria-hidden", "false");
+  if (focusId) {
+    const el = document.getElementById("card-" + focusId);
+    if (el) { el.scrollIntoView({block: "center"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1400); }
+  }
+}
+function closeDrawer() { $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true"); }
+
+function showThread() { $("welcome").hidden = true; $("thread").hidden = false; $("chips").hidden = true; }
+
+function appendExchange(question, dataOrNode, index) {
+  const wrap = document.createElement("div");
+  wrap.style.display = "contents";
+  wrap.innerHTML = `<div class="msg-user">${esc(question)}</div>`;
+  if (typeof dataOrNode === "string") wrap.insertAdjacentHTML("beforeend", dataOrNode);
+  else wrap.insertAdjacentHTML("beforeend", botMessage(dataOrNode, index));
+  $("thread-inner").appendChild(wrap);
+  $("thread").scrollTop = $("thread").scrollHeight;
+  return wrap;
+}
+
+function showFromHistory(i) {
+  activeIndex = i;
+  showThread();
+  $("thread-inner").innerHTML = "";
+  appendExchange(history[i].question, history[i].data, i);
+  renderHistory();
+  closeSidebar();
+}
+
+// ---------- asking ----------
+const THINKING = `<article class="msg-bot glass thinking">
+  <svg viewBox="0 0 64 64" aria-hidden="true"><path class="trail" d="M5 46C19 62 46 58 60 14" fill="none" stroke="url(#rm-grad)" stroke-width="6" stroke-linecap="round"/></svg>
+  <span>Searching your sources, then writing a cited answer…</span></article>`;
+
+async function ask(question) {
+  question = question.trim();
+  if (question.length < 3) return;
+  showThread();
+  closeDrawer();
+  $("send").disabled = true;
+  $("q").value = "";
+  const pending = appendExchange(question, THINKING);
+  try {
+    const res = await fetch("/api/ask", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({question, k: 5}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : res.statusText);
+    history.unshift({ question, data });
+    saveHistory();
+    activeIndex = 0;
+    // indices shift after unshift; re-number rendered messages
+    document.querySelectorAll("[data-index]").forEach(el => el.dataset.index = +el.dataset.index + 1);
+    document.querySelectorAll("[data-sources]").forEach(el => el.dataset.sources = +el.dataset.sources + 1);
+    pending.querySelector(".thinking").outerHTML = botMessage(data, 0);
+    renderHistory();
+  } catch (err) {
+    pending.querySelector(".thinking").outerHTML =
+      `<article class="msg-bot glass"><span class="error">The answer failed: ${esc(err.message)}. Check that the server and database are running, then ask again.</span></article>`;
+  } finally {
+    $("send").disabled = false;
+    $("q").focus();
+  }
+}
+
+// ---------- wiring ----------
+for (const [label, question] of EXAMPLES) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = label; b.title = question;
+  b.onclick = () => ask(question);
+  $("chips").appendChild(b);
+}
+$("ask-form").onsubmit = (e) => { e.preventDefault(); ask($("q").value); };
+$("new-chat").onclick = () => {
+  activeIndex = null; closeDrawer(); closeSidebar();
+  $("thread-inner").innerHTML = ""; $("thread").hidden = true; $("welcome").hidden = false; $("chips").hidden = false;
+  renderHistory(); $("q").focus();
+};
+$("history-search").oninput = renderHistory;
+$("drawer-close").onclick = closeDrawer;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+$("thread-inner").addEventListener("click", (e) => {
+  const cite = e.target.closest(".cite");
+  const src = e.target.closest("[data-sources]");
+  const msg = e.target.closest("[data-index]");
+  if (cite && msg) openDrawer(+msg.dataset.index, cite.dataset.id);
+  else if (src) openDrawer(+src.dataset.sources);
+});
+function closeSidebar() { $("sidebar").classList.remove("open"); }
+$("menu-btn").onclick = () => $("sidebar").classList.toggle("open");
+
+loadInfo();
+renderHistory();
 </script>
 </body>
 </html>
