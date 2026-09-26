@@ -1617,7 +1617,9 @@ The frontend is what runs in the user's browser (here, one HTML page). The backe
 
 **In an interview:** "The browser calls my API, and my API calls the model. Keys never go to the frontend, because anything in the browser is readable by the user. The same API will serve a real frontend later."
 
-*First seen: Step 10.*
+*UI redesign update (after Step 15): the page asks the server what it is running.* A second route, `GET /api/info`, returns the LLM model, embedding model, retrieval mode, each source's title, type, and embedded passage count, and the embedded exercise count. The page shows these in its top bar and "Knowledge" sidebar instead of hard-coding them, so the UI can't drift out of date when a setting changes. The key rule still holds: the page only gets names and counts, never keys.
+
+*First seen: Step 10. Extended: UI redesign after Step 15.*
 
 ### FastAPI and uvicorn
 FastAPI is a Python library for building web APIs (programs other programs call over HTTP, the web's request protocol). A route connects a URL and method to a Python function: in `src/ragmotion/app.py`, `GET /` returns the HTML page and `POST /api/ask` answers a question. The request body is validated by a Pydantic model (question 3 to 500 characters, k 1 to 10), so bad input is rejected before any code runs. The function returns a dict that FastAPI sends back as JSON. Errors get an HTTP status code: any failure in the RAG step comes back as 502 ("the server behind me failed") with the reason. Uvicorn is the server program that runs a FastAPI app and listens on a port; `--reload` restarts it whenever code changes. Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`.
@@ -1625,6 +1627,41 @@ FastAPI is a Python library for building web APIs (programs other programs call 
 **In an interview:** "The API is a small FastAPI app: a route serves the page, another takes a validated question and returns the answer, evidence, costs, and timings as JSON, with errors mapped to status codes. Uvicorn runs it on localhost only."
 
 *First seen: Step 10.*
+
+### Design tokens
+Design tokens are named values for a design's basic choices: colors, fonts, spacing. Code uses the name (for example "indigo" or "ink"), not the raw value (`#4B4FE8`), so one change updates the whole page and a dark mode is just a second set of values for the same names. The redesigned page defines a palette (sky, lilac, blush, ink, indigo, cyan, plus document green and notes amber) and three type roles: Bricolage Grotesque for display, Figtree for body text, JetBrains Mono for labels, ids, and metrics.
+
+**In an interview:** "The UI uses named color and type tokens, so the dark mode and the source-type colors are defined once and reused everywhere, not scattered hex codes."
+
+*First seen: UI redesign after Step 15.*
+
+### The hidden attribute vs CSS display
+HTML has a `hidden` attribute that tells the browser not to show an element. But the browser's hiding is a low-priority style rule, and any CSS rule the page sets for `display` (such as `display: grid` or `display: flex`) wins over it. CSS (Cascading Style Sheets) is the language that controls how a page looks; when two rules conflict, the more specific or more important one wins (specificity). In the redesign, the welcome block and topic chips stayed on screen after a question was asked, even though the code had set `hidden`. The fix was one global rule, `[hidden] { display: none !important; }`, which makes `hidden` always win.
+
+**In an interview:** "I hit a classic CSS bug: my layout rules overrode the browser's `hidden` attribute, so the welcome screen never went away. One global rule restored it. I found it by actually using the page, not by reading the code."
+
+*First seen: UI redesign after Step 15.*
+
+### Progressive enhancement with localStorage
+Progressive enhancement means the core of a page works with the basics, and extras are added only when the browser supports them. localStorage is a small key-value store inside the browser that keeps data between visits, on that one browser only. The page stores up to 30 past questions and their answers there, so clicking one shows the saved answer without a new API call. Every read and write is wrapped in try/catch (code that catches an error instead of crashing), because storage can be full or blocked; if it fails, the app still answers questions and just has no history.
+
+**In an interview:** "Question history is a convenience stored in the browser, never a requirement. If storage is unavailable, the app still works. It isn't synced to a server, which is fine for a local prototype."
+
+*First seen: UI redesign after Step 15.*
+
+### Color as information
+Color can carry meaning, not just decoration. The redesigned page colors each citation chip by source type: green for a guideline document, amber for the developer's project notes, indigo for a catalog exercise. A reader sees at a glance what kind of evidence backs each claim. In the first real test this made a known problem visible: an older-adults note citation showed amber inside an answer about beginner adults ([Population mixing](#population-mixing-context-bleed-across-populations)). Color alone isn't enough for everyone (some people can't tell colors apart), so the drawer's cards also carry text tags (document/notes) and ids.
+
+**In an interview:** "Citations are color-coded by source type, so a coach can see whether a claim rests on the official guidelines, my own notes, or the exercise catalog without opening anything."
+
+*First seen: UI redesign after Step 15.*
+
+### Accessibility basics (focus, aria-live, reduced motion)
+Accessibility means the page works for people using keyboards, screen readers (software that reads the page aloud), or motion-sensitivity settings. The redesign covers the basics: a visible outline shows which element has keyboard focus; Escape closes the sources drawer; the chat thread has `aria-live`, which tells screen readers to announce new answers when they appear; and `prefers-reduced-motion`, a user setting the page can detect, turns off the logo and "thinking" animations. The page is also responsive (the layout adapts to screen width): under 860 px the sidebar becomes a slide-out menu.
+
+**In an interview:** "Even as a prototype, the UI has keyboard focus, screen-reader announcements for new answers, reduced-motion support, and a phone layout. Those are cheap to add early and expensive to retrofit."
+
+*First seen: UI redesign after Step 15.*
 
 ---
 

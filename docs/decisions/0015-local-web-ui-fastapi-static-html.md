@@ -24,3 +24,5 @@ FastAPI (0.141.1) + uvicorn (0.54.0) serving one static page, `src/ragmotion/sta
 - Step 16, when tests and error handling are added.
 
 See [Step 10](../build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui).
+
+**Update 2026-09-25 (after Step 15):** the page was redesigned into a branded chat layout with a sources drawer, and `GET /api/info` was added (models, search mode, sources, counts). Same architecture. See [UI redesign](../build-log.md#ui-redesign-rag-motion-brand-and-chat-layout-after-step-15).

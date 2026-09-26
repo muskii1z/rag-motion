@@ -2353,3 +2353,48 @@ None recorded while building. The failures above are findings, not bugs in the e
 **Decisions.**
 - New: [0021. Evaluation design: 29-question eval set, code-based scoring, LangSmith experiments; semantic stays default](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md)
 - Updated: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (measured outcome)
+
+## UI redesign: rag-motion brand and chat layout (after Step 15)
+**Date:** 2026-09-25 · **Commit:** `63bc53f` feat: redesign the local web UI (rag-motion brand, chat layout, sources drawer) (this docs update is committed and pushed right after)
+
+**Goal.** Replace the bare Step 10 page with a simple, branded local chat UI that makes provenance (where each claim came from) easy to see.
+
+**Request.** The developer shared a screenshot of a chatbot UI concept: a pastel sky-to-lilac gradient, frosted-glass panels, a left sidebar (search, new chat, history), a big centered "How can I help you today?" greeting, a chat input with topic chips, and a floating chat card. They asked for a simple local UI like it, rag-motion branded, with an "RM" logo "with a swooshy thing".
+
+**What we did.**
+- Rewrote `src/ragmotion/static/index.html` (the whole page: HTML, CSS, JavaScript in one file).
+- Added `GET /api/info` to `src/ragmotion/app.py`. It returns the LLM model, embedding model, retrieval mode, each source's title, type, and embedded passage count, and the embedded exercise count.
+- **Design direction.** Followed the reference (light pastel glass) with one signature element: the RM logo. Bold letters with a single indigo-to-cyan swoosh sweeping up to the right, a movement-path motif. It draws in once on page load.
+  - Type: Bricolage Grotesque (display and wordmark), Figtree (body), JetBrains Mono (labels, ids, metrics).
+  - Palette as [design tokens](concepts.md#design-tokens): sky `#B9D5FF`, lilac `#D6C4FF`, blush `#F1D3F6`, ink `#1E1B3A`, indigo `#4B4FE8`, cyan `#34C6E0`, plus document green and notes amber. A dark-mode variant is included.
+- **Sidebar.** Logo and "rag·motion" wordmark; "New question"; search over past questions; a "Knowledge" list fed by `/api/info` (each source with type and passage count, plus the exercise count); "Past questions" kept in the browser's localStorage (up to 30). Clicking a past question shows its saved answer with no new API call. See [Progressive enhancement with localStorage](concepts.md#progressive-enhancement-with-localstorage).
+- **Top bar.** Current models and search mode from `/api/info` (for example `gemini-2.5-flash-lite · voyage-4-lite · semantic search`) and a "local prototype" label.
+- **Empty state.** Large logo; "What are we training today?"; a one-line promise that answers come only from the guidelines, notes, and catalog, with every claim linked; the question box; six topic chips (strength dose for beginners, older adults load, explosive work for speed, youth strength training, Olympic lift progressions, no-equipment exercises).
+- **Honest hint** under the input: each question is answered on its own, and follow-ups don't see earlier messages. The backend is single-turn (it answers one question with no memory of the conversation), so the chat look must not suggest otherwise.
+- **Answer card.** Coverage badge (fully / partly / not covered by your sources); answer text with clickable citation chips color-coded by source type (green = guideline document, amber = project notes, indigo = catalog exercise; see [Color as information](concepts.md#color-as-information)); a "Not in your sources" gaps box; a dashed "General guidance, not from your sources" box ([0016](decisions/0016-answer-grounding-evidence-plus-labeled-general-guidance.md)); a red box for citation problems found by code; a footer with "every citation checked", "View N sources", time, and cost. While waiting, a "thinking" state animates the swoosh.
+- **Sources drawer.** Slides in from the right, like the reference's floating card. Cited items come first. Passage cards show section, document/notes tag, pages, a similarity bar, expandable text, source, and id. Exercise cards show pattern, difficulty, and equipment. Clicking a citation opens the drawer and outlines that card.
+- **Quality floor.** Responsive (the sidebar becomes a slide-out menu under 860 px wide); visible keyboard focus; Escape closes the drawer; `aria-live` on the thread; `prefers-reduced-motion` turns animation off; HTML-escaping of all model and user text kept ([HTML escaping](concepts.md#html-escaping)). See [Accessibility basics](concepts.md#accessibility-basics-focus-aria-live-reduced-motion).
+
+**Commands.** None recorded in the brief. The page was checked in Claude Code's browser pane, served by the existing uvicorn setup from [0015](decisions/0015-local-web-ui-fastapi-static-html.md).
+
+**What we saw.** Checked at 1280×800 in the dark scheme, then the light scheme, then at 390×800 (phone size).
+- The dark scheme rendered the dark variant. The light scheme matched the reference's look, after the background gradient was strengthened (the first version was paler than the reference).
+- A real question ("How much strength training should a beginner adult do each week...") was answered in 2.5 s for $0.0005, with all citations checked.
+- The color coding made the population issue visible at a glance: the older-adults note citation showed amber. This time the answer correctly labeled it "for older adults". One run only; Step 15 measured this question failing ([Population mixing](concepts.md#population-mixing-context-bleed-across-populations)), so this is not evidence the problem is fixed.
+- Clicking the notes citation opened the drawer with that card outlined and cited items listed first.
+
+**Problems and fixes.**
+- **Welcome block stayed visible after asking.** The greeting and chips had the `hidden` attribute set, but the page's own `display: grid` / `display: flex` rules overrode the browser's built-in hiding. Fixed with one global rule, `[hidden] { display: none !important; }`. See [The hidden attribute vs CSS display](concepts.md#the-hidden-attribute-vs-css-display).
+- **Phone layout: model label wrapped into a tall block.** Fixed to a single truncated line, and the "local prototype" label is hidden on small screens.
+- **Background too pale** on first look compared with the reference. Gradient strengthened.
+
+**Open questions.**
+- Past questions live only in one browser's localStorage. They are not saved on the server, so they don't sync across browsers and are lost if browser storage is cleared. Fine for a local prototype; not discussed further.
+- Multi-turn follow-ups (the model seeing earlier messages) are not built. The hint makes the limit visible; whether to add conversation memory was not discussed.
+
+**Learned.**
+- New: [Design tokens](concepts.md#design-tokens), [The hidden attribute vs CSS display](concepts.md#the-hidden-attribute-vs-css-display), [Progressive enhancement with localStorage](concepts.md#progressive-enhancement-with-localstorage), [Color as information](concepts.md#color-as-information), [Accessibility basics (focus, aria-live, reduced motion)](concepts.md#accessibility-basics-focus-aria-live-reduced-motion)
+- Extended: [Frontend/backend split](concepts.md#frontendbackend-split) (`/api/info`)
+
+**Decisions.**
+- No new decision record. Updated: [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (page redesigned, `/api/info` added).
