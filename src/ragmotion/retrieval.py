@@ -101,3 +101,78 @@ def search_all(question: str, k_exercises: int = 5, k_passages: int = 5) -> tupl
         exercises = [ExerciseHit.model_validate(r) for r in cur.execute(SEARCH_SQL, {**params, "k": k_exercises}).fetchall()]
         passages = [ChunkHit.model_validate(r) for r in cur.execute(CHUNK_SEARCH_SQL, {**params, "k": k_passages}).fetchall()]
     return exercises, passages
+
+
+# ---- Step 15: keyword search and hybrid search, for comparison --------------------------------
+#
+# Keyword search uses Postgres full-text search: text is reduced to stemmed words ("lexemes",
+# e.g. "exercises" -> "exercis") with stop words removed, then matched against the question's
+# words. Any shared word counts (OR), ranked by ts_rank_cd. At this size (~170 rows) the text
+# vectors are computed per query; at scale they'd be stored in a column with a GIN index.
+#
+# Hybrid search merges the keyword and semantic rankings with Reciprocal Rank Fusion (RRF):
+# each item scores sum(1 / (RRF_K + rank)) over the lists it appears in.
+
+EXERCISE_TEXT_SQL = (
+    "name || ' ' || description || ' ' || array_to_string(primary_muscles, ' ') || ' ' || "
+    "array_to_string(equipment, ' ') || ' ' || movement_pattern || ' ' || difficulty || ' ' || "
+    "laterality || ' ' || body_region"
+)
+OR_QUERY_SQL = "to_tsquery('english', array_to_string(tsvector_to_array(to_tsvector('english', %(qtext)s)), ' | '))"
+
+KEYWORD_EXERCISE_SQL = f"""
+SELECT slug, name, description, instructions, primary_muscles, movement_pattern,
+       equipment, difficulty, laterality, body_region, source,
+       ts_rank_cd(to_tsvector('english', {EXERCISE_TEXT_SQL}), {OR_QUERY_SQL}) AS similarity
+FROM exercise
+WHERE to_tsvector('english', {EXERCISE_TEXT_SQL}) @@ {OR_QUERY_SQL}
+ORDER BY similarity DESC
+LIMIT %(k)s
+"""
+
+KEYWORD_CHUNK_SQL = f"""
+SELECT source_id || '-' || chunk_index AS passage_id, source_id, source_type, source_title, source_url,
+       license, chapter, headings, page_start, page_end, text,
+       ts_rank_cd(to_tsvector('english', embed_text), {OR_QUERY_SQL}) AS similarity
+FROM document_chunk
+WHERE to_tsvector('english', embed_text) @@ {OR_QUERY_SQL}
+ORDER BY similarity DESC
+LIMIT %(k)s
+"""
+
+RRF_K = 60
+
+
+def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+    """Full-text keyword search over both tables. `similarity` holds the text-rank score."""
+    params = {"qtext": question}
+    with get_connection() as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        if not cur.execute("SELECT numnode(" + OR_QUERY_SQL + ") > 0 AS ok", params).fetchone()["ok"]:
+            return [], []  # the question was only stop words
+        exercises = [ExerciseHit.model_validate(r) for r in cur.execute(KEYWORD_EXERCISE_SQL, {**params, "k": k_exercises}).fetchall()]
+        passages = [ChunkHit.model_validate(r) for r in cur.execute(KEYWORD_CHUNK_SQL, {**params, "k": k_passages}).fetchall()]
+    return exercises, passages
+
+
+def _rrf(rankings: list[list], key) -> list:
+    scores, items = {}, {}
+    for ranking in rankings:
+        for rank, item in enumerate(ranking, start=1):
+            k = key(item)
+            scores[k] = scores.get(k, 0.0) + 1.0 / (RRF_K + rank)
+            items.setdefault(k, item)
+    ordered = sorted(scores, key=scores.get, reverse=True)
+    return [items[k].model_copy(update={"similarity": scores[k]}) for k in ordered]
+
+
+def hybrid_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+    """Semantic + keyword, each retrieving `pool` candidates, merged with RRF. `similarity` holds the RRF score."""
+    sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool)
+    kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool)
+    exercises = _rrf([sem_ex, kw_ex], key=lambda h: h.slug)[:k_exercises]
+    passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id)[:k_passages]
+    return exercises, passages
+
+
+SEARCH_MODES = {"semantic": search_all, "keyword": keyword_search_all, "hybrid": hybrid_search_all}

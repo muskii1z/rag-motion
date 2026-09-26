@@ -1,0 +1,235 @@
+# rag-motion evaluation set (Step 15)
+#
+# STATUS: expected answers DRAFTED BY CLAUDE, pending review by the coach (M. Saraswat).
+# Scores are provisional until each question's `reviewed` is set to true.
+#
+# Fields
+#   question            what a coach might ask
+#   category            exercise-selection | jargon | constraint | dose | population | notes | coverage-gap
+#   expected_exercises  catalog slugs that SHOULD be retrieved (order doesn't matter)
+#   forbidden_exercises slugs that must NOT be recommended (e.g. need equipment the client lacks)
+#   expected_passages   matchers; a retrieved passage matches if `source` is equal AND (any of its pages
+#                       is in `pages`, OR a heading contains `heading`, OR its chapter starts with `chapter`).
+#                       A matcher with only `source` matches any passage from that source.
+#   forbidden_passages  same matcher format; retrieving/citing these means the wrong population or source
+#   expected_coverage   what an honest answer should claim: full | partial | none
+#
+# Matching by source + page/heading (not chunk number) keeps expectations valid after re-chunking.
+
+questions:
+
+# ---- Choosing exercises from the catalog ----
+- id: ex-glutes-dumbbells
+  question: "Beginner glute exercises using dumbbells"
+  category: exercise-selection
+  expected_exercises: [dumbbell-hip-thrust, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, goblet-squat, bulgarian-split-squat]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-band-pull
+  question: "Upper-body pulling exercises with resistance bands"
+  category: exercise-selection
+  expected_exercises: [band-pull-apart]
+  expected_coverage: partial  # only one band pull exists in the catalog
+  reviewed: false
+
+- id: ex-unilateral-lower
+  question: "Unilateral lower-body exercises"
+  category: exercise-selection
+  expected_exercises: [bulgarian-split-squat, dumbbell-reverse-lunge, dumbbell-step-up, single-leg-romanian-deadlift, lateral-bound]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-explosive-speed
+  question: "Explosive exercises to help me run faster"
+  category: exercise-selection
+  expected_exercises: [broad-jump, box-jump, lateral-bound, kettlebell-swing]
+  expected_coverage: partial  # exercises exist; sprint programming guidance doesn't
+  reviewed: false
+
+- id: ex-biceps
+  question: "What exercises can I do for biceps?"
+  category: exercise-selection
+  expected_exercises: [one-arm-dumbbell-row, inverted-row]
+  expected_coverage: partial  # no curls in the catalog
+  reviewed: false
+
+- id: ex-hinge
+  question: "Hip hinge exercises"
+  category: exercise-selection
+  expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift, kettlebell-swing, dumbbell-hip-thrust, glute-bridge]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-anti-rotation
+  question: "Anti-rotation core exercise"
+  category: exercise-selection
+  expected_exercises: [pallof-press]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-grip
+  question: "Something to build grip strength"
+  category: exercise-selection
+  expected_exercises: [farmer-carry]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-overhead
+  question: "Overhead pressing exercise for the shoulders"
+  category: exercise-selection
+  expected_exercises: [dumbbell-overhead-press]
+  expected_coverage: full
+  reviewed: false
+
+- id: ex-upper-back
+  question: "Exercises for the upper back and rear shoulders"
+  category: exercise-selection
+  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row]
+  expected_coverage: full
+  reviewed: false
+
+# ---- Coach jargon and abbreviations ----
+- id: jargon-rdl
+  question: "beginner RDL"
+  category: jargon
+  expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift]
+  expected_coverage: full
+  reviewed: false
+
+- id: jargon-bss
+  question: "BSS for single-leg strength"
+  category: jargon
+  expected_exercises: [bulgarian-split-squat]
+  expected_coverage: full
+  reviewed: false
+
+- id: jargon-kb
+  question: "KB exercise for hip power"
+  category: jargon
+  expected_exercises: [kettlebell-swing]
+  expected_coverage: full
+  reviewed: false
+
+# ---- Hard constraints (what the client owns) ----
+- id: constraint-no-equipment
+  question: "Exercises that need no equipment"
+  category: constraint
+  expected_exercises: [push-up, dead-bug, glute-bridge, broad-jump, lateral-bound]
+  forbidden_exercises: [inverted-row, pallof-press, goblet-squat, farmer-carry]
+  expected_coverage: full
+  reviewed: false
+
+- id: constraint-dumbbells-only
+  question: "I only have a pair of dumbbells. Good lower-body exercises?"
+  category: constraint
+  expected_exercises: [goblet-squat, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, single-leg-romanian-deadlift]
+  forbidden_exercises: [dumbbell-step-up, dumbbell-hip-thrust, bulgarian-split-squat]  # need a box or bench
+  expected_coverage: full
+  reviewed: false
+
+# ---- Dose and guidelines (Physical Activity Guidelines) ----
+- id: dose-adult-aerobic
+  question: "How much aerobic activity should adults get each week?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [8, 56, 57]}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-adult-strength-days
+  question: "How many days a week should adults do muscle-strengthening activities?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [8, 56, 60, 61]}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-intensity
+  question: "What's the difference between moderate and vigorous intensity?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [57, 58, 59]}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-kids
+  question: "How much physical activity do children and adolescents need?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [8, 47, 48]}]
+  forbidden_passages: [{source: pag2, chapter: "Chapter 5"}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-older-balance
+  question: "What should older adults do besides aerobic and strength training?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [9, 67, 68, 73]}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-pregnancy
+  question: "How much physical activity is recommended during pregnancy?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [9, 79, 80, 81]}]
+  expected_coverage: full
+  reviewed: false
+
+- id: dose-safety
+  question: "How can someone stay safe when starting a new exercise program?"
+  category: dose
+  expected_passages: [{source: pag2, pages: [10, 88]}]
+  expected_coverage: full
+  reviewed: false
+
+# ---- Population: the right group's numbers ----
+- id: pop-beginner-adult
+  question: "How much strength training should a beginner adult do each week, and which exercises could they start with?"
+  category: population
+  expected_exercises: [goblet-squat, push-up, one-arm-dumbbell-row, dumbbell-romanian-deadlift, dumbbell-overhead-press]
+  expected_passages: [{source: pag2, pages: [8, 56, 60, 61]}]
+  forbidden_passages: [{source: notes-nsca-older-adults}, {source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 5"}]
+  expected_coverage: full
+  reviewed: false
+
+# ---- NSCA notes ----
+- id: notes-older-load
+  question: "How heavy should older adults lift to build strength?"
+  category: notes
+  expected_passages: [{source: notes-nsca-older-adults, heading: "Programming guidelines"}]
+  expected_coverage: full
+  reviewed: false
+
+- id: notes-youth-start
+  question: "At what age can kids safely start resistance training?"
+  category: notes
+  expected_passages: [{source: notes-nsca-youth-ltad}]
+  forbidden_passages: [{source: notes-nsca-older-adults}]
+  expected_coverage: full
+  reviewed: false
+
+- id: notes-weightlifting-progression
+  question: "How should an athlete progress from pulling derivatives to the full Olympic lifts?"
+  category: notes
+  expected_passages: [{source: notes-nsca-weightlifting, heading: "Exercise examples and progressions"}, {source: notes-nsca-weightlifting, heading: "Programming guidelines"}]
+  expected_coverage: full
+  reviewed: false
+
+# ---- Known gaps: an honest system says so ----
+- id: gap-plyo-program
+  question: "How should I program plyometrics for a high school soccer player?"
+  category: coverage-gap
+  expected_exercises: [box-jump, broad-jump, lateral-bound]
+  expected_passages: [{source: notes-nsca-youth-ltad}]
+  expected_coverage: partial  # no plyometric programming source yet
+  reviewed: false
+
+- id: gap-sprint
+  question: "What's the best way to train sprint acceleration?"
+  category: coverage-gap
+  expected_exercises: [broad-jump]
+  expected_coverage: partial
+  reviewed: false
+
+- id: gap-protein
+  question: "How much protein should athletes eat per day?"
+  category: coverage-gap
+  expected_coverage: none  # no nutrition sources yet
+  reviewed: false

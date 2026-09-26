@@ -1,0 +1,93 @@
+"""Step 15: score keyword vs semantic vs hybrid retrieval on the eval set. No LLM calls.
+
+Run from the project folder:
+    uv run python evals/run_retrieval_eval.py            # summary tables
+    uv run python evals/run_retrieval_eval.py --details  # plus every question's misses
+
+Saves results to evals/results/retrieval-<timestamp>.json.
+"""
+
+import argparse
+import json
+import statistics
+from collections import defaultdict
+from dataclasses import asdict
+from datetime import datetime
+
+from ragmotion.chunking import chunker_label
+from ragmotion.config import settings
+from ragmotion.evaluation import load_eval_set, score_retrieval
+from ragmotion.ingestion import PROJECT_ROOT
+from ragmotion.retrieval import SEARCH_MODES
+
+K = 5
+METRICS = ["exercise_recall", "exercise_hit", "exercise_mrr", "passage_recall", "passage_hit", "passage_mrr", "forbidden"]
+
+
+def mean(values: list) -> float | None:
+    vals = [v for v in values if v is not None]
+    return statistics.mean(vals) if vals else None
+
+
+def fmt(v: float | None) -> str:
+    return "  -  " if v is None else f"{v:5.2f}"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--details", action="store_true")
+    args = parser.parse_args()
+
+    questions = load_eval_set()
+    reviewed = sum(q.reviewed for q in questions)
+    print(f"{len(questions)} questions ({reviewed} reviewed by the coach) | top-{K} | "
+          f"chunker {chunker_label()} | embeddings {settings.embedding_model}\n")
+
+    results = {}
+    for mode, search in SEARCH_MODES.items():
+        results[mode] = []
+        for q in questions:
+            exercises, passages = search(q.question, k_exercises=K, k_passages=K)
+            score = score_retrieval(q, exercises, passages)
+            results[mode].append({"id": q.id, "category": q.category, **asdict(score),
+                                  "retrieved_exercises": [h.slug for h in exercises],
+                                  "retrieved_passages": [p.passage_id for p in passages]})
+
+    # ---- Overall table ----
+    print(f"{'mode':<9} " + " ".join(f"{m:>15}" for m in METRICS))
+    for mode, rows in results.items():
+        print(f"{mode:<9} " + " ".join(f"{fmt(mean([r[m] for r in rows])):>15}" for m in METRICS))
+    print("\n(recall/hit/MRR: higher is better. forbidden: share of questions where a forbidden item was retrieved, lower is better.)")
+
+    # ---- By category: the main recall number for each ----
+    print(f"\nBy category (exercise recall / passage recall), top-{K}:")
+    cats = defaultdict(list)
+    for q in questions:
+        cats[q.category].append(q.id)
+    print(f"{'category':<20}{'n':>3}  " + "  ".join(f"{m:>15}" for m in results))
+    for cat, ids in cats.items():
+        cells = []
+        for mode, rows in results.items():
+            rs = [r for r in rows if r["id"] in ids]
+            cells.append(f"{fmt(mean([r['exercise_recall'] for r in rs]))} / {fmt(mean([r['passage_recall'] for r in rs]))}")
+        print(f"{cat:<20}{len(ids):>3}  " + "  ".join(f"{c:>15}" for c in cells))
+
+    if args.details:
+        print("\nPer question (semantic | keyword | hybrid): missed exercises, passage recall, forbidden found")
+        for i, q in enumerate(questions):
+            parts = []
+            for mode in results:
+                r = results[mode][i]
+                parts.append(f"miss={r['missed_exercises'] or '-'} p={fmt(r['passage_recall']).strip()} forb={r['forbidden_found'] or '-'}")
+            print(f"  {q.id:<28} " + " | ".join(parts))
+
+    out_dir = PROJECT_ROOT / "evals" / "results"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"retrieval-{datetime.now():%Y%m%d-%H%M%S}.json"
+    out.write_text(json.dumps({"k": K, "chunker": chunker_label(), "embedding_model": settings.embedding_model,
+                               "questions": len(questions), "reviewed": reviewed, "results": results}, indent=2))
+    print(f"\nSaved {out.relative_to(PROJECT_ROOT)}")
+
+
+if __name__ == "__main__":
+    main()

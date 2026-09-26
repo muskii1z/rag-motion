@@ -31,8 +31,8 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 12 | Chunking: split into passages, store in a second table with metadata | done (structure-aware, 150–450 words) |
 | 13 | Embed chunks, search exercises + documents together, answers cite both | done |
 | 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | done |
-| 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | next |
-| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | |
+| 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | done (baseline; expected answers pending coach review) |
+| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | next |
 
 Update the Status column as steps complete.
 
@@ -47,6 +47,7 @@ Update the Status column as steps complete.
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `google/gemini-2.5-flash-lite` (switched from Qwen in Step 10 for speed), set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; text extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`), then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
 - **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
+- **Evaluation**: `evals/eval_set.yaml` (29 questions; expected answers drafted, coach review pending). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode]` (LangSmith experiment, code-based checks). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules
