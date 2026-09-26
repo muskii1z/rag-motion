@@ -408,12 +408,13 @@ function card(item, kind) {
     </div>`;
   }
   const docType = item.source_type === "document" ? "doc" : "notes";
-  const where = item.page_start ? `pages ${item.page_start}–${item.page_end}` : "project notes";
+  const kindLabel = item.source_type === "notes" ? "notes" : (item.page_start ? "guidelines" : "research article");
+  const where = item.page_start ? `pages ${item.page_start}–${item.page_end}` : (item.source_type === "notes" ? "project notes" : esc(item.chapter));
   const section = item.headings?.length ? item.headings.join("; ") : item.chapter;
   const snippet = item.text.replace(/^## .*$/gm, "").trim();
   return `<div class="card ${item.cited ? "" : "unused"}" id="card-${esc(item.id)}">
     <div class="card-top"><span class="card-title">${esc(section)}</span>${cited}</div>
-    <div class="card-meta"><span class="tag ${docType}">${item.source_type}</span> ${esc(where)}</div>
+    <div class="card-meta"><span class="tag ${docType}">${kindLabel}</span> ${where}</div>
     ${sim}
     <details class="snip"><summary>${esc(snippet.slice(0, 140))}…</summary><p>${esc(snippet)}</p></details>
     <div class="card-meta">${esc(item.source_title)} · [${esc(item.id)}]</div>

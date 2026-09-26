@@ -27,6 +27,7 @@ class Source:
     attribution: str
     local_path: str
     type: str = "document"  # "document" (external source text) or "notes" (original project notes)
+    format: str = "pdf"  # how the file is read: "pdf", "markdown" (notes), or "jats-xml" (research articles)
     url: str | None = None  # documents only
     sha256: str | None = None  # documents only; notes are edited over time, so they aren't pinned
     skip_pages: list[int] | None = None  # pages that are noise for retrieval (TOC, credits, ...)

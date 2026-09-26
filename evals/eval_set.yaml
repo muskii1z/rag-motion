@@ -1,6 +1,8 @@
 # rag-motion evaluation set (Step 15)
 #
 # STATUS: expected answers DRAFTED BY CLAUDE, pending review by the coach (M. Saraswat).
+# v2 (after adding the Kons 2023 plyometrics and Haugen 2019 sprint papers): sprint is no longer a gap,
+# plyometric/explosive questions accept the new papers as evidence, and two research questions were added.
 # Scores are provisional until each question's `reviewed` is set to true.
 #
 # Fields
@@ -44,7 +46,8 @@ questions:
   question: "Explosive exercises to help me run faster"
   category: exercise-selection
   expected_exercises: [broad-jump, box-jump, lateral-bound, kettlebell-swing]
-  expected_coverage: partial  # exercises exist; sprint programming guidance doesn't
+  expected_passages: [{source: haugen2019-sprint}, {source: kons2023-plyo}]
+  expected_coverage: full  # v2: the sprint and plyometric papers now supply the principles
   reviewed: false
 
 - id: ex-biceps
@@ -139,14 +142,14 @@ questions:
 - id: dose-adult-strength-days
   question: "How many days a week should adults do muscle-strengthening activities?"
   category: dose
-  expected_passages: [{source: pag2, pages: [8, 56, 60, 61]}]
+  expected_passages: [{source: pag2, pages: [8, 56, 60, 61, 62, 63]}]  # v2: pp. 62-63 also state it
   expected_coverage: full
   reviewed: false
 
 - id: dose-intensity
   question: "What's the difference between moderate and vigorous intensity?"
   category: dose
-  expected_passages: [{source: pag2, pages: [57, 58, 59]}]
+  expected_passages: [{source: pag2, pages: [57, 58, 59, 108, 109, 110]}]  # v2: Appendix 1 defines intensity
   expected_coverage: full
   reviewed: false
 
@@ -217,15 +220,30 @@ questions:
   question: "How should I program plyometrics for a high school soccer player?"
   category: coverage-gap
   expected_exercises: [box-jump, broad-jump, lateral-bound]
-  expected_passages: [{source: notes-nsca-youth-ltad}]
-  expected_coverage: partial  # no plyometric programming source yet
+  expected_passages: [{source: notes-nsca-youth-ltad}, {source: kons2023-plyo}, {source: haugen2019-sprint, heading: "Plyometric"}]
+  expected_coverage: partial  # effects are covered; a sets/reps prescription for this athlete still isn't
   reviewed: false
 
-- id: gap-sprint
+- id: research-sprint-acceleration
   question: "What's the best way to train sprint acceleration?"
-  category: coverage-gap
+  category: research  # v2: was a coverage gap before the Haugen paper
   expected_exercises: [broad-jump]
-  expected_coverage: partial
+  expected_passages: [{source: haugen2019-sprint, heading: "Acceleration"}, {source: haugen2019-sprint, heading: "Resisted Sprinting"}, {source: haugen2019-sprint, heading: "Sprint Training"}]
+  expected_coverage: full
+  reviewed: false
+
+- id: research-plyo-effects
+  question: "Does plyometric training actually improve sprint and jump performance?"
+  category: research
+  expected_passages: [{source: kons2023-plyo}]
+  expected_coverage: full
+  reviewed: false
+
+- id: research-sprint-recovery
+  question: "How much rest should athletes take between maximal sprints?"
+  category: research
+  expected_passages: [{source: haugen2019-sprint}]
+  expected_coverage: full
   reviewed: false
 
 - id: gap-protein

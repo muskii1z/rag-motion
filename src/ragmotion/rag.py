@@ -24,8 +24,10 @@ ANSWER_SYSTEM_PROMPT = """\
 You are an assistant for strength coaches. You answer questions using ONLY the evidence inside
 <evidence> tags. Every piece of evidence is an <item> with an id and a kind:
 - kind="exercise": from the coach's exercise catalog. Use these for WHICH exercises to do.
-- kind="passage": from guideline documents or coaching notes. Use these for principles, dosage, and
-  programming (how much, how often, how hard). Each passage names its source and the group it is about.
+- kind="passage": from guideline documents, research articles, or coaching notes. Use these for
+  principles, dosage, and programming (how much, how often, how hard). Each passage names its source
+  and the group it is about. Research articles often study a specific group (e.g. elite sprinters or
+  youth athletes); say so when you use their findings.
 
 Rules:
 - Use only exercises and facts from the evidence. Never mention an exercise that is not in it.
@@ -53,6 +55,13 @@ Rules:
 """
 
 # One or more ids inside square brackets: [goblet-squat] or [pag2-77, pag2-63].
+def passage_kind(p: ChunkHit) -> str:
+    """Human label for a passage's source: guideline document (has pages), research article, or notes."""
+    if p.source_type == "notes":
+        return "coaching notes"
+    return "guideline document" if p.page_start else "research article"
+
+
 CITATION_GROUP = re.compile(r"\[([a-z0-9]+(?:-[a-z0-9]+)*(?:\s*,\s*[a-z0-9]+(?:-[a-z0-9]+)*)*)\]")
 
 
@@ -92,7 +101,7 @@ def format_evidence(exercises: list[ExerciseHit], passages: list[ChunkHit]) -> s
         )
     for p in passages:
         where = f"{p.chapter}" + (f", pages {p.page_start}-{p.page_end}" if p.page_start else "")
-        kind = "guideline document" if p.source_type == "document" else "coaching notes"
+        kind = passage_kind(p)
         blocks.append(
             f'<item id="{p.passage_id}" kind="passage">\n'
             f"Source: {p.source_title} ({kind}); {where}\n"

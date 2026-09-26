@@ -35,6 +35,7 @@ skip_pages = [2, 3, 4, 5, 11, 113, 114, 115, 116, 117, 118]
 [[source]]
 id = "notes-nsca-weightlifting"
 type = "notes"
+format = "markdown"
 title = "Notes: Weightlifting for Sports Performance"
 publisher = "rag-motion project notes"
 year = 2026
@@ -46,6 +47,7 @@ local_path = "data/notes/nsca/weightlifting-for-sports-performance.md"
 [[source]]
 id = "notes-nsca-older-adults"
 type = "notes"
+format = "markdown"
 title = "Notes: Resistance Training for Older Adults"
 publisher = "rag-motion project notes"
 year = 2026
@@ -57,6 +59,7 @@ local_path = "data/notes/nsca/resistance-training-for-older-adults.md"
 [[source]]
 id = "notes-nsca-youth-ltad"
 type = "notes"
+format = "markdown"
 title = "Notes: Youth Resistance Training and Long-Term Athletic Development"
 publisher = "rag-motion project notes"
 year = 2026
@@ -64,3 +67,39 @@ license = "Original project notes. Summarize ideas from the cited NSCA position 
 license_group = "A"
 attribution = "Project notes summarizing: Lloyd RS, et al. NSCA Position Statement on Long-Term Athletic Development. J Strength Cond Res. 2016;30(6):1491-1509; and Faigenbaum AD, et al. Youth Resistance Training: Updated Position Statement Paper From the NSCA. J Strength Cond Res. 2009;23(Suppl 5):S60-S79."
 local_path = "data/notes/nsca/youth-and-long-term-athletic-development.md"
+
+# ---- Research articles (open access, CC BY 4.0) -------------------------------------------
+# Downloaded as structured JATS XML from Europe PMC (sections, paragraphs, and tables are labeled),
+# which avoids two-column PDF extraction. License text verified inside each XML file.
+
+[[source]]
+id = "kons2023-plyo"
+type = "document"
+format = "jats-xml"
+title = "Effects of Plyometric Training on Physical Performance: An Umbrella Review (Kons et al., 2023)"
+publisher = "Sports Medicine - Open (Springer)"
+year = 2023
+url = "https://doi.org/10.1186/s40798-022-00550-8"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'This article is licensed under a Creative Commons Attribution 4.0 International License'."
+attribution = "Kons RL, Orssatto LBR, Ache-Dias J, et al. Effects of Plyometric Training on Physical Performance: An Umbrella Review. Sports Med Open. 2023;9:4. doi:10.1186/s40798-022-00550-8. CC BY 4.0. Text extracted and chunked for this project."
+local_path = "data/raw/PMC9832201.xml"
+sha256 = "94d27ae69fe844555f0827444ac609200d4ade9998871fbc5eb552efaf62368a"
+retrieved = "2026-09-25"
+
+[[source]]
+id = "haugen2019-sprint"
+type = "document"
+format = "jats-xml"
+title = "The Training and Development of Elite Sprint Performance (Haugen et al., 2019)"
+publisher = "Sports Medicine - Open (Springer)"
+year = 2019
+url = "https://doi.org/10.1186/s40798-019-0221-0"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'distributed under the terms of the Creative Commons Attribution 4.0 International License'."
+attribution = "Haugen T, Seiler S, Sandbakk Ø, Tønnessen E. The Training and Development of Elite Sprint Performance: an Integration of Scientific and Best Practice Literature. Sports Med Open. 2019;5:44. doi:10.1186/s40798-019-0221-0. CC BY 4.0. Text extracted and chunked for this project."
+local_path = "data/raw/PMC6872694.xml"
+sha256 = "35b563363fe09e6cace7f8738470f733378c9d8155392d27f0ee2a231701373f"
+retrieved = "2026-09-25"

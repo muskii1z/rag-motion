@@ -12,7 +12,7 @@ from typing import TypeVar
 from langsmith import traceable
 from langsmith.wrappers import wrap_openai
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from ragmotion.config import settings
 from ragmotion.models import ClientProfile
@@ -68,6 +68,30 @@ def get_client() -> OpenAI:
 
 
 def structured_completion(
+    system_prompt: str,
+    user_content: str,
+    response_model: type[T],
+    *,
+    max_tokens: int,
+    temperature: float = 0,
+    model: str | None = None,
+    retries: int = 1,
+) -> tuple[T, LLMUsage]:
+    """Like _structured_completion_once, but retries when the model returns malformed JSON.
+
+    Providers occasionally cut a structured reply off mid-string ("EOF while parsing"); seen in
+    Step 15's re-run on 2 of 31 questions. One retry is the standard, cheap fix.
+    """
+    for attempt in range(retries + 1):
+        try:
+            return _structured_completion_once(system_prompt, user_content, response_model,
+                                               max_tokens=max_tokens, temperature=temperature, model=model)
+        except ValidationError:
+            if attempt == retries:
+                raise
+
+
+def _structured_completion_once(
     system_prompt: str,
     user_content: str,
     response_model: type[T],

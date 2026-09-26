@@ -18,6 +18,7 @@ can compare variants. Every chunk records `chunker_label()` so variants can coex
 
 import json
 import re
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
@@ -114,6 +115,68 @@ def note_blocks(source: Source) -> Iterator[Block]:
             yield Block("\n".join(lines).strip(), False, 0, None)
 
 
+# Research articles (JATS XML): administrative sections that carry no training content.
+SKIP_ARTICLE_SECTIONS = {
+    "acknowledgements", "acknowledgments", "abbreviations", "author contributions", "authors’ contributions",
+    "authors' contributions", "funding", "availability of data and materials", "declarations", "footnotes",
+    "references", "associated data", "supplementary information", "ethics approval and consent to participate",
+    "consent for publication", "competing interests",
+}
+
+
+def _xml_text(elem: ET.Element) -> str:
+    """Paragraph text without in-text reference markers like [12] (xref to the bibliography)."""
+    parts = [elem.text or ""]
+    for child in elem:
+        if not (child.tag == "xref" and child.get("ref-type") == "bibr"):
+            parts.append(_xml_text(child))
+        parts.append(child.tail or "")
+    text = "".join(parts)
+    text = re.sub(r"\[\s*[,;–-]*\s*\]|\(\s*[,;–-]*\s*\)", "", text)  # brackets left empty by removed refs
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _table_text(wrap: ET.Element) -> str:
+    """A table as plain text: its caption, then one line per row with cells joined by ' | '."""
+    lines = []
+    caption = " ".join(filter(None, [(wrap.findtext("label") or "").strip(), _xml_text(wrap.find("caption")) if wrap.find("caption") is not None else ""]))
+    if caption:
+        lines.append(caption)
+    for row in wrap.iter("tr"):
+        cells = [_xml_text(c) for c in row if c.tag in ("td", "th")]
+        if any(cells):
+            lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
+def jats_blocks(source: Source) -> Iterator[Block]:
+    """Blocks from a JATS XML research article: top-level section titles are chapter-level,
+    nested section titles are sections; paragraphs and tables become text. No page numbers."""
+    body = ET.parse(source.path).getroot().find(".//body")
+
+    def walk(sec: ET.Element, depth: int) -> Iterator[Block]:
+        title = _xml_text(sec.find("title")) if sec.find("title") is not None else ""
+        if depth == 1 and title.lower() in SKIP_ARTICLE_SECTIONS:
+            return
+        if title:
+            yield Block(title, True, 1 if depth == 1 else 2, None)
+        for child in sec:
+            if child.tag == "p":
+                text = _xml_text(child)
+                if text:
+                    yield Block(text, False, 0, None)
+            elif child.tag == "table-wrap":
+                yield Block(_table_text(child), False, 0, None)
+            elif child.tag == "list":
+                items = [_xml_text(li) for li in child.iter("list-item")]
+                yield Block("\n".join(f"• {i}" for i in items if i), False, 0, None)
+            elif child.tag == "sec":
+                yield from walk(child, depth + 1)
+
+    for sec in body.findall("sec"):
+        yield from walk(sec, 1)
+
+
 # ---- 2. Group into sections -----------------------------------------------------------------
 
 
@@ -146,6 +209,16 @@ def _split_long(items: list[Item]) -> list[list[Item]]:
     for heading, text, page in items:
         if _words(text) <= MAX_WORDS:
             units.append((heading, text, page))
+        elif "\n" in text:  # a big table or list: split by rows, repeating the first line (caption)
+            first, *rows = text.split("\n")
+            piece: list[str] = []
+            for row in rows:
+                if piece and _words(first) + sum(_words(r) for r in piece) + _words(row) > MAX_WORDS:
+                    units.append((heading, "\n".join([first, *piece]), page))
+                    piece = []
+                piece.append(row)
+            if piece:
+                units.append((heading, "\n".join([first, *piece]), page))
         else:  # a single huge paragraph: fall back to sentence boundaries
             units.extend((heading, s, page) for s in SENTENCE_END.split(text))
     pieces: list[list[Item]] = [[]]
@@ -217,9 +290,11 @@ def pack(source_id: str, sections: list[Section]) -> list[Chunk]:
 
 
 def chunk_source(source: Source) -> list[Chunk]:
-    if source.type == "notes":
+    if source.format == "markdown":
         sections = build_sections(note_blocks(source), source.title, SKIP_NOTE_SECTIONS)
-    else:
+    elif source.format == "jats-xml":
+        sections = build_sections(jats_blocks(source), "Article", set())
+    else:  # pdf
         sections = build_sections(pdf_blocks(source), "Front matter and summary", set())
     return pack(source.id, sections)
 

@@ -29,7 +29,7 @@ def main() -> None:
         print(f"     {h.similarity:.3f}  {h.name:<30} [{mark(h.slug)}]")
     print("   Passages:")
     for p in r.passages:
-        where = f"p.{p.page_start}" if p.page_start else "notes"
+        where = f"p.{p.page_start}" if p.page_start else ("notes" if p.source_type == "notes" else "article")
         print(f"     {p.similarity:.3f}  {p.passage_id:<28} {where:<6} {(p.headings or [p.chapter])[0][:45]:<45} [{mark(p.passage_id)}]")
 
     print(f"\n2. ANSWER (evidence coverage: {r.answer.evidence_coverage}):\n")
