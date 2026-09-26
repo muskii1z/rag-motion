@@ -66,7 +66,9 @@ Structured output forces the model to reply in an exact template instead of free
 
 **In an interview:** "I generate a strict JSON schema from a Pydantic model, so the output always parses. But I learned the hard way that a valid shape can hold wrong content, so validation is only the first check, not proof of correctness."
 
-*First seen: Step 6.*
+*After Step 15 update: a shape can arrive broken.* The schema guarantees shape only for a complete reply. Twice in 31 eval answers the reply was cut off mid-string and failed validation. The code now retries once ([Retry on malformed structured output](#retry-on-malformed-structured-output)).
+
+*First seen: Step 6. Extended: after Step 15.*
 
 ### Hallucinated inference
 When a model fills a field from its own assumptions instead of the text. Examples from Step 6: "early 30s" became age 30; "played college soccer" became experience level "intermediate"; `bodyweight` was added to equipment though not listed. The output looks confident and valid. Countered with explicit prompt rules: numbers must come from the text; ranges or hedges ("maybe twice a week") become null, with the exact wording saved in `context_notes`; experience level only when stated or clearly implied. The rules fixed most cases on Qwen, but it still inferred "intermediate" afterwards.
@@ -626,7 +628,9 @@ A source manifest is a small committed file listing every document the system in
 
 **In an interview (with evidence):** "Every chunk row carries its source, license, license group, chapter, section headings, and page range. That gives me 'Chapter 4, page 56' citations for free, and the database itself refuses any chunk from a license group I've ruled out."
 
-*First seen: before Step 11. Extended: Steps 11 and 12.*
+*After Step 15 update: a `format` field.* Each source now declares how it is read: `format = "jats-xml"` for the two research papers (`kons2023-plyo`, `haugen2019-sprint`), `"markdown"` for the notes, and `"pdf"` by default. The chunker picks its reader from it. The two papers carry license group A, the license evidence quoted from inside each XML file, a full attribution (authors, title, journal, year, DOI, "CC BY 4.0. Text extracted and chunked for this project."), local path, and sha256.
+
+*First seen: before Step 11. Extended: Steps 11 and 12, after Step 15.*
 
 ### Text and data mining (TDM) reservations
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
@@ -693,7 +697,9 @@ Checking the model's citations with ordinary code instead of trusting them. `che
 
 *Step 15 update: measured at scale.* As the `citations_valid` evaluator in the answer eval, the check passed 29 of 29 answers with semantic retrieval, so the Step 13 fixes held across the whole eval set. With hybrid retrieval it passed 27 of 29 (notes-older-load and notes-youth-start); the cause was not investigated yet. A separate evaluator, `no_forbidden_citations`, covers the gap noted in Step 13: a valid citation of the wrong population.
 
-*First seen: Step 10. Extended: after Step 10, Steps 13 and 15.*
+*After Step 15 update: a typo caught.* In a sprint answer the model wrote `haugen219-sprint-17` (dropping a 0 from `haugen2019`), and the checker flagged it as not retrieved. The same typo cost one point on v1 (28/29). On the final eval v2 run: 31/31. Research papers' own markers like `[12]` are stripped at ingestion so they can't trigger false alarms ([Stripping bibliography markers](#stripping-bibliography-markers-to-protect-citation-checks)).
+
+*First seen: Step 10. Extended: after Step 10, Steps 13 and 15, after Step 15.*
 
 ### Evidence coverage and gaps
 Two fields in the answer where the model says how well the evidence answers the question: `evidence_coverage` is `"full"`, `"partial"`, or `"none"`, and `gaps` says in one sentence what is missing. They let the system admit a gap instead of padding. In Step 10 they helped but were unreliable. Qwen said "partial" for biceps and named the missing curls; Gemini 2.5 Flash-Lite said "full" twice on the same question and didn't mention them. Gemini also said "full" for "exercises that need no equipment" while two bodyweight exercises were missing. Qwen's gaps once said the evidence lacked "bounds or hops" when a Lateral Bound was right there. And the label changed between runs of the same question ("partial", then "full"; the prompt had also changed in between). So the coverage label is a useful signal, not a fact, and eval questions should be run more than once.
@@ -704,7 +710,9 @@ Two fields in the answer where the model says how well the evidence answers the 
 
 **In an interview (with evidence):** "I don't just ask the model whether the evidence covers the question. I check its answer against an expected label. On my baseline it overclaimed full coverage on 3 of 29 questions, which gives me a number to improve instead of a vague sense that it's overconfident."
 
-*First seen: Step 10. Extended: Step 15.*
+*After Step 15 update: v2.* On eval v2, `coverage_correct` was 27 of 31. Still overclaiming `full` on band pulling, biceps, and plyometrics programming; one underclaim (overhead said `partial`). The honest side also showed: the plyometrics answer for a high school soccer player said `partial` and named the gap (no sets, reps, or frequency for this athlete), and the protein question said `none` ([Negative tests](#negative-tests-unanswerable-questions)).
+
+*First seen: Step 10. Extended: Step 15, after Step 15.*
 
 ### The LLM can filter evidence, not add it
 The generation step can only work with what retrieval hands it. It can drop bad evidence, but it can't recover evidence that was never retrieved. In Step 10, for "exercises that need no equipment", the model correctly dropped Inverted Row (barbell) and Pallof Press (band). But Broad Jump and Lateral Bound, both bodyweight, were never retrieved, so the answer couldn't include them, and it still claimed "full" coverage. An answer's completeness is capped by retrieval recall (the share of the right items the search actually found). That is why Phase 1F focuses on retrieval: filters, hybrid search, reranking, and query rewriting.
@@ -896,6 +904,27 @@ Every row in `document_chunk` stores the method and settings that produced it, f
 
 *First seen: Step 12. Extended: Step 15.*
 
+### Structured XML (JATS) vs PDF for research papers
+JATS (Journal Article Tag Suite) is a standard XML format that archives such as Europe PMC (a public archive of biomedical papers) use for journal articles. XML is text with labeled tags, so a section, its title, a paragraph, a list, a table and its rows, and each in-text reference are all marked explicitly. Reading it means walking the tags, not rebuilding reading order from positioned characters as in Step 11 ([PDF text extraction and reading order](#pdf-text-extraction-and-reading-order)). The two research papers' PDFs are two-column and would have needed new cleaning rules. `jats_blocks()` in `chunking.py` reads the XML instead: top-level section titles become chapter-level, nested titles become sections, and administrative sections (acknowledgements, funding, references, competing interests, and so on) are skipped. Costs: a second reader in the code; no page numbers, so these passages are labeled "research article" and located by chapter and section; and it only works where the archive has the XML. See [0022](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md).
+
+**In an interview:** "For research papers I skipped the PDFs and used the archive's JATS XML, which labels sections, paragraphs, and tables. Two-column PDFs would have needed new layout rules; the XML needed none. Same lesson as my first document: if a structured version exists, use it."
+
+*First seen: after Step 15.*
+
+### Stripping bibliography markers to protect citation checks
+Research articles cite their own references inline, as markers like `[12]`. rag-motion's answers use square brackets for *its* citations (`[pag2-57]`), checked by code ([Citation validation](#citation-validation)). If `[12]` reached the model, it could copy it into an answer, and the checker would flag it as an invented source (or a reader might take it as a real citation). So `jats_blocks()` removes the bibliography reference tags (`xref ref-type="bibr"`) and the empty brackets they leave behind. General rule: clean the source text so nothing in it collides with your own citation format.
+
+**In an interview:** "Papers have their own citation markers like [12]. My system uses brackets for its citations and checks them, so I stripped the papers' markers at ingestion. Otherwise the model could copy one and my checker would call it an invented source."
+
+*First seen: after Step 15.*
+
+### Splitting tables by rows with repeated captions
+The chunker splits an oversized section at paragraphs, then at sentences. A table has no sentence ends, so one table became a single 1,265-word chunk. Tables are turned into text as the caption plus one line per row, cells joined by " | ". `_split_long()` now splits an oversized table or list by rows and repeats the caption line on every piece, so each piece still says which table it is. After the fix: Kons 25 chunks (median 343, max 448 words), Haugen 28 (median 365, max 508), and the Guidelines' 133 chunks unchanged (no regression). Example: Haugen's Table 1, 100 m split times by performance level, row by row.
+
+**In an interview:** "A big table came out as one 1,265-word chunk because my splitter looked for sentence ends. Now tables split by rows and every piece repeats the caption, so a retrieved piece still says what it's a table of. I re-ran the older document to check nothing else changed."
+
+*First seen: after Step 15.*
+
 ---
 
 ## Evaluation
@@ -912,7 +941,9 @@ An eval set (also called a golden set) is a fixed list of test questions, each w
 
 **In an interview:** "My eval set is 29 questions, many built from failures I'd already seen: equipment constraints, jargon, population mixing. It also includes questions my sources can't answer, where the right answer is 'not covered'. The expected answers were AI-drafted and flagged as pending my review as a coach, so I call the baseline provisional."
 
-*First seen: Step 15.*
+*After Step 15 update: v2, 31 questions.* After two research papers were added, the set became v2: sprint acceleration moved from a gap to answerable (renamed `research-sprint-acceleration`, `full`), explosive speed now expects the papers and `full`, plyometrics programming accepts the papers and stays `partial`, and two research questions were added (plyometric effects → Kons; rest between maximal sprints → Haugen). Categories: exercise-selection 10, jargon 3, constraint 2, dose 7, population 1, notes 3, coverage-gap 2, research 3. Two dose page lists were widened (62–63; 108–110). Still `reviewed: false` throughout. See [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
+
+*First seen: Step 15. Extended: after Step 15 (v2).*
 
 ### Retrieval metrics (recall, hit rate, MRR)
 Three standard ways to score a ranked list, where k is how many results you look at (5 here).
@@ -924,7 +955,9 @@ Recall asks "did we find them all?"; MRR asks "did we put a right one first?". I
 
 **In an interview:** "I track recall, hit rate, and MRR at k equals 5. Recall tells me whether all the right items came back; MRR tells me whether one of them came first. They can disagree: my hybrid search found fewer passages than semantic but ranked them higher."
 
-*First seen: Step 15.*
+*After Step 15 update: MRR is sensitive to corpus size.* Adding 53 passages from two papers dropped semantic passage MRR on the same 29 questions from 0.70 to 0.65, with recall unchanged at 1.00: the right passages were still found, but more good candidates competed for first place. On eval v2: semantic exercise recall 0.89, passage recall 0.97, passage MRR 0.78; hybrid 0.84 / 0.89 / 0.80; keyword 0.66 / 0.69 / 0.55.
+
+*First seen: Step 15. Extended: after Step 15.*
 
 ### Forbidden rate
 The share of questions where retrieval returned at least one item that must not be used: an exercise needing equipment the client lacks, or a passage written for a different population. Recall rewards finding the right things; this penalizes surfacing wrong ones. That matters because the model tends to use what it is given. In Step 15 it was 0.10 for semantic and keyword and 0.14 for hybrid, over all 29 questions, and the same constraint and population questions failed in every mode. At the answer level the matching check is `no_forbidden_citations`: did the answer actually cite a forbidden item? (2 of 5 applicable questions passed.)
@@ -958,7 +991,9 @@ In LangSmith, a **dataset** is a stored list of examples: inputs plus reference 
 
 **In an interview:** "My eval questions live in LangSmith as a versioned dataset, named by a hash of the file, so editing questions never overwrites old results. Each pipeline variant is an experiment on that dataset, and I compare semantic against hybrid side by side, down to the trace of any failed question."
 
-*First seen: Step 15.*
+*After Step 15 update: v2 datasets.* Editing the eval set created new datasets as designed: `rag-motion-eval-88b0b148` (first v2) and `rag-motion-eval-5e040651` (final v2, after widening two page lists). Experiments on the old set continued too (`answers-semantic-165701c5` on `rag-motion-eval-116f4e9c`). Experiment traces live in experiment projects, not the Tracing project ([Tracing project vs experiments](#tracing-project-vs-experiments-where-to-look-in-langsmith)).
+
+*First seen: Step 15. Extended: after Step 15.*
 
 ### Small-sample noise
 With few test questions, one question changing moves the average a lot. Hit rate over the 18 exercise questions moves by about 0.056 (1/18) if a single question flips from hit to miss. So Step 15 adopted a rule: treat differences under about 0.05 as noise. Keyword's 0.66 exercise recall against semantic's 0.89 is a real gap; semantic 0.89 against hybrid 0.84 sits right at the edge. Answers also vary from run to run, and each question ran once per experiment, so answer-level differences of one or two questions (such as 29/29 vs 27/29 valid citations) need repeat runs before they mean much.
@@ -980,6 +1015,47 @@ Two different causes of wrong results. A **search problem** is about ranking: th
 **In an interview:** "My eval separated two kinds of failure. Jargon and exercise choice changed with the search method; equipment and population questions failed in every method. Those aren't search problems, they're filtering problems, so the fix is a WHERE clause, not a better ranker."
 
 *First seen: Step 15.*
+
+### Negative tests (unanswerable questions)
+A negative test is a question the sources cannot answer, put in the eval on purpose. The correct behavior is to say "not covered" and cite nothing, instead of producing a plausible answer from the model's training memory. rag-motion's is "How much protein should athletes eat per day?": there is no nutrition source in the corpus. Both the semantic and hybrid experiments answered "The provided evidence does not contain information about the recommended daily protein intake for athletes", with coverage `none` (expected `none`) and no citations, so both passed. The developer's first reading was that it looked like a failure; it is the pass. Without negative tests, an eval only rewards answering, and a system that always answers confidently would look perfect. See [the Q&A](build-log.md#after-step-15-langsmith-questions-and-the-negative-test-qa).
+
+**In an interview:** "My eval includes questions my sources can't answer, like protein intake. The pass condition is that the system says 'not covered' and cites nothing, instead of pulling a number from the model's memory. Otherwise the eval would reward confident guessing."
+
+*First seen: after Step 15 (the question was written in Step 15).*
+
+### Three kinds of eval questions (find, admit a gap, avoid)
+Every eval question tests one (or more) of three behaviors:
+1. **Should find it.** Expected exercises or passages exist. Scored by recall and MRR (retrieval) and `used_expected_evidence` (answers).
+2. **Should admit a gap.** The expected coverage is `partial` or `none`. Scored by `coverage_correct`. Includes full [negative tests](#negative-tests-unanswerable-questions) (protein: `none`) and partial gaps.
+3. **Should avoid something.** Forbidden exercises or passages are listed (a bench exercise for someone without a bench, older-adult advice for a beginner adult). Scored by the [forbidden rate](#forbidden-rate) and `no_forbidden_citations`.
+
+What the results showed: total gaps were easy (protein `none` passed; plyometrics and sprint `partial` passed in the Step 15 baseline). Partial gaps were harder: on biceps, band pulling, and explosive speed the model said `full`. When some evidence exists, the model tends to call it complete ([Evidence coverage and gaps](#evidence-coverage-and-gaps)).
+
+**In an interview:** "I write three kinds of eval questions: ones the system should answer from specific evidence, ones where it should admit a gap, and ones where it must avoid something, like an exercise needing equipment the client doesn't have. Admitting a total gap turned out easy; admitting a partial gap is where my model struggles."
+
+*First seen: after Step 15.*
+
+### Eval maintenance when the corpus grows
+Expected answers describe the corpus as it was when they were written. After the two research papers were added, some v1 expectations went stale:
+- the plyometrics question listed only the youth notes as expected, so the new paper ranking above them counted as a miss (hybrid passage recall 0.92 → 0.83, keyword 0.75 → 0.67 on the same 29 questions);
+- `gap-sprint` expected `partial`, but the answer was now genuinely `full`, so it "failed".
+
+Semantic passage MRR also fell (0.70 → 0.65), for a real reason: 53 new passages now compete for the top ranks. The fix was a new version of the eval set (v2, 31 questions), with the reasons written in its header. Because the LangSmith dataset name includes a hash of the file ([LangSmith datasets and experiments](#langsmith-datasets-and-experiments)), v2 automatically became a new dataset, and v1 results stay attached to v1. Both are reported: the same 29 questions (to see the effect of the corpus change) and v2 (the new baseline). See [the build log](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2).
+
+**In an interview:** "When I added two research papers my scores dropped, but the system hadn't gotten worse: the eval still expected the old answers. I versioned the eval set, kept the old results attached to the old version, and reported both, so the change is visible instead of silently rebaselined."
+
+*First seen: after Step 15.*
+
+### System failures vs eval-expectation errors
+When a score drops, either the system did something wrong or the eval expected the wrong thing. The only way to tell is to read the actual answer and evidence. From the eval v2 round:
+- **System failures:** two answers crashed on cut-off JSON ([Retry on malformed structured output](#retry-on-malformed-structured-output)); one citation typo (`haugen219-sprint-17` for `haugen2019-sprint-17`); overclaiming `full` coverage (band pulling, biceps, plyometrics programming); one underclaim (overhead said `partial`).
+- **Eval errors:** `gap-sprint` still expecting `partial`; the plyometrics question expecting only the notes; two dose questions whose answers cited correct passages outside the listed pages (`pag2-66`, on pp. 62–63, also states 2 days a week; Appendix 1, pp. 108–110, defines absolute and relative intensity).
+
+The risk runs both ways. Blaming the eval can hide real failures, and loosening the eval to make numbers rise is cheating yourself. So each change was tied to what the source actually says, and all expectations stay pending the coach's review. Step 15 worried that dose page lists were too *generous*; here two were too *narrow*.
+
+**In an interview:** "Before fixing a failed eval case I read the answer. Sometimes it's the system, like truncated JSON or a typo'd citation. Sometimes it's my test, like a page list that missed another page saying the same thing. I fix the eval only when the source text backs it, and a coach still reviews the expectations."
+
+*First seen: after Step 15.*
 
 ---
 
@@ -1538,7 +1614,9 @@ Observability means being able to see what a system did and why. LangSmith is a 
 
 *Step 15 update: evals built.* The eval runs in the order planned: our own scoring code first (`evaluation.py`, and a local retrieval script with no LLM), then the full-answer eval as a LangSmith experiment. The 29 questions are uploaded as a dataset, the pipeline runs once per question, and four code-based evaluators score each answer. Two experiments so far: `answers-semantic-525eca7f` and `answers-hybrid-5feae34f`, on dataset `rag-motion-eval-116f4e9c`. See [LangSmith datasets and experiments](#langsmith-datasets-and-experiments).
 
-*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15.*
+*After Step 15 update: retention and hygiene.* Traces are kept 14 days on the free plan (a partial answer to the open free-tier question); eval results are also saved in `evals/results/`. Search-only eval traces were turned off and trace inputs trimmed to the question ([Trace hygiene](#trace-hygiene-disable-preview-friendly-inputs-metadata)).
+
+*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15, after Step 15.*
 
 ### Tracing and traces
 Tracing means recording what happens inside each request automatically. A **trace** is the record of one request, shaped like a tree. Each box in the tree is a **run** (one step), with its inputs, outputs, start and end time, and, for model calls, tokens and cost. Runs have types, which LangSmith uses to display them: **chain** (a step that calls other steps, like `answer_question`), **retriever** (returns documents, like `search_all`), **embedding**, **llm** (a model call), and **tool** (a helper like `check_citations`). In Step 14 the tree for one question was:
@@ -1582,6 +1660,31 @@ Printing every stage of a request yourself, before adopting a tracing tool. `scr
 
 *First seen: Step 10. Extended: Step 14.*
 
+### Tracing project vs experiments (where to look in LangSmith)
+LangSmith keeps runs in different places depending on where they came from. The **Tracing project** (`rag-motion`) gets every normal request, from the terminal or the web page. Eval runs made with `evaluate()` go to **experiment** projects, found under Datasets & Experiments. So the answer to an eval question lives in its experiment, not in the Tracing list. The developer found this out by opening a `search_all` trace for the protein question and finding no answer: it came from the search-only retrieval eval (Input the question, Output `documents [40 items]`, 20 passages + 20 exercises from hybrid), which never calls the LLM.
+
+How to read one answer: open an `answer_question` trace, then `search_all` (what was retrieved, with scores), `llm (OpenRouter)` (exact prompt, reply, tokens, cost), `check_citations`. How to diagnose:
+- right passage **missing** from `search_all` → retrieval problem (filters, chunking, query rewriting);
+- right passage **present but ignored or misused** → generation problem (prompt, model).
+
+Also useful: filters (Run Name, Status), sorting by latency, and the annotation pencil (for a coach's feedback, or to add a real answer to a dataset; not used yet). Traces are kept 14 days on the free plan; eval results are also saved locally in `evals/results/`. See [the Q&A](build-log.md#after-step-15-langsmith-questions-and-the-negative-test-qa).
+
+**In an interview:** "Everyday requests land in the tracing project; eval runs land in experiments tied to a dataset. To debug a bad answer I open its trace and check retrieval first: if the right passage never came back, it's a retrieval fix; if it came back and the model ignored it, it's a prompt or model fix."
+
+*First seen: after Step 15.*
+
+### Trace hygiene (disable, preview-friendly inputs, metadata)
+Traces are only useful if the ones you need are easy to find. Three habits adopted in commit `87af333`:
+- **Turn tracing off where there's nothing to debug.** The retrieval eval makes no LLM calls but was sending about 87 search-only traces per run, burying real questions. Its search loop now runs inside `tracing_context(enabled=False)`.
+- **Make the input what a person scans for.** `answer_question`'s trace input is now only the question (via `process_inputs`), so the list preview shows it.
+- **Put settings in metadata.** Metadata is extra labeled information on a run that can be filtered on without cluttering the input. `retrieval_mode`, `k_exercises`, and `k_passages` are added with `get_current_run_tree().add_metadata()`.
+
+Verified on the latest trace: inputs `{'question': 'Good single-leg exercises for a beginner?'}`, metadata `{'k_exercises': 5, 'k_passages': 5, 'retrieval_mode': 'semantic'}`. Same idea as [process_outputs](#summarizing-large-outputs-in-traces-process_outputs), applied to inputs and to whether a trace exists at all.
+
+**In an interview:** "I treat traces like logs: signal over volume. I turned tracing off for my search-only eval, made the trace input just the user's question, and moved settings like retrieval mode into metadata I can filter on."
+
+*First seen: after Step 15.*
+
 ---
 
 ## Production and reliability
@@ -1607,6 +1710,13 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 **In an interview (Step 14):** "My trace showed retrieval was 0.99 seconds, and 0.95 of that was the embedding API call. The database search was nearly free. So if retrieval needed to be faster, I'd work on the network call before I'd ever tune Postgres."
 
 *First seen: Step 9. Extended: Steps 10 and 14.*
+
+### Retry on malformed structured output
+[Structured output](#structured-output-strict-json-schema) gives a valid shape only when the reply arrives complete. In the first eval v2 run, 2 of 31 answers crashed with "1 validation error for GroundedAnswer: Invalid JSON: EOF while parsing a string": the model's JSON was cut off mid-string. The code correctly refused to use half an answer, but it didn't try again, so those questions produced no answer and weren't scored (29 of 31). Fix: `llm.structured_completion()` now wraps `_structured_completion_once()` and retries once when pydantic raises a `ValidationError`. The final v2 run scored all 31. Tradeoffs: a retry costs another call and more time on those cases; retrying only once means a persistent problem still ends in an error instead of looping; and a retry can hide a systematic cause, so the crash rate is worth watching. Whether the cut-off came from the length cap (`max_tokens`) was not recorded.
+
+**In an interview:** "Two of 31 eval answers came back as truncated JSON. My validation refused them, which is right, but it didn't retry. Now it retries once on a validation error, and all 31 score. One retry, not a loop, so a real problem still surfaces."
+
+*First seen: after Step 15.*
 
 ---
 

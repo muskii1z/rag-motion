@@ -57,3 +57,11 @@ The developer approved the policy (groups A–D, committed source manifest, git-
 - The three NSCA notes are now entries in `data/sources.toml` with `type = "notes"`, license "Original project notes. Summarize ideas from the cited NSCA position statement(s); no text copied.", `license_group = "A"` (the notes themselves are project-owned), and an attribution line naming the position statement(s) with journal citations. They have no URL or SHA-256, because they are edited over time.
 - The NSCA position statements stay in group D. Only the notes are chunked, never the statements' text.
 - Enforced twice: the `document_chunk` table has `CHECK (license_group IN ('A', 'B', 'C'))`, and `scripts/chunk_documents.py` skips any source outside A–C. Every chunk stores `license` and `license_group`, so restricted chunks can be filtered with a `WHERE` clause. See [Step 12](../build-log.md#step-12-chunking-split-sources-into-passages-and-store-them-in-a-second-table-with-metadata).
+
+## Update 2026-09-25 (after Step 15): first CC BY research papers added (group A)
+- Two open-access papers from Europe PMC are now group A sources in `data/sources.toml`: `kons2023-plyo` (Kons RL et al. 2023, *Sports Medicine – Open*, PMC9832201) and `haugen2019-sprint` (Haugen T, Seiler S, Sandbakk Ø, Tønnessen E. 2019, *Sports Medicine – Open*, PMC6872694).
+- **License verified inside each downloaded file,** not only on the web page: "licensed under a Creative Commons Attribution 4.0 International License" (Kons) and "distributed under the terms of the Creative Commons Attribution 4.0 International License" (Haugen). The quote is stored as license evidence in the manifest.
+- Attribution stored per source: authors, title, journal, year, DOI, and "CC BY 4.0. Text extracted and chunked for this project." The files stay in git-ignored `data/raw/`, with sha256 recorded.
+- The download was done only after asking the developer, with file names, source, license, and estimated size.
+- US Army ATP 7-22.02 was not added: armypubs.army.mil did not resolve on the Mac's DNS, and Claude did not route around the developer's network settings. Its license remains UNVERIFIED.
+- See the [build log](../build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2) and [0022](0022-research-papers-europe-pmc-jats-xml-not-pdfs.md).

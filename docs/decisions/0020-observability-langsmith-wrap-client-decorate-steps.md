@@ -28,3 +28,8 @@ Use LangSmith. Wrap the LLM client once in `llm.py` (`get_client()` returns `wra
 ## Revisit when
 - Before any real client data enters the system (review data handling, or self-host with something like Langfuse).
 - If free-tier limits or costs start to bite, for example during repeated eval runs in Step 15 and Phase 1F.
+
+## Note 2026-09-25 (after Step 15): trace cleanup and retention
+- The retrieval eval (no LLM calls) now runs with `tracing_context(enabled=False)`; it had sent about 87 search-only traces per run and buried real questions.
+- `answer_question`'s trace input is only the question (`process_inputs`); `retrieval_mode`, `k_exercises`, `k_passages` go into trace metadata. Commit `87af333`. See [Trace hygiene](../concepts.md#trace-hygiene-disable-preview-friendly-inputs-metadata).
+- Free-plan retention is 14 days (part of the open free-tier question). Eval results are also kept locally in `evals/results/`.

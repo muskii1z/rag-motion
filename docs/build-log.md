@@ -2398,3 +2398,184 @@ None recorded while building. The failures above are findings, not bugs in the e
 
 **Decisions.**
 - No new decision record. Updated: [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (page redesigned, `/api/info` added).
+
+## After Step 15: LangSmith questions and the negative test (Q&A)
+**Date:** 2026-09-25 · **Commit:** not committed (conversation only; the changes it led to are in the next entry)
+
+**Goal.** Learn to read LangSmith: where each question's trace lives, how to use it to tell a retrieval problem from a generation problem, and what a "negative test" is.
+
+**What we did.**
+- **Developer shared a screenshot of the LangSmith Tracing list** (65 traces, mostly `search_all`) and asked what to do with it.
+  - Why it looked that way: most rows were search-only traces from the retrieval eval (29 questions × 3 search modes, no LLM calls). They buried the few real questions. This led to the trace cleanup in the next entry.
+  - How to read one real answer: open an `answer_question` trace, then:
+    1. `search_all`: what was retrieved, with similarity scores;
+    2. `llm (OpenRouter)`: the exact prompt, the reply, tokens, and cost;
+    3. `check_citations`: what the citation checker found.
+  - How to diagnose a bad answer: if the right passage is **missing** from `search_all`, it is a retrieval problem (fix filters, chunking, or query rewriting). If it is **present but ignored or misused**, it is a generation problem (fix the prompt or the model). See [Tracing project vs experiments](concepts.md#tracing-project-vs-experiments-where-to-look-in-langsmith).
+  - Other tools pointed out: filters (Run Name, Status) and sorting by latency; **Datasets & Experiments** for eval runs; the annotation pencil, for the coach's feedback on an answer and for adding real answers to a dataset.
+  - Retention: traces are kept 14 days on the free plan. Eval results are also saved locally in `evals/results/`.
+- **Developer opened a `search_all` trace for "How much protein should athletes eat" and couldn't find an answer.**
+  - That trace came from the search-only eval. Input = the question; Output = `documents [40 items]` (the hybrid run pulls 20 passages + 20 exercises). No answer exists there, because no LLM was called.
+  - The real answers live in the **experiments**. Traces from `evaluate()` go to experiment projects, not to the Tracing project.
+  - Claude looked them up through the LangSmith API. Both the semantic and the hybrid experiments answered: "The provided evidence does not contain information about the recommended daily protein intake for athletes". Coverage `none` (expected `none`), no citations. Scores: `citations_valid` 1, `coverage_correct` 1.
+- **Developer: "So that was something I was supposed to get wrong, or it responded the right way to a question I didn't have?"**
+  - Answer: it is a **negative test**, an unanswerable question on purpose. The correct behavior is to admit the gap instead of inventing a plausible number from the model's training data. It passed. See [Negative tests](concepts.md#negative-tests-unanswerable-questions).
+  - The three kinds of eval questions: **should find it**; **should admit a gap**; **should avoid something** (forbidden items). See [Three kinds of eval questions](concepts.md#three-kinds-of-eval-questions-find-admit-a-gap-avoid).
+  - Gap results so far: protein `none` (pass); plyometrics and sprint `partial` (pass). Weaker spot: *partial* gaps (biceps, bands, explosive speed), where the model overclaimed `full`.
+- **Developer asked what's next.** Claude suggested the developer test the app themselves (with sample questions and what to look for), explained the pending trace cleanup and the documents to add, and listed the developer's pending reviews. Developer: "do the cleanup and add the docs".
+
+**Commands.** None recorded. The experiment answers were looked up through the LangSmith API; the exact call was not recorded.
+
+**What we saw.** Covered above: search-only traces filled the Tracing list; the protein question's real answers sat in the experiments and correctly admitted the gap.
+
+**Problems and fixes.** Search-only eval traces buried real questions in the Tracing list. Fixed in the [next entry](#after-step-15-trace-cleanup-two-research-papers-eval-set-v2).
+
+**Open questions.**
+- The sample test questions Claude suggested were not recorded in the brief, and the developer's own testing has not been reported yet.
+- Annotation (coach feedback, adding real answers to datasets) was explained but not used yet.
+
+**Learned.**
+- New: [Negative tests (unanswerable questions)](concepts.md#negative-tests-unanswerable-questions), [Three kinds of eval questions](concepts.md#three-kinds-of-eval-questions-find-admit-a-gap-avoid), [Tracing project vs experiments (where to look in LangSmith)](concepts.md#tracing-project-vs-experiments-where-to-look-in-langsmith)
+- Extended: [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (free-plan retention)
+
+**Decisions.** None.
+
+## After Step 15: trace cleanup, two research papers, eval set v2
+**Date:** 2026-09-25 · **Commits:** `87af333` chore: cleaner LangSmith traces; `09ea9fa` feat: add two CC BY research papers (plyometrics, sprint) via JATS XML (this docs update is committed and pushed right after)
+
+**Goal.** Make the Tracing list show real questions, add the first research papers (plyometrics and sprinting, the two gaps found in Step 15), and re-measure with the eval, updating the eval where the corpus change made its expectations out of date.
+
+### Part A: trace cleanup (`87af333`)
+- **Retrieval eval no longer traces.** `evals/run_retrieval_eval.py` wraps the search loop in LangSmith's `tracing_context(enabled=False)`. It makes no LLM calls, so there is nothing to debug there, and it had been sending about 87 search-only traces per run.
+- **`answer_question` trace input is now just the question** (via `process_inputs`), so the Tracing list preview shows the question. `retrieval_mode`, `k_exercises`, and `k_passages` are recorded as trace **metadata** (extra searchable labels on a run) via `get_current_run_tree().add_metadata()`.
+- **Verified:** latest trace inputs `{'question': 'Good single-leg exercises for a beginner?'}`, metadata `{'k_exercises': 5, 'k_passages': 5, 'retrieval_mode': 'semantic'}`.
+- An indentation slip in the first edit was tidied before committing.
+- See [Trace hygiene](concepts.md#trace-hygiene-disable-preview-friendly-inputs-metadata).
+
+### Part B: two research papers (`09ea9fa`)
+**Finding and checking the sources.**
+- Looked both up in **Europe PMC** (a public archive of biomedical papers):
+  - Kons RL et al. 2023, "Effects of Plyometric Training on Physical Performance: An Umbrella Review", *Sports Medicine – Open*, PMC9832201, open access, CC BY.
+  - Haugen T, Seiler S, Sandbakk Ø, Tønnessen E. 2019, "The Training and Development of Elite Sprint Performance: an Integration of Scientific and Best Practice Literature", *Sports Medicine – Open*, PMC6872694, open access, CC BY.
+- **Decision: use Europe PMC's JATS XML, not the PDFs.** JATS is a standard XML format for journal articles that labels sections, paragraphs, lists, and tables. The PDFs are two-column and would need new cleaning rules. Same lesson as Step 11: prefer a structured source when one exists. See [0022](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md) and [Structured XML (JATS) vs PDF](concepts.md#structured-xml-jats-vs-pdf-for-research-papers).
+- **Army ATP 7-22.02 not added.** The Mac's own DNS resolver (the service that turns a site name into an address) could not resolve armypubs.army.mil, though a public resolver could. Claude chose not to route around the developer's network DNS without asking. Suggestion: the developer downloads the manual in their browser into `data/raw/`, if it loads for them.
+- **Download permission** was asked with file names, source, license, and estimated size. The developer approved.
+- **Downloaded:** `PMC9832201.xml` 200,168 bytes (sha256 `94d27ae6...`) and `PMC6872694.xml` 257,683 bytes (sha256 `35b56336...`).
+- **License verified inside each file,** not just on the web page: "licensed under a Creative Commons Attribution 4.0 International License" (Kons) and "distributed under the terms of the Creative Commons Attribution 4.0 International License" (Haugen).
+- **Structure:** Kons 16 top-level sections, about 10,400 words, 3 tables, 6 figures, 72 references. Haugen 19 sections, about 14,000 words, 6 tables, 172 references.
+
+**Manifest (`data/sources.toml`).**
+- Two new sources, `kons2023-plyo` and `haugen2019-sprint`: `type = "document"`, new field `format = "jats-xml"`, license group A, license evidence, attribution (authors, title, journal, year, DOI, "CC BY 4.0. Text extracted and chunked for this project."), local path, sha256.
+- The notes now declare `format = "markdown"`. The `Source` model gained `format` (default `"pdf"`).
+
+**Chunking (`src/ragmotion/chunking.py`).**
+- `jats_blocks()` reads the XML:
+  - top-level section titles become chapter-level headings; nested titles become sections;
+  - paragraphs, lists (as bullets), and tables become text. A table becomes its caption plus one line per row, cells joined by " | ";
+  - administrative sections are skipped: acknowledgements, abbreviations, contributions, funding, data availability, declarations, footnotes, references, ethics, consent, competing interests, supplementary information;
+  - in-text bibliography markers like `[12]` (`xref ref-type="bibr"`) and leftover empty brackets are stripped. Reason: the model could copy "[12]" and the citation checker would flag it as an invented source. See [Stripping bibliography markers](concepts.md#stripping-bibliography-markers-to-protect-citation-checks).
+- `chunk_source()` now picks the reader by `format`.
+- **Oversized table found:** one chunk was 1,265 words, a big table where the sentence splitter had nothing to split on. `_split_long()` now splits oversized tables and lists by rows, repeating the caption line on each piece. See [Splitting tables by rows](concepts.md#splitting-tables-by-rows-with-repeated-captions).
+  - After: Kons 25 chunks (median 343, max 448 words); Haugen 28 chunks (median 365, max 508).
+  - The Guidelines' 133 chunks were unchanged (no regression).
+  - Example table chunk: Haugen Table 1, 100 m split times by performance level, row by row.
+
+**Labels and prompt.**
+- Document passages without page numbers are labeled "research article": `rag.passage_kind()` for the prompt; `ask.py` shows "article"; the web page tag shows guidelines / research article / notes and uses the chapter as the location.
+- Prompt updated: passages come from guideline documents, research articles, or coaching notes. Research articles often study specific groups (for example elite sprinters, youth); say so when using them.
+
+**Chunked and embedded:** 200 chunks in total (document 186 chunks / 54,031 words; notes 14 / 3,250 words), all embedded.
+
+### Spot tests
+- **"How should I program plyometrics for a high school soccer player?"** Now cites Kons (moderate-to-large effects in team sports; vertical jump in female soccer players), Haugen (bounding, jumping, skipping for horizontal power), the youth notes, and the three jump exercises. Coverage `partial`, with an honest gap: no sets, reps, or frequency for this athlete. $0.00059.
+- **"What's the best way to train sprint acceleration?"** Specific, cited programming from Haugen: 10–50 m sprints from block, crouched, or three-point starts; full recovery; about 20 m with 2-minute recovery for young or untrained athletes vs 40 m from blocks with 7-minute recovery for elite; resisted, uphill, and sled sprints; light vs heavy loads still debated. The citation checker flagged `haugen219-sprint-17` (a typo that dropped a 0) as not retrieved, and one sentence lacked a citation. $0.00062.
+
+### Eval results, same 29 questions (v1)
+Retrieval (k=5):
+
+| Mode | Metric | Before (Step 15) | After papers |
+|---|---|---|---|
+| semantic | exercise recall | 0.89 | 0.89 |
+| semantic | passage recall | 1.00 | 1.00 |
+| semantic | passage MRR | 0.70 | 0.65 |
+| hybrid | passage recall | 0.92 | 0.83 |
+| keyword | passage recall | 0.75 | 0.67 |
+
+- Semantic MRR dropped because 53 new passages now compete for the top ranks.
+- The plyometrics question listed only the youth notes as expected, so the new paper outranking them counted as a miss. **The eval was out of date, not the system.** Lesson: when the corpus grows, the expected answers must be updated too. See [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows).
+
+Answers (dataset `rag-motion-eval-116f4e9c`, experiment `answers-semantic-165701c5`): citations 28/29 (the explosive-speed typo citation), coverage 26/29, expected evidence 28/28, forbidden 2/5. `gap-sprint` "failed" coverage because the answer is now genuinely `full` while the eval still expected `partial`.
+
+### Eval set v2 (31 questions)
+- `ex-explosive-speed`: expects the sprint and plyometric papers as passages, and `full` coverage.
+- `gap-plyo-program`: accepts the youth notes, Kons, and Haugen's "Plyometric" section; still `partial`.
+- `gap-sprint` renamed `research-sprint-acceleration`: category `research`, `full`, expecting Haugen's Acceleration / Resisted Sprinting / Sprint Training sections.
+- Two new research questions: `research-plyo-effects` ("Does plyometric training actually improve sprint and jump performance?" → Kons) and `research-sprint-recovery` ("How much rest should athletes take between maximal sprints?" → Haugen).
+
+Retrieval v2 (saved as `evals/results/retrieval-20260925-203046.json`; the v1 re-run is `retrieval-20260925-202932.json`):
+
+| Mode | Exercise recall | Passage recall | Passage MRR |
+|---|---|---|---|
+| semantic | 0.89 | 0.97 | 0.78 |
+| hybrid | 0.84 | 0.89 | 0.80 |
+| keyword | 0.66 | 0.69 | 0.55 |
+
+Research category passage recall: 1.00 for semantic.
+
+**First v2 answer run** (dataset `rag-motion-eval-88b0b148`, experiment `answers-semantic-5f70f0cd`): 28/29 citations, and only 29 of 31 scored.
+- Two runs had crashed: "1 validation error for GroundedAnswer: Invalid JSON: EOF while parsing a string". The model's structured reply was cut off; our code correctly refused it but didn't retry.
+- Two dose questions "failed" `used_expected_evidence` though their answers were correct. They cited `pag2-66` (pp. 62–63 also state 2 days a week) and Appendix 1 (pp. 108–110 define absolute and relative intensity). The expected page lists were too narrow. This is the coach-review caveat from Step 15, in the other direction. See [System failures vs eval-expectation errors](concepts.md#system-failures-vs-eval-expectation-errors).
+
+**Fixes.**
+- `llm.structured_completion()` now retries once on a pydantic `ValidationError` (malformed JSON), wrapping `_structured_completion_once()`. See [Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output).
+- Widened those two page lists (62–63; 108–110).
+
+**Final v2 answer run** (dataset `rag-motion-eval-5e040651`, experiment `answers-semantic-a9b4cded`):
+
+| Check | Step 15 baseline (v1) | v2 final |
+|---|---|---|
+| citations_valid | 29/29 | 31/31 |
+| used_expected_evidence | 28/28 | 30/30 |
+| coverage_correct | 25/29 | 27/31 |
+| no_forbidden_citations | 2/5 | 2/5 |
+
+Remaining failures:
+- Overclaiming `full` coverage: `ex-band-pull`, `ex-biceps`, `gap-plyo-program`.
+- One underclaim: `ex-overhead` said `partial`.
+- Unchanged constraint and population failures (`dumbbells-only`, `no-equipment`, `beginner-adult`), which only Phase 1F filters can fix.
+
+**Commands.** Scripts used, in the form documented in each script; the exact flags and order were not recorded.
+```bash
+uv run python scripts/chunk_documents.py           # chunk the sources (200 chunks after the papers)
+uv run python scripts/embed_chunks.py              # embed the new chunks
+uv run python scripts/ask.py "<question>"          # a way to run the two spot tests; whether they ran here or in the web page was not recorded
+uv run python evals/run_retrieval_eval.py          # v1 re-run (29 q) and v2 (31 q), 3 modes, no LLM
+uv run python evals/run_answer_eval.py             # semantic answer experiments (v1, first v2, final v2)
+```
+Not recorded as commands: the Europe PMC lookups and downloads, the in-file license check, the structure counts, and the trace verification.
+
+**Problems and fixes.**
+- Search-only traces buried real questions → retrieval eval runs with tracing disabled.
+- Indentation slip in the first trace-cleanup edit → tidied before committing.
+- armypubs.army.mil did not resolve on the Mac's DNS → not worked around; left for the developer to download by browser.
+- 1,265-word table chunk → split tables and lists by rows, caption repeated.
+- Bibliography markers like `[12]` would look like invented citations → stripped at ingestion.
+- Out-of-date eval expectations (plyometrics, sprint, two dose page lists) → eval set v2 and widened pages.
+- Two answer runs crashed on cut-off JSON → one retry on `ValidationError`.
+- Model typo'd a citation id (`haugen219-sprint-17`) → caught by the citation checker; not fixed (it is model behavior, and the checker did its job).
+
+**Open questions.**
+- Army ATP 7-22.02: still not added. Its public-release license is still marked UNVERIFIED in [0017](decisions/0017-knowledge-source-licensing-policy.md).
+- Coach review of all expected answers, now including the v2 changes and the widened page lists.
+- Each question still ran once per experiment; run-to-run variance not measured.
+- The retry is only for malformed JSON. Was the cut-off caused by the `max_tokens` cap? Not recorded.
+- Hybrid now has the best passage MRR (0.80 vs 0.78) but lower recall; the answer eval for hybrid on v2 was not run.
+- Research papers are about specific groups (elite sprinters, team sports). Only the prompt asks the model to say so; there is no population tag on these chunks yet.
+
+**Learned.**
+- New: [Trace hygiene](concepts.md#trace-hygiene-disable-preview-friendly-inputs-metadata), [Structured XML (JATS) vs PDF for research papers](concepts.md#structured-xml-jats-vs-pdf-for-research-papers), [Stripping bibliography markers to protect citation checks](concepts.md#stripping-bibliography-markers-to-protect-citation-checks), [Splitting tables by rows with repeated captions](concepts.md#splitting-tables-by-rows-with-repeated-captions), [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows), [System failures vs eval-expectation errors](concepts.md#system-failures-vs-eval-expectation-errors), [Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output)
+- Extended: [Eval set](concepts.md#eval-set-test-questions-with-expected-answers) (v2), [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr) (MRR drops as the corpus grows), [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments) (v2 datasets), [Evidence coverage and gaps](concepts.md#evidence-coverage-and-gaps) (v2 numbers), [Citation validation](concepts.md#citation-validation) (typo caught), [Structured output](concepts.md#structured-output-strict-json-schema) (cut-off replies), [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks) (`format` field)
+
+**Decisions.**
+- New: [0022. Research papers via Europe PMC JATS XML, not PDFs](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md)
+- Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (eval v2, results, retry), [0017](decisions/0017-knowledge-source-licensing-policy.md) (two CC BY papers, group A, license verified in the files), [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md) (trace cleanup, retention), [0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md) (research papers bypass PDF extraction)

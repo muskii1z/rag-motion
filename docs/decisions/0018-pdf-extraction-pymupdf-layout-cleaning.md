@@ -44,3 +44,6 @@ Use **PyMuPDF** (1.28.2), and clean each page by layout in `clean_page()` (`src/
 - The first per-source setting moved into the manifest: `skip_pages` for `pag2` (inside cover, table of contents, credits, infographic, and the Appendix 2 agency directory). This is the "per-source settings in the manifest" direction named above.
 - Reading-order consequence seen: on page 108, some Appendix 1 subsection headings come before the "Appendix 1." heading, so a few subsections may be filed under the previous chapter (Glossary). Not fixed.
 - Figures: chart data is drawn as graphics and doesn't extract; only captions survive (the smallest chunk, 83 words, is a figure caption plus its source line).
+
+## Note 2026-09-25 (after Step 15): research papers bypass PDF extraction
+The first two research papers were ingested from Europe PMC's JATS XML instead of their two-column PDFs ([0022](0022-research-papers-europe-pmc-jats-xml-not-pdfs.md)), so these thresholds have still only been tested on the Physical Activity Guidelines. The Guidelines' 133 chunks were unchanged by the new code.
