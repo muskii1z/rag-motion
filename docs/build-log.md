@@ -3345,3 +3345,143 @@ Correctly **not** filtered: "Beginner glute exercises using dumbbells", "Upper-b
 **Decisions.**
 - New: [0026. Equipment pre-filter from LLM-read limits](decisions/0026-equipment-prefilter-from-llm-read-limits.md).
 - Updated: [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F3 + F4 done, first before/after numbers).
+
+## Phase 1F, F5: Population tags on passages and a population filter
+**Date:** 2026-09-28 · **Commit:** `a24eb34` feat: population filter on passages (F5). (The F3 + F4 docs were committed separately first, in `a5533de`.)
+
+**Goal.** Stop answers from using another group's numbers (for example older-adult or kids' material for a beginner adult) by tagging each passage with who it is about and filtering passages by the question's population. Measure the change on the same 40-question eval.
+
+**What we did.**
+- **A new column on passages.** Appended a migration (a change to an existing table) to `db/schema.sql`: `document_chunk.populations text[] NOT NULL DEFAULT '{}'`. `text[]` is a list of text values, so one passage can be about more than one group. A CHECK constraint (a rule the database enforces) allows only `adults`, `older-adults`, `youth`, `pregnancy`: `CHECK (populations <@ ARRAY['adults','older-adults','youth','pregnancy'])`. **Empty means general**: it applies to everyone and is never filtered out. Applied with `psql < db/schema.sql`. See [Migration: adding a column](concepts.md#migration-adding-a-column-alter-table) (extended) and [Multi-valued tags](concepts.md#multi-valued-tags-text-arrays-any-and-cardinality).
+- **Tagging by rules from the document's own structure, not by an LLM.** New `POPULATIONS` and `populations_for(source_id, chapter, headings, text)` in `src/ragmotion/chunking.py`. The Physical Activity Guidelines (`pag2`) are organised by population, so the chapter already says who a passage is about:
+  - Chapter 3 → `youth`; Chapter 4 → `adults`; Chapter 5 → `older-adults`.
+  - Chapter 6 → `pregnancy` if the headings or the first 300 characters mention pregnancy or postpartum; otherwise `adults` + `older-adults` (chronic conditions and disabilities apply to adults of any age).
+  - "Front matter and summary" → whichever "Key Guidelines for ..." blocks the passage contains (can be several).
+  - Other chapters, the glossary, and the appendix → general.
+  - `notes-nsca-older-adults` → `older-adults`; `notes-nsca-youth-ltad` → `youth`.
+  - The weightlifting notes and both research papers → general (they are about athletes, not an age group).
+  - See [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm).
+- **Filling the tags.** `scripts/chunk_documents.py` now sets `populations` on new passages. A new script, `scripts/tag_populations.py`, back-fills existing rows without re-chunking or re-embedding (safe to re-run) and prints a summary per source and chapter.
+- **Reading the population from the question.** `QuestionLimits` (the intake form from F3) gained `population: Population | None`, where `Population` is a `Literal` of the same four values (in `src/ragmotion/models.py`, commented as mirroring the database column). The same `extract_limits` call fills it, so there is no extra LLM call. Its prompt was extended (and then tightened; see Problems).
+- **The filter.** Both passage searches (semantic `CHUNK_SEARCH_SQL` and keyword `KEYWORD_CHUNK_SQL` in `src/ragmotion/retrieval.py`) gained:
+  ```sql
+  AND (%(population)s::text IS NULL OR cardinality(populations) = 0 OR %(population)s = ANY(populations))
+  ```
+  In words: no population in the question → no filter; general passages (empty tag list) always stay; otherwise keep a passage only if the question's group is in its list. See [Keep-general filter](concepts.md#keep-general-filter-untagged-means-everyone).
+  - `search_all`, `keyword_search_all`, and `hybrid_search_all` gained a `population` parameter. `answer_question` passes `limits.population`. The retrieval eval's `semantic+filter` row now uses both filters.
+  - **Exercises are not population-filtered.** Whether an exercise suits an age group is a level or coaching question, and that isn't built.
+- **Tests: 37 pass** (up from 35).
+  - New unit test (`test_population_tags_come_from_where_a_passage_sits`) for the `populations_for` rules.
+  - New integration test (`test_population_filter_skips_other_groups_but_keeps_general_passages`): it reuses a stored older-adult passage vector as the query (no API call) and checks that an `adults` search returns exactly the adult and general passages.
+  - The F4 unit test was fixed to pass `population=None`, because the new field is required but may be null.
+
+**Commands.**
+```bash
+docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 -q < db/schema.sql
+# Applied the migration: new populations column and its CHECK constraint.
+
+uv run python scripts/tag_populations.py
+# "Tagged 200 passages", with a per-source/chapter summary (below).
+
+# extract_limits run on all 40 eval questions and read by eye, twice
+# (before and after tightening the prompt; exact command not recorded).
+
+uv run pytest -q
+# 37 passed.
+
+uv run python evals/run_retrieval_eval.py
+# Retrieval eval, 4 rows; semantic+filter now uses equipment and population filters.
+
+uv run python evals/run_answer_eval.py
+# Answer eval, semantic retrieval with both filters on
+# (experiment prefix answers-semantic-filtered-; full experiment id not recorded).
+
+# One manual re-run of pop-youth-start (exact command not recorded).
+```
+
+**What we saw.**
+
+*1. The tags (200 passages).*
+
+| Source | Tags |
+|---|---|
+| `haugen2019-sprint`, `kons2023-plyo`, `notes-nsca-weightlifting` | all general (28, 25, 4) |
+| `notes-nsca-older-adults` | 5 `older-adults` |
+| `notes-nsca-youth-ltad` | 5 `youth` |
+| `pag2` Front matter and summary | 5 general, 1 `youth`, 2 `adults`, 1 `older-adults` + `pregnancy` |
+| `pag2` Chapter 1 / Chapter 2 | 14 / 23 general |
+| `pag2` Chapter 3 | 11 `youth` |
+| `pag2` Chapter 4 | 14 `adults` |
+| `pag2` Chapter 5 | 16 `older-adults` |
+| `pag2` Chapter 6 | 5 `pregnancy`, 8 `adults` + `older-adults` |
+| `pag2` Chapter 7 / Chapter 8 / Glossary / Appendix | 8 / 15 / 4 / 6 general |
+
+So 132 of 200 passages are general and 68 are tagged. (Per-source counts for the three all-general sources were checked with a read-only database query while writing these docs.)
+
+*2. Reading the population from the question.* The first read was wrong on 4 questions (see Problems). After the prompt fix, the second read was correct on all 40:
+- `adults`: `dose-adult-aerobic`, `dose-adult-strength-days`, `pop-beginner-adult`.
+- `youth`: `dose-kids`, `notes-youth-start`, `gap-plyo-program` ("high school soccer player"), `pop-youth-start` ("10-year-old").
+- `older-adults`: `dose-older-balance`, `notes-older-load`, `pop-older-adult-new` ("70-year-old").
+- `pregnancy`: `dose-pregnancy`, `pop-pregnancy-strength`.
+- The other 28: null (no population filter).
+
+*3. Retrieval eval, top 5.* F2 baseline (semantic, no filters) → F4 (equipment filter) → F5 (equipment + population):
+
+| Metric | F2 baseline | F4 | F5 |
+|---|---|---|---|
+| Forbidden rate | 0.17 | 0.03 | **0.00** |
+| Passage MRR | 0.79 | 0.79 | **0.86** |
+| Passage recall | 0.97 | 0.97 | 0.97 |
+| Exercise recall | 0.80 | 0.83 | 0.83 |
+| Constraint-category exercise recall | 0.66 | 0.76 | 0.76 |
+
+The last forbidden item from F4 (`pop-beginner-adult` retrieving older-adult and youth passages) is gone. Passage MRR (how high the first right passage ranks) rose because wrong-group passages no longer take the top slots.
+
+*4. Answer eval.* F2 baseline → F4 → F5 (semantic, both filters):
+
+| Evaluator | F2 baseline | F4 | F5 |
+|---|---|---|---|
+| `no_forbidden_citations` | 8/13 | 12/13 | **13/13** |
+| `citations_valid` | 40/40 | 39/40 | 40/40 |
+| `used_expected_evidence` | 38/39 | 38/39 | 38/39 |
+| `coverage_correct` | 36/40 | 36/40 | **33/40** |
+
+- The F4 `citations_valid` miss was noise, as the F4 re-runs suggested; it passed here.
+- **AI judge (coach's labeling rules):** `label-level` 1/1, `label-secondary` 1/1 (its first real case, not just "not applicable"), `label-bodyweight` 1/1, `group-by-muscle` 0/1 (`pop-beginner-adult`; top 5 can't list everything, so this waits for a larger k in F7).
+- **Coverage fell from 36 to 33.** The 7 misses:
+  - Claimed `partial` where the key says `full`: `constraint-bands-only`, `constraint-one-kettlebell`, `constraint-pullup-bar-only`, `pop-youth-start`.
+  - `ex-overhead` claimed `partial` (it underclaimed the same way in earlier runs).
+  - Claimed `full` where the key is not `full`: `ex-band-pull`, and `pop-pregnancy-strength` (key `partial`).
+  - Likely cause: with filters, the model sees only the few usable options and says "partial" more often; plus run-to-run noise. Several of these keys are debatable (the coach was already asked about bands-only, no answer yet). See [Coverage label drift](concepts.md#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression).
+- **`pop-youth-start` failed `used_expected_evidence`** in the eval run (it did not cite the youth notes). A manual re-run: population read as `youth`, youth notes retrieved (`notes-nsca-youth-ltad-2`) and cited, coverage `full`. So the failure was answer-model noise, not retrieval. See [Run-to-run noise](concepts.md#run-to-run-noise) (extended).
+
+**Problems and fixes.**
+- **The model assumed "adults" by default.** On the first read, `notes-weightlifting-progression`, `research-sprint-recovery`, and `gap-protein` ("athletes") and `constraint-full-gym-intermediate` ("an intermediate lifter in a full gym") were all tagged `adults`, although the prompt already said athletes → null. Fix: tighter prompt wording that says what is *not* a group: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Re-checked all 40 by eye: all correct. If left in, these would have silently filtered out youth, older-adult, and pregnancy passages for questions that never mentioned an age group. See [Saying what not to infer](concepts.md#saying-what-not-to-infer-default-assumptions-in-extraction-prompts).
+- **A Python f-string ate the SQL's braces.** The first filter wrote "no tags" as `populations = '{}'`. Inside the keyword SQL, which is built as a Python f-string (a string with `{...}` placeholders filled in by Python), `{}` was read as a placeholder, giving a `SyntaxError`. Fix: `cardinality(populations) = 0` (cardinality = number of items in the list), which has no braces.
+- **An old test broke when the form gained a field.** `QuestionLimits.population` is required but nullable, so the F4 unit test failed to build the form. Fix: pass `population=None`.
+
+**Open questions.**
+- Coverage keys: are `partial` claims honest for the bands-only, one-kettlebell, and pull-up-bar-only full-body questions? The coach was already asked about bands-only; no answer yet. The same applies to `pop-youth-start` (key `full`) and `pop-pregnancy-strength` (key `partial`).
+- Each question still ran once per experiment; run-to-run variation over the full set is not measured.
+- The level filter is still not built. Beginner questions pass only because the retrieved exercises happen to be acceptable.
+- Research papers are tagged general even if a study was run on a specific group. A new source needs its own tagging rule.
+- Carried over: the coach's full spot-check of the AI judge (F2), the original 20 exercises' review (F1), and the goblet squat equipment question (F3 + F4).
+
+**Developer questions (answered in chat after this step).**
+- **"Are filters something normal in evals? Are these just prompt adjustments for the agent (that's what they feel like)? How does LLM-as-judge fit into this workflow?"**
+  - Filters are not part of the eval and not prompt tweaks. They are code in the search step (SQL `WHERE` clauses) that remove items before the AI sees them. This is standard practice, called metadata filtering or pre-filtering.
+  - The only AI part is reading the question into the intake form.
+  - Prompt rules were tried first (the evidence already listed equipment, and the model was expected to respect limits) and failed 5 of 13.
+  - The eval is the measuring tape; the filters are the fix; the AI judge is one of the measuring tools (for the labeling rules), alongside the code checks.
+  - The workflow: the eval measures → find a weakness → build a fix → the same eval measures again.
+  - See [Pre-filtering vs prompt rules vs post-filtering](concepts.md#pre-filtering-vs-prompt-rules-vs-post-filtering) (extended), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge) (extended), [Data, then test, then fix](concepts.md#data-then-test-then-fix) (extended).
+
+**Learned.**
+- New: [Tagging passages from document structure (rules, not an LLM)](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm), [Multi-valued tags (text arrays, ANY, and cardinality)](concepts.md#multi-valued-tags-text-arrays-any-and-cardinality), [Keep-general filter (untagged means everyone)](concepts.md#keep-general-filter-untagged-means-everyone), [Saying what not to infer (default assumptions in extraction prompts)](concepts.md#saying-what-not-to-infer-default-assumptions-in-extraction-prompts), [Coverage label drift (a metric drop that may not be a regression)](concepts.md#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression)
+- Extended: [Metadata filtering](concepts.md#metadata-filtering), [Population mixing](concepts.md#population-mixing-context-bleed-across-populations) (fixed and measured), [Query understanding](concepts.md#query-understanding-reading-limits-from-the-question), [Pre-filtering vs prompt rules vs post-filtering](concepts.md#pre-filtering-vs-prompt-rules-vs-post-filtering), [One change at a time (ablation)](concepts.md#one-change-at-a-time-ablation), [Run-to-run noise](concepts.md#run-to-run-noise), [Evidence coverage and gaps](concepts.md#evidence-coverage-and-gaps), [Over-filtering trap question](concepts.md#over-filtering-trap-question), [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge), [Data, then test, then fix](concepts.md#data-then-test-then-fix), [Migration: adding a column](concepts.md#migration-adding-a-column-alter-table), [Controlled vocabulary](concepts.md#controlled-vocabulary), [Idempotent script](concepts.md#idempotent-script), [Integration tests that skip gracefully](concepts.md#integration-tests-that-skip-gracefully)
+
+**Decisions.**
+- New: [0027. Population tags on passages from document-structure rules, with a keep-general filter](decisions/0027-population-tags-from-structure-keep-general-filter.md).
+- Updated: [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md) (planned population tags now built), [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F5 done), [0026](decisions/0026-equipment-prefilter-from-llm-read-limits.md) (`QuestionLimits` extended, not a second call).
+
+**Next.** F6: write up the full before/after comparison, update the README, and record the coach's coverage-key decisions.

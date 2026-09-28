@@ -167,7 +167,16 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 *Phase 1F F3 + F4 update: the structural fix, measured.* In the F2 baseline, the evidence already listed each exercise's equipment and the model was asked to respect the person's limits, yet 5 of 13 limit questions cited a forbidden item. With the equipment filter in SQL, 12 of 13 passed; the one left is a population problem that the equipment filter doesn't touch. See [Pre-filtering vs prompt rules vs post-filtering](#pre-filtering-vs-prompt-rules-vs-post-filtering).
 
-*First seen: Step 13. Extended: Phase 1F F3 + F4.*
+*Phase 1F F5 update: the population rule, replaced by a filter.* The Step 13 population rule stayed in place, but the durable fix was a population filter on passages. With it, answers citing wrong-group material went from 1 of 13 (after F4) to 0 of 13. A second lesson from the same step: prompts still matter for small *extraction* jobs, as long as the result is checked. The limit-reading prompt first defaulted "athletes" to adults; rewording it fixed all 40 ([Saying what not to infer](#saying-what-not-to-infer-default-assumptions-in-extraction-prompts)).
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4, F5.*
+
+### Saying what not to infer (default assumptions in extraction prompts)
+When a model fills in a form, it tends to fill gaps with a likely default. In F5, the limit reader tagged questions about "athletes" and "an intermediate lifter" as `adults`, even though the prompt said athletes → null. The fix was to spell out what does *not* count, with examples: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Then all 40 were right. This worked where the Step 13 answer rule didn't because it's a small, narrow job with one field, and the result was checked on every eval question.
+
+**In an interview:** "My question reader kept assuming 'athlete' meant adult, which would have quietly filtered out passages. Telling it what not to infer, with example words, fixed all four misses. I trust that because I re-checked all 40 questions, not because the prompt sounds firm."
+
+*First seen: Phase 1F, F5.*
 
 ---
 
@@ -296,7 +305,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview (with evidence):** "I read the person's equipment from the question, then filter in SQL with 'everything this exercise needs is in what they own'. On my 40-question eval, the share of questions with a forbidden result fell from 17% to 3%, and nothing that should stay got removed."
 
-*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, 13, and 15, Phase 1F F3 + F4.*
+*Phase 1F F5 update: the document filter, built.* Each passage now carries a `populations` list (adults, older-adults, youth, pregnancy; empty = general), tagged by rules from the document's chapters ([Tagging passages from document structure](#tagging-passages-from-document-structure-rules-not-an-llm)). Both passage searches keep a passage only if the question names no group, the passage is general, or the question's group is in its list ([Keep-general filter](#keep-general-filter-untagged-means-everyone)). With the equipment filter also on, on the same 40 questions: forbidden rate 0.03 → 0.00, passage MRR 0.79 → 0.86, answers without forbidden citations 12/13 → 13/13. Exercises are filtered by equipment only; passages by population only.
+
+**In an interview (with evidence):** "I have two metadata filters now: equipment on the exercise catalog and population on the document passages. Together they took the share of eval questions with a forbidden result from 17% to zero, and every answer that should avoid something now does."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, 13, and 15, Phase 1F F3 + F4, F5.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -734,7 +747,9 @@ Two fields in the answer where the model says how well the evidence answers the 
 
 *After Step 15 update: v2.* On eval v2, `coverage_correct` was 27 of 31. Still overclaiming `full` on band pulling, biceps, and plyometrics programming; one underclaim (overhead said `partial`). The honest side also showed: the plyometrics answer for a high school soccer player said `partial` and named the gap (no sets, reps, or frequency for this athlete), and the protein question said `none` ([Negative tests](#negative-tests-unanswerable-questions)).
 
-*First seen: Step 10. Extended: Step 15, after Step 15.*
+*Phase 1F F5 update: a drop that may be honesty.* With both filters on, `coverage_correct` fell from 36/40 to 33/40. Four answers said `partial` where the key says `full` (bands only, one kettlebell, pull-up bar only, a 10-year-old starting out); overhead said `partial` again; band pulling and pregnancy strength said `full` where the key isn't `full`. With filters, the model sees only the few usable options, so "partial" can be the honest label; some keys are for the coach to settle. See [Coverage label drift](#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression).
+
+*First seen: Step 10. Extended: Step 15, after Step 15, Phase 1F F5.*
 
 ### The LLM can filter evidence, not add it
 The generation step can only work with what retrieval hands it. It can drop bad evidence, but it can't recover evidence that was never retrieved. In Step 10, for "exercises that need no equipment", the model correctly dropped Inverted Row (barbell) and Pallof Press (band). But Broad Jump and Lateral Bound, both bodyweight, were never retrieved, so the answer couldn't include them, and it still claimed "full" coverage. An answer's completeness is capped by retrieval recall (the share of the right items the search actually found). That is why Phase 1F focuses on retrieval: filters, hybrid search, reranking, and query rewriting.
@@ -793,21 +808,36 @@ Training guidance is population-specific: the right dose for older adults, youth
 
 *Phase 1F F3 + F4 update: now the last forbidden failure.* After the equipment filter, `pop-beginner-adult` is the only question (of 40) whose retrieval still includes a forbidden item (`pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`), and the only one of 13 whose answer still cites one. Population tags and a passage filter (F5) are next.
 
-*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4.*
+*Phase 1F F5 update: fixed and measured.* Passages now carry population tags, and the passage search filters by the group the question names. `pop-beginner-adult` no longer retrieves older-adult or youth passages; the forbidden rate is 0.00 over 40 questions, and 13 of 13 limit questions are answered without a forbidden citation. General passages (no tag) still reach every question, so shared material isn't lost.
+
+**In an interview (with evidence):** "My population-mixing bug is fixed by structure, not wording. Every passage is tagged with who it's about, from the chapter it came from, and search skips other groups' passages. Wrong-group results went to zero on my 40-question eval, and the adult guideline passage now ranks higher because older-adult passages stopped crowding it out."
+
+*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4, F5.*
 
 ### Query understanding (reading limits from the question)
 Query understanding means turning the words of a question into structured information before searching. Here it's an intake form: a small LLM call (`extract_limits`) reads the question and fills in `QuestionLimits`: is equipment limited (true only if the question says what the person has, or that they have nothing), which equipment they own (allowed names only), and the exact phrase that says so. The filter then uses the form. An LLM does this instead of keyword rules because people phrase limits in many ways ("a pair of dumbbells", "at home with no equipment"). "Limited" is read strictly: "dumbbell exercises for glutes" names equipment but doesn't say it's all the person has, so no filter.
 
 **In an interview:** "Before searching, a cheap model fills in an intake form from the question: what equipment the person says they have. It was right on all 40 eval questions, including ones that mention equipment without limiting it, and it costs about three thousandths of a cent per question."
 
-*First seen: Phase 1F, F3 + F4.*
+*Phase 1F F5 update: population added to the same form.* `QuestionLimits` gained `population` (adults, older-adults, youth, pregnancy, or null), filled by the same `extract_limits` call, so no extra cost. An age decides it ("a 70-year-old" → older-adults, "a 10-year-old" → youth; "high school soccer player" → youth). The first version wrongly read "athletes" and "an intermediate lifter" as adults on 4 questions, even though the prompt said athletes → null. After a sharper prompt, correct on all 40: 12 questions name a group, 28 don't. A misread here is a silent over-filter, so the by-eye check of all 40 matters ([Saying what not to infer](#saying-what-not-to-infer-default-assumptions-in-extraction-prompts)).
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
 
 ### Pre-filtering vs prompt rules vs post-filtering
 Three places to enforce a rule like "only what I own". **Prompt rules:** tell the model to respect it; it can still slip (in the F2 baseline, 5 of 13 limit questions cited a forbidden item). **Post-filtering:** let the model answer, then remove or reject forbidden items afterward; the answer may then be built around something that has to be cut. **Pre-filtering:** remove unusable items in the database query before similarity ranking, so the model never sees them. This project pre-filters: it is deterministic and cheap, and it frees the top-5 slots for usable items. Its risk: if the limit is read wrong, good items vanish silently, so over-filtering needs its own test ([Over-filtering trap question](#over-filtering-trap-question)).
 
 **In an interview:** "I don't ask the model to ignore exercises the person can't do; I make sure it never sees them. The filter runs in SQL before ranking, which took my forbidden-citation failures from 5 of 13 to 1 of 13. The cost is that a wrong reading of the limits would hide good exercises, so I test for that too."
 
-*First seen: Phase 1F, F3 + F4.*
+*Phase 1F F5 update: the developer's question, "aren't these just prompt adjustments?"* No. A filter is code in the search step: a SQL `WHERE` clause that removes items before the AI sees anything. The only AI part is reading the question into the intake form. Prompt rules were the thing tried first, and they failed 5 of 13. With both pre-filters (equipment and population), 13 of 13 pass. This is standard practice, usually called metadata filtering or pre-filtering.
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+
+### Keep-general filter (untagged means everyone)
+A filter design choice: what happens to items with no tag? Here an empty population list means "general, applies to everyone", and those passages are never filtered out. The filter removes only passages tagged for *other* groups: `population IS NULL OR cardinality(populations) = 0 OR population = ANY(populations)`. The alternative, keeping only passages tagged with the question's group, would throw away most of the useful material (132 of 200 passages are general, such as the chapters on health benefits and active lifestyles). It avoids over-filtering at the cost of letting through general material that may be less specific.
+
+**In an interview:** "My population filter removes other groups' passages, not untagged ones. Two-thirds of my corpus applies to everyone, so a strict 'must match' filter would starve the model of evidence. Untagged means general, and general always stays."
+
+*First seen: Phase 1F, F5.*
 
 ---
 
@@ -911,6 +941,13 @@ The method built in Step 12 (`src/ragmotion/chunking.py`). It reads the document
 **In an interview:** "My chunker splits at headings, never crosses a chapter, merges tiny sections up to 150 words, and splits big ones at paragraph breaks below 450. So every chunk is one topic, and none is cut mid-sentence."
 
 *First seen: Step 12.*
+
+### Tagging passages from document structure (rules, not an LLM)
+Metadata tagging means attaching labels to each passage so search can filter on them. Here the label is who a passage is about. Instead of asking an LLM to guess, rag-motion uses the source's own organisation: the Physical Activity Guidelines have a chapter per population (Chapter 3 youth, 4 adults, 5 older adults, 6 pregnancy and chronic conditions), and the NSCA notes are one file per group. `populations_for()` in `chunking.py` turns that into tags with a few rules. Rules are free, give the same answer every time, and can be unit-tested. Because every chunk already stored its chapter and headings (Step 12), the tags could be back-filled without re-chunking or re-embedding. The limit: each new source needs its own rule, and research papers are tagged general even if a study used one group.
+
+**In an interview:** "I didn't need a model to tag passages by population. The government guidelines are already organised by population, so the chapter tells me. That's deterministic, testable, and free, and it worked because I'd stored chapter and headings on every chunk from the start."
+
+*First seen: Phase 1F, F5.*
 
 ### Contextual labels instead of overlap
 Overlap repeats some text between neighboring chunks so a chunk isn't stranded without context. Step 12 uses a different fix: every chunk's embedded text starts with a label showing where it sits, "title > chapter > sections", for example "Physical Activity Guidelines for Americans, 2nd edition > Chapter 4. Active Adults > Key Guidelines for Adults". The label tells the embedding what the passage is about, even if the passage itself never says "adults". The database stores both `text` (shown to the LLM and user) and `embed_text` (label + text, exactly what gets embedded). One bug came up: a note's `# Title` is also its source title, so note labels repeated it ("Notes: Resistance Training for Older Adults > Resistance Training for Older Adults > ..."). The fix skips the chapter when it's already contained in the title.
@@ -1028,7 +1065,9 @@ Each returns `None` when it doesn't apply (for example, no forbidden items liste
 
 *Phase 1F F2 update: now both, split by kind of check.* The coach's four labeling rules ("is the Turkish get-up labeled intermediate?", "is the list grouped by muscle group?") need reading comprehension. Word matching could only guess at them, and was bad at "grouped by muscle group". So a fifth evaluator, `coach_rules`, uses an LLM judge for those rules only. Exact facts (citation validity, coverage label, expected evidence, forbidden items) stay in code. The split: code for anything a program can check exactly; a judge for judgments about how the answer is written. See [LLM-as-judge (AI judge)](#llm-as-judge-ai-judge) and [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md).
 
-*First seen: Step 15. Extended: Phase 1F, F2.*
+*Phase 1F F5 update: where the judge fits (developer's question).* The eval is the measuring tape, the filters are the fix, and the AI judge is one measuring tool among several: it grades the coach's labeling rules, while code checks citations, coverage, expected evidence, and forbidden items. The judge is not part of the fix. In F5, `label-secondary` got its first real case (not just "not applicable") and passed.
+
+*First seen: Step 15. Extended: Phase 1F, F2, F5.*
 
 ### LangSmith datasets and experiments
 In LangSmith, a **dataset** is a stored list of examples: inputs plus reference outputs (here, the 29 questions with their expected answers). An **experiment** is one run of a target function (here, the full RAG pipeline) over a dataset, with evaluators scoring every output. The results are stored and can be compared side by side with other experiments. The `langsmith` SDK's `evaluate()` does this (the 0.14 API was checked before use). Versioning: the dataset is named `rag-motion-eval-<first 8 characters of the YAML file's SHA-256>` (a fingerprint of the file's contents), so editing the questions creates a new dataset instead of overwriting the old one, and old results stay attached to the questions they were scored on. Experiments are named by mode (`answers-semantic-525eca7f`, `answers-hybrid-5feae34f`) and record the retrieval mode, LLM, and embedding model. Each example's run is also traced, so a failed question can be opened step by step. Questions run 4 at a time (`max_concurrency=4`).
@@ -1222,7 +1261,9 @@ An ordering rule for improving a system that is measured by an eval. First chang
 
 *Phase 1F F2 update: same ruler before and after.* The test is finished before the fix starts, and then frozen. The coach's analogy: you don't change the fitness test halfway through a program. If the eval changed between the "before" run (F2) and the "after" run (F6), a score change could come from the test, not the filters. F2 is that frozen "before": 40 questions, experiment `answers-semantic-0b42f62a`.
 
-*First seen: Phase 1F, F1. Extended: Phase 1F, F2.*
+*Phase 1F F5 update: the loop, in the developer's words.* Eval measures → find a weakness → build a fix → the same eval measures again. F5 was one turn of that loop: F4 left one forbidden failure (wrong-population passages), F5 built the population filter, and the same 40 questions showed it gone.
+
+*First seen: Phase 1F, F1. Extended: Phase 1F, F2, F5.*
 
 ### LLM-as-judge (AI judge)
 A second model reads an answer and grades it against narrow yes/no rules. It is useful for judgments that need reading comprehension: was the intermediate exercise labeled as intermediate? Is the list grouped by muscle group? It is a poor fit for exact facts (is this citation real? was a forbidden exercise cited?), which code checks for free and without error. In F2 the judge is `anthropic/claude-sonnet-5.5`, called once per tagged question through OpenRouter. It returns [structured output](#pydantic-model-and-literal-types): for each rule a verdict (`pass`, `fail`, `not_applicable`) and a one-sentence reason naming the exercises. Cost: about half a cent per judged question. A planted mistake (a beginner glute answer naming the Bulgarian split squat with no level label) was caught with the right reason before the judge was trusted on real answers.
@@ -1258,21 +1299,34 @@ A filter can fail in two directions: it can let wrong items through, or remove r
 
 *Phase 1F F3 + F4 update: passed with the filter on.* The limit reader correctly returned "not limited" for "full gym", so no filter ran, and all 4 expected barbell lifts were still retrieved. Three other questions that name equipment without limiting it ("beginner glute exercises using dumbbells", "upper-body pulling exercises with resistance bands", "KB exercise for hip power") were also correctly left unfiltered.
 
-*First seen: Phase 1F, F2. Extended: Phase 1F F3 + F4.*
+*Phase 1F F5 update: two guards against over-filtering passages.* First, general passages (no tag) are never filtered, so a group question still sees shared material ([Keep-general filter](#keep-general-filter-untagged-means-everyone)); an integration test checks that an `adults` search returns exactly the adult and general passages. Second, the question reader must not invent a group. Its first version read "athletes" and "an intermediate lifter in a full gym" (the trap question) as adults, which would have silently removed youth, older-adult, and pregnancy passages. The by-eye check of all 40 caught it before the eval ran.
+
+*First seen: Phase 1F, F2. Extended: Phase 1F F3 + F4, F5.*
 
 ### One change at a time (ablation)
 Change one thing, measure, then change the next. An ablation study is the formal version: switch components on or off one at a time to see what each contributes. The coach's version: change one variable in a client's program, or you can't tell what worked. Phase 1F builds the filters in separate parts (equipment in F3 + F4, population in F5), and the eval scripts can switch the filter off (`--no-filters`) to reproduce the baseline. Reading the limits and the equipment filter were built together, because neither does anything without the other.
 
 **In an interview:** "I add one retrieval change at a time and keep a switch to turn it off, so every score change has one cause. The equipment filter alone took forbidden results from 17% to 3% of questions, and I know the remaining 3% is a population problem, not an equipment one."
 
-*First seen: Phase 1F, F3 + F4.*
+*Phase 1F F5 update: the second filter, measured separately.* Equipment alone (F4): forbidden rate 0.17 → 0.03, forbidden citations 8/13 → 12/13. Adding population (F5): 0.03 → 0.00 and 12/13 → 13/13, plus passage MRR 0.79 → 0.86. Because they went in separately, each filter's share of the improvement is known.
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
 
 ### Run-to-run noise
 The same question can get a different LLM answer on different runs, because answers are sampled (the answering call uses temperature 0.2). So a single failure after a change might be the change, or might be chance. The check: see whether the change could even touch that question, then re-run it a few times. In F3 + F4, one question failed a citation check after the filter was added; it had no equipment limit (so identical search), and re-running it 3 times gave 1 failure and 2 clean runs.
 
 **In an interview:** "After adding my filter, one citation check failed. That question wasn't filtered at all, so I re-ran it three times: it failed once in three. That's model randomness, not a regression, and I only know because I checked instead of trusting a single run."
 
-*First seen: Phase 1F, F3 + F4.*
+*Phase 1F F5 update: two more cases.* The F4 `citations_valid` failure did not repeat (40/40 again). And `pop-youth-start` failed `used_expected_evidence` in the F5 run, but a manual re-run read the population as youth, retrieved the youth notes (`notes-nsca-youth-ltad-2`), cited them, and claimed full coverage. Retrieval was right; the answer model varied.
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+
+### Coverage label drift (a metric drop that may not be a regression)
+A score can fall because the answer key is debatable, not because the answers got worse. In F5, filters changed what the model sees: for "bands only, full-body workout" it now sees only the few band and bodyweight exercises and says coverage is `partial`, while the key says `full`. `coverage_correct` fell from 36/40 to 33/40 while forbidden citations improved to 13/13. Before calling that a regression, check each miss: is the key right, is the label honest given the evidence, or is it run-to-run noise? Here that needs the coach.
+
+**In an interview:** "After adding filters, my coverage score dropped three points. Reading the misses, the model mostly said 'partial' for questions where it now only sees three or four usable exercises, which is arguably more honest than my key. A metric is only as right as its answer key, so the coach decides those before I call it a regression."
+
+*First seen: Phase 1F, F5.*
 
 ## Testing
 
@@ -1295,7 +1349,9 @@ An integration test checks that parts work together with a real outside system, 
 
 **In an interview:** "Database tests are marked as integration tests and skip themselves if Postgres is down. A missing database is an environment problem, not a code failure, and the unit tests stay runnable on any machine."
 
-*First seen: Step 16.*
+*Phase 1F F5 update:* a new integration test reuses a stored older-adult passage vector as the query (so no API call) and checks that a search filtered to `adults` returns exactly the adult and general passages: nothing from other groups, and no general passage lost. 37 tests in total.
+
+*First seen: Step 16. Extended: Phase 1F, F5.*
 
 ### Proving a test can fail (breaking the code on purpose)
 A test that can't fail is useless: it would pass whether or not the code works. The check is to break the code on purpose and confirm the test goes red. This is the idea behind mutation testing (tools that make many small deliberate bugs and count how many the tests catch). In Step 16 Claude put the Step 13 bug back into `rag.py` (reading only one id per bracket). `test_find_citations_reads_single_and_grouped_ids` failed (1 failed, 5 passed). The file was then restored exactly, with no diff (no difference from the original), and everything passed again.
@@ -1738,7 +1794,9 @@ An idempotent script gives the same result no matter how many times it is run. `
 
 *Step 13 update:* `scripts/embed_chunks.py` follows the Step 8 pattern: it selects chunks with no embedding or one from a different model. Run 1 embedded 147/147; run 2 printed "Nothing to embed." and made no API call. Re-chunking a source clears its vectors, so the next run of this script re-embeds exactly those.
 
-*First seen: Step 4. Extended: Steps 5, 8, 12, and 13.*
+*Phase 1F F5 update:* `scripts/tag_populations.py` back-fills population tags on existing passages without re-chunking or re-embedding, and is safe to re-run: it recomputes each tag list from the rules and overwrites it.
+
+*First seen: Step 4. Extended: Steps 5, 8, 12, and 13, Phase 1F F5.*
 
 ### Slug vs id
 A slug is a short, human-readable, stable identifier, like `goblet-squat`. The `id` is an internal number that can have gaps and could differ between databases. Citations in answers and eval tests will refer to exercises by slug, because it is meaningful to a reader and doesn't change if the data is reloaded.
@@ -1779,14 +1837,18 @@ A migration is a change to the structure of a database that already holds data. 
 
 **In an interview:** "CREATE TABLE IF NOT EXISTS won't add a new column to a table that already exists, so I added it with ALTER TABLE ... ADD COLUMN IF NOT EXISTS. The schema file stays re-runnable on both a fresh and an existing database. With more changes I'd move to a migration tool."
 
-*First seen: Step 8.*
+*Phase 1F F5 update: a list column with a default and a rule.* `document_chunk.populations text[] NOT NULL DEFAULT '{}'` was added to a table that already held 200 rows. The default (an empty list, meaning "general") lets the existing rows satisfy `NOT NULL` at once; a separate back-fill script then set the real tags. The CHECK constraint is dropped and re-added with `IF EXISTS`, so the schema file stays re-runnable.
+
+*First seen: Step 8. Extended: Phase 1F, F5.*
 
 ### Controlled vocabulary
 A controlled vocabulary is a fixed, agreed list of words allowed in a field, instead of free text. rag-motion has several: movement pattern (10 values), equipment (10 values), difficulty, laterality, body region. It makes filters reliable, because "dumbbell" is always spelled the same way. It also forces design choices: each value has to mean one clear thing a filter can act on. In F1 the Nordic curl uses no weights but needs a partner or an anchoring device to hold the heels. Labeled `bodyweight`, it would appear for "no equipment"; so the coach added the value `anchor`. The vocabulary lives in two places, the CHECK constraints in `db/schema.sql` and the `Literal` types in `models.py`, and both must change together. See [0010](decisions/0010-exercise-table-check-constraints.md).
 
 **In an interview:** "My equipment field is a controlled vocabulary, and designing it is a coaching decision, not just a data one. The Nordic curl has no weights, but you can't do it alone, so I added an 'anchor' value; otherwise a 'no equipment' filter would suggest an exercise the client can't do."
 
-*First seen: Phase 1F, F1 (the lists themselves date from Step 4).*
+*Phase 1F F5 update: a population vocabulary.* Four values: `adults`, `older-adults`, `youth`, `pregnancy`. As with equipment, it lives in two places that must match: a CHECK on `document_chunk.populations` and the `Population` `Literal` in `models.py`. The question reader can only return one of these (or null), so the filter always compares like with like.
+
+*First seen: Phase 1F, F1 (the lists themselves date from Step 4). Extended: Phase 1F, F5.*
 
 ### Migration: changing allowed values (drop and re-add a CHECK)
 Adding a value to a CHECK constraint on a table that already has data is a migration. Postgres can't edit a constraint in place, so you drop it and add a new one. In F1, `db/schema.sql` does this for the movement-pattern and equipment lists: `ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;` then `ADD CONSTRAINT exercise_equipment_check1 CHECK (...)` with the longer list. Two details matter. The names are Postgres's defaults (it named them when the table was created in Step 4), so the script must use exactly those names. And `IF EXISTS` keeps the file re-runnable. The lists inside `CREATE TABLE` were updated too, so a fresh install gets the same rules. When the new constraint is added, Postgres checks every existing row against it, so a new list that dropped a value still in use would fail loudly.
@@ -1801,6 +1863,13 @@ A way to write one SQL query whose filter can be switched off: `AND (%(owned)s::
 **In an interview:** "My search has one SQL query with an optional filter: pass no equipment list and it's plain similarity search, pass one and it only returns exercises the person can do. I don't keep two copies of the query."
 
 *First seen: Phase 1F, F3 + F4.*
+
+### Multi-valued tags (text arrays, ANY, and cardinality)
+A `text[]` column holds a list of text values, so one row can carry several tags. A summary passage can list key guidelines for older adults and for pregnancy; a chronic-conditions passage applies to adults and older adults. `'youth' = ANY(populations)` asks "is youth in this row's list?". `cardinality(populations)` counts the items, so `cardinality(populations) = 0` means "no tags". A CHECK with `<@` (contained by) makes sure every tag is from the allowed list. A side lesson from F5: writing "empty list" as `'{}'` inside a Python f-string (a string where Python fills in `{...}` placeholders) broke, because Python read the braces as a placeholder. `cardinality(...) = 0` says the same thing with no braces.
+
+**In an interview:** "Population tags are a Postgres text array, because one passage can be about two groups. The filter uses ANY for membership and cardinality to spot untagged passages, and a CHECK constraint keeps the tags to a fixed list."
+
+*First seen: Phase 1F, F5.*
 
 ### LATERAL join
 A normal subquery in `FROM` runs once, on its own. A `LATERAL` subquery runs once per row of the table before it, and can use that row's values. That is what "for each exercise, find its 3 closest other exercises" needs: the inner query orders by distance to the current exercise's vector and keeps 3. Step 8 used it to list the nearest neighbors of all 20 exercises at once. The exact query was not saved; its shape was roughly:

@@ -37,3 +37,6 @@ Same 40 questions as the F2 baseline ([build-log entry](../build-log.md#phase-1f
 - Latency or cost of the extra call matters. Consider combining it with another step (for example query rewriting in F7) or a cheaper path for questions with no equipment words.
 - Level or population filters (F5 and later) are added: extend `QuestionLimits` rather than adding a second reading call, and measure each filter separately.
 - The catalog needs "either/or" equipment (goblet squat with a dumbbell or a kettlebell); `<@` on one list can't express that.
+
+## Update (2026-09-28, F5)
+The "extend `QuestionLimits` rather than adding a second reading call" signal was followed: the population field was added to the same form and the same `extract_limits` call. That prompt needed one fix: it read "athletes" and "an intermediate lifter" as adults until told which words do not name a group. See [0027](0027-population-tags-from-structure-keep-general-filter.md).
