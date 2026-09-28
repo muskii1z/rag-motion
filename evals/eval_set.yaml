@@ -130,31 +130,40 @@ questions:
   category: jargon
   expected_exercises: [bulgarian-split-squat]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: the question names one exercise, so only the BSS is expected; alternatives aren't required."
 
 - id: jargon-kb
   question: "KB exercise for hip power"
   category: jargon
   expected_exercises: [kettlebell-swing]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
 
 # ---- Hard constraints (what the client owns) ----
 - id: constraint-no-equipment
   question: "Exercises that need no equipment"
   category: constraint
   expected_exercises: [push-up, dead-bug, glute-bridge, broad-jump, lateral-bound]
-  forbidden_exercises: [inverted-row, pallof-press, goblet-squat, farmer-carry]
+  forbidden_exercises: [band-pull-apart, box-jump, bulgarian-split-squat, dumbbell-hip-thrust, dumbbell-overhead-press,
+                        dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat,
+                        inverted-row, kettlebell-swing, one-arm-dumbbell-row, pallof-press, single-leg-romanian-deadlift]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: every exercise that needs any equipment is forbidden (all 15 non-bodyweight exercises)."
 
 - id: constraint-dumbbells-only
   question: "I only have a pair of dumbbells. Good lower-body exercises?"
   category: constraint
-  expected_exercises: [goblet-squat, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, single-leg-romanian-deadlift]
-  forbidden_exercises: [dumbbell-step-up, dumbbell-hip-thrust, bulgarian-split-squat]  # need a box or bench
+  expected_exercises: [goblet-squat, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, single-leg-romanian-deadlift,
+                       glute-bridge, broad-jump, lateral-bound]
+  forbidden_exercises: [dumbbell-step-up, dumbbell-hip-thrust, bulgarian-split-squat, box-jump, kettlebell-swing]  # need a box, bench, or kettlebell
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review: list the dumbbell exercises, and also the bodyweight ones, since they need nothing.
+    Answer-level rule: the answer should say the bodyweight ones need no equipment. Note: 7 expected
+    exercises vs a top-5 search means the best possible recall here is 5/7 (0.71).
 
 # ---- Dose and guidelines (Physical Activity Guidelines) ----
 - id: dose-adult-aerobic
@@ -162,7 +171,8 @@ questions:
   category: dose
   expected_passages: [{source: pag2, pages: [8, 56, 57]}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: key fact is 150-300 min/week moderate or 75-150 min vigorous (or a mix), cited to the Guidelines."
 
 - id: dose-adult-strength-days
   question: "How many days a week should adults do muscle-strengthening activities?"
