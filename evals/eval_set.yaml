@@ -179,36 +179,41 @@ questions:
   category: dose
   expected_passages: [{source: pag2, pages: [8, 56, 60, 61, 62, 63]}]  # v2: pp. 62-63 also state it
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: facts checked against the quoted Guidelines text."
 
 - id: dose-intensity
   question: "What's the difference between moderate and vigorous intensity?"
   category: dose
   expected_passages: [{source: pag2, pages: [57, 58, 59, 108, 109, 110]}]  # v2: Appendix 1 defines intensity
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: facts checked against the quoted Guidelines text."
 
 - id: dose-kids
   question: "How much physical activity do children and adolescents need?"
   category: dose
-  expected_passages: [{source: pag2, pages: [8, 47, 48]}]
+  expected_passages: [{source: pag2, pages: [7, 8, 47, 48]}]  # p. 7 holds the summary sentence (60 min daily)
   forbidden_passages: [{source: pag2, chapter: "Chapter 5"}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: facts checked against the quoted Guidelines text."
 
 - id: dose-older-balance
   question: "What should older adults do besides aerobic and strength training?"
   category: dose
   expected_passages: [{source: pag2, pages: [9, 67, 68, 73]}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: facts checked against the quoted Guidelines text."
 
 - id: dose-pregnancy
   question: "How much physical activity is recommended during pregnancy?"
   category: dose
   expected_passages: [{source: pag2, pages: [9, 79, 80, 81]}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: facts checked against the quoted Guidelines text."
 
 - id: dose-safety
   question: "How can someone stay safe when starting a new exercise program?"
