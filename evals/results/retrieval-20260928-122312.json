@@ -1,0 +1,2568 @@
+{
+  "k": 5,
+  "chunker": "structure-v1(min=150,max=450)",
+  "embedding_model": "voyageai/voyage-4-lite",
+  "questions": 31,
+  "reviewed": 6,
+  "results": {
+    "semantic": [
+      {
+        "id": "ex-glutes-dumbbells",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-hip-thrust",
+          "goblet-squat",
+          "dumbbell-romanian-deadlift",
+          "dumbbell-reverse-lunge",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-2",
+          "notes-nsca-older-adults-2",
+          "pag2-27",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-weightlifting-2"
+        ]
+      },
+      {
+        "id": "ex-band-pull",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "inverted-row",
+          "one-arm-dumbbell-row",
+          "dumbbell-overhead-press",
+          "pallof-press"
+        ],
+        "retrieved_passages": [
+          "pag2-27",
+          "pag2-63",
+          "pag2-77",
+          "notes-nsca-weightlifting-2",
+          "notes-nsca-older-adults-2"
+        ]
+      },
+      {
+        "id": "ex-unilateral-lower",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "single-leg-romanian-deadlift",
+          "dumbbell-reverse-lunge",
+          "bulgarian-split-squat",
+          "lateral-bound",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-2",
+          "haugen2019-sprint-22",
+          "notes-nsca-older-adults-2",
+          "pag2-28",
+          "kons2023-plyo-21"
+        ]
+      },
+      {
+        "id": "ex-explosive-speed",
+        "category": "exercise-selection",
+        "exercise_recall": 0.75,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 0.5,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "kettlebell-swing"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "box-jump",
+          "lateral-bound",
+          "dumbbell-reverse-lunge",
+          "single-leg-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-18",
+          "haugen2019-sprint-8",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-22"
+        ]
+      },
+      {
+        "id": "ex-biceps",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.5,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "inverted-row",
+          "farmer-carry",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-27",
+          "pag2-63",
+          "pag2-77",
+          "notes-nsca-youth-ltad-2",
+          "notes-nsca-weightlifting-2"
+        ]
+      },
+      {
+        "id": "ex-hinge",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge",
+          "single-leg-romanian-deadlift",
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift",
+          "kettlebell-swing"
+        ],
+        "retrieved_passages": [
+          "pag2-28",
+          "notes-nsca-older-adults-2",
+          "pag2-38",
+          "notes-nsca-youth-ltad-2",
+          "pag2-84"
+        ]
+      },
+      {
+        "id": "ex-anti-rotation",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "pallof-press",
+          "dead-bug",
+          "inverted-row",
+          "band-pull-apart",
+          "one-arm-dumbbell-row"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-2",
+          "pag2-78",
+          "pag2-27",
+          "pag2-28",
+          "notes-nsca-older-adults-0"
+        ]
+      },
+      {
+        "id": "ex-grip",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "push-up",
+          "dumbbell-overhead-press",
+          "goblet-squat",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "pag2-27",
+          "pag2-77",
+          "notes-nsca-older-adults-4",
+          "pag2-28",
+          "notes-nsca-weightlifting-2"
+        ]
+      },
+      {
+        "id": "ex-overhead",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-overhead-press",
+          "band-pull-apart",
+          "push-up",
+          "inverted-row",
+          "one-arm-dumbbell-row"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "pag2-27",
+          "pag2-77",
+          "notes-nsca-weightlifting-1",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "ex-upper-back",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "inverted-row",
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-77",
+          "pag2-27",
+          "pag2-63",
+          "pag2-28",
+          "notes-nsca-youth-ltad-2"
+        ]
+      },
+      {
+        "id": "jargon-rdl",
+        "category": "jargon",
+        "exercise_recall": 0.5,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-romanian-deadlift",
+          "goblet-squat",
+          "dumbbell-reverse-lunge",
+          "one-arm-dumbbell-row",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-1",
+          "notes-nsca-youth-ltad-3",
+          "notes-nsca-weightlifting-3",
+          "pag2-86",
+          "notes-nsca-youth-ltad-2"
+        ]
+      },
+      {
+        "id": "jargon-bss",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "bulgarian-split-squat",
+          "single-leg-romanian-deadlift",
+          "dumbbell-reverse-lunge",
+          "dumbbell-step-up",
+          "lateral-bound"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-20",
+          "haugen2019-sprint-21",
+          "haugen2019-sprint-22",
+          "kons2023-plyo-10",
+          "kons2023-plyo-9"
+        ]
+      },
+      {
+        "id": "jargon-kb",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "kettlebell-swing",
+          "dumbbell-hip-thrust",
+          "single-leg-romanian-deadlift",
+          "glute-bridge",
+          "bulgarian-split-squat"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-20",
+          "kons2023-plyo-17",
+          "kons2023-plyo-18",
+          "kons2023-plyo-21",
+          "kons2023-plyo-9"
+        ]
+      },
+      {
+        "id": "constraint-no-equipment",
+        "category": "constraint",
+        "exercise_recall": 0.6,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "broad-jump",
+          "lateral-bound"
+        ],
+        "forbidden_found": [
+          "inverted-row",
+          "pallof-press"
+        ],
+        "retrieved_exercises": [
+          "push-up",
+          "dead-bug",
+          "glute-bridge",
+          "inverted-row",
+          "pallof-press"
+        ],
+        "retrieved_passages": [
+          "pag2-28",
+          "pag2-63",
+          "pag2-64",
+          "pag2-62",
+          "pag2-52"
+        ]
+      },
+      {
+        "id": "constraint-dumbbells-only",
+        "category": "constraint",
+        "exercise_recall": 0.75,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [
+          "dumbbell-step-up",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "dumbbell-step-up",
+          "dumbbell-romanian-deadlift",
+          "goblet-squat",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-2",
+          "notes-nsca-older-adults-2",
+          "pag2-27",
+          "pag2-77",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "dose-adult-aerobic",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.3333333333333333,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "push-up",
+          "band-pull-apart",
+          "broad-jump",
+          "inverted-row",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "pag2-66",
+          "pag2-75",
+          "pag2-4",
+          "pag2-60",
+          "pag2-57"
+        ]
+      },
+      {
+        "id": "dose-adult-strength-days",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.5,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "push-up",
+          "inverted-row",
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row"
+        ],
+        "retrieved_passages": [
+          "pag2-77",
+          "pag2-63",
+          "pag2-66",
+          "pag2-27",
+          "notes-nsca-older-adults-1"
+        ]
+      },
+      {
+        "id": "dose-intensity",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.5,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "box-jump",
+          "kettlebell-swing",
+          "broad-jump",
+          "farmer-carry",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "pag2-76",
+          "pag2-61",
+          "pag2-127",
+          "pag2-128",
+          "pag2-123"
+        ]
+      },
+      {
+        "id": "dose-kids",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "lateral-bound",
+          "box-jump",
+          "band-pull-apart",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-47",
+          "pag2-54",
+          "pag2-46",
+          "pag2-48",
+          "pag2-53"
+        ]
+      },
+      {
+        "id": "dose-older-balance",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "dumbbell-step-up",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press",
+          "single-leg-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "pag2-80",
+          "pag2-78",
+          "pag2-74",
+          "pag2-73",
+          "pag2-85"
+        ]
+      },
+      {
+        "id": "dose-pregnancy",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.5,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "pallof-press",
+          "box-jump",
+          "push-up",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "pag2-97",
+          "pag2-89",
+          "pag2-44",
+          "pag2-107",
+          "pag2-5"
+        ]
+      },
+      {
+        "id": "dose-safety",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "dumbbell-reverse-lunge",
+          "goblet-squat",
+          "push-up",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "pag2-7",
+          "pag2-100",
+          "pag2-101",
+          "pag2-104",
+          "pag2-107"
+        ]
+      },
+      {
+        "id": "pop-beginner-adult",
+        "category": "population",
+        "exercise_recall": 0.6,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.5,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.3333333333333333,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "dumbbell-romanian-deadlift",
+          "one-arm-dumbbell-row"
+        ],
+        "forbidden_found": [
+          "pag2-77",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-youth-ltad-1"
+        ],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "push-up",
+          "inverted-row",
+          "dumbbell-overhead-press",
+          "goblet-squat"
+        ],
+        "retrieved_passages": [
+          "pag2-77",
+          "notes-nsca-older-adults-1",
+          "pag2-63",
+          "pag2-27",
+          "notes-nsca-youth-ltad-1"
+        ]
+      },
+      {
+        "id": "notes-older-load",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.25,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "dumbbell-overhead-press",
+          "dumbbell-step-up",
+          "goblet-squat",
+          "inverted-row"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-4",
+          "pag2-77",
+          "notes-nsca-older-adults-0",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-older-adults-2"
+        ]
+      },
+      {
+        "id": "notes-youth-start",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "push-up",
+          "goblet-squat",
+          "farmer-carry",
+          "inverted-row",
+          "dumbbell-reverse-lunge"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-3",
+          "notes-nsca-youth-ltad-1",
+          "notes-nsca-youth-ltad-0",
+          "notes-nsca-weightlifting-3",
+          "pag2-49"
+        ]
+      },
+      {
+        "id": "notes-weightlifting-progression",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "dumbbell-overhead-press",
+          "inverted-row",
+          "one-arm-dumbbell-row",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "notes-nsca-weightlifting-1",
+          "notes-nsca-weightlifting-0",
+          "notes-nsca-weightlifting-3",
+          "notes-nsca-youth-ltad-2"
+        ]
+      },
+      {
+        "id": "gap-plyo-program",
+        "category": "coverage-gap",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "lateral-bound",
+          "box-jump",
+          "bulgarian-split-squat",
+          "dumbbell-reverse-lunge"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-22",
+          "kons2023-plyo-22",
+          "notes-nsca-youth-ltad-2",
+          "kons2023-plyo-9",
+          "kons2023-plyo-18"
+        ]
+      },
+      {
+        "id": "research-sprint-acceleration",
+        "category": "research",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "box-jump",
+          "dumbbell-hip-thrust",
+          "lateral-bound",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-19",
+          "haugen2019-sprint-8",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-17"
+        ]
+      },
+      {
+        "id": "research-plyo-effects",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "box-jump",
+          "lateral-bound",
+          "dumbbell-hip-thrust",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "kons2023-plyo-24",
+          "kons2023-plyo-0",
+          "kons2023-plyo-19",
+          "kons2023-plyo-21",
+          "kons2023-plyo-2"
+        ]
+      },
+      {
+        "id": "research-sprint-recovery",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "box-jump",
+          "lateral-bound",
+          "dumbbell-hip-thrust",
+          "bulgarian-split-squat"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-12",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-23",
+          "haugen2019-sprint-25"
+        ]
+      },
+      {
+        "id": "gap-protein",
+        "category": "coverage-gap",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "inverted-row",
+          "push-up",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-1",
+          "haugen2019-sprint-20",
+          "pag2-67",
+          "notes-nsca-youth-ltad-1",
+          "notes-nsca-youth-ltad-4"
+        ]
+      }
+    ],
+    "keyword": [
+      {
+        "id": "ex-glutes-dumbbells",
+        "category": "exercise-selection",
+        "exercise_recall": 0.6,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "dumbbell-step-up",
+          "goblet-squat"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift",
+          "glute-bridge",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "pag2-105",
+          "pag2-128",
+          "pag2-132",
+          "notes-nsca-older-adults-2",
+          "pag2-76"
+        ]
+      },
+      {
+        "id": "ex-band-pull",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "inverted-row",
+          "pallof-press",
+          "one-arm-dumbbell-row",
+          "farmer-carry"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "pag2-36",
+          "pag2-122",
+          "notes-nsca-weightlifting-2",
+          "pag2-52"
+        ]
+      },
+      {
+        "id": "ex-unilateral-lower",
+        "category": "exercise-selection",
+        "exercise_recall": 0.2,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.25,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "dumbbell-reverse-lunge",
+          "dumbbell-step-up",
+          "lateral-bound",
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "box-jump",
+          "goblet-squat",
+          "push-up",
+          "bulgarian-split-squat",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "pag2-43",
+          "pag2-36",
+          "pag2-30",
+          "pag2-122",
+          "pag2-32"
+        ]
+      },
+      {
+        "id": "ex-explosive-speed",
+        "category": "exercise-selection",
+        "exercise_recall": 0.0,
+        "exercise_hit": 0.0,
+        "exercise_mrr": 0.0,
+        "passage_recall": 0.0,
+        "passage_hit": 0.0,
+        "passage_mrr": 0.0,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "box-jump",
+          "broad-jump",
+          "kettlebell-swing",
+          "lateral-bound"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dead-bug",
+          "dumbbell-reverse-lunge",
+          "single-leg-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "pag2-52",
+          "pag2-95",
+          "pag2-117",
+          "pag2-94",
+          "pag2-37"
+        ]
+      },
+      {
+        "id": "ex-biceps",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "inverted-row",
+          "one-arm-dumbbell-row"
+        ],
+        "retrieved_passages": [
+          "pag2-80",
+          "notes-nsca-youth-ltad-2"
+        ]
+      },
+      {
+        "id": "ex-hinge",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "kettlebell-swing",
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift",
+          "single-leg-romanian-deadlift",
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "pag2-84",
+          "pag2-38",
+          "pag2-37",
+          "pag2-43",
+          "pag2-27"
+        ]
+      },
+      {
+        "id": "ex-anti-rotation",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "pallof-press",
+          "dead-bug",
+          "dumbbell-overhead-press",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-0",
+          "notes-nsca-youth-ltad-0",
+          "haugen2019-sprint-1"
+        ]
+      },
+      {
+        "id": "ex-grip",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.5,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "farmer-carry",
+          "dumbbell-overhead-press",
+          "dumbbell-step-up",
+          "dumbbell-reverse-lunge"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-21",
+          "haugen2019-sprint-20",
+          "notes-nsca-weightlifting-0",
+          "notes-nsca-weightlifting-1",
+          "kons2023-plyo-2"
+        ]
+      },
+      {
+        "id": "ex-overhead",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-overhead-press",
+          "band-pull-apart",
+          "pallof-press",
+          "push-up",
+          "dead-bug"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "notes-nsca-weightlifting-1",
+          "notes-nsca-older-adults-3",
+          "notes-nsca-older-adults-2",
+          "notes-nsca-youth-ltad-2"
+        ]
+      },
+      {
+        "id": "ex-upper-back",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "inverted-row",
+          "farmer-carry"
+        ],
+        "retrieved_passages": [
+          "pag2-27",
+          "pag2-32",
+          "pag2-97",
+          "pag2-11",
+          "pag2-50"
+        ]
+      },
+      {
+        "id": "jargon-rdl",
+        "category": "jargon",
+        "exercise_recall": 0.0,
+        "exercise_hit": 0.0,
+        "exercise_mrr": 0.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "dumbbell-romanian-deadlift",
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "glute-bridge",
+          "dumbbell-hip-thrust",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-1",
+          "notes-nsca-weightlifting-3",
+          "notes-nsca-older-adults-2"
+        ]
+      },
+      {
+        "id": "jargon-bss",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.25,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "lateral-bound",
+          "single-leg-romanian-deadlift",
+          "bulgarian-split-squat",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-21",
+          "haugen2019-sprint-20",
+          "notes-nsca-weightlifting-1",
+          "notes-nsca-weightlifting-0",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "jargon-kb",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "kettlebell-swing",
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift",
+          "single-leg-romanian-deadlift",
+          "lateral-bound"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "haugen2019-sprint-20",
+          "haugen2019-sprint-21",
+          "notes-nsca-weightlifting-2",
+          "haugen2019-sprint-4"
+        ]
+      },
+      {
+        "id": "constraint-no-equipment",
+        "category": "constraint",
+        "exercise_recall": 0.0,
+        "exercise_hit": 0.0,
+        "exercise_mrr": 0.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "broad-jump",
+          "dead-bug",
+          "glute-bridge",
+          "lateral-bound",
+          "push-up"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [],
+        "retrieved_passages": [
+          "pag2-105",
+          "pag2-36",
+          "pag2-82",
+          "pag2-107",
+          "pag2-117"
+        ]
+      },
+      {
+        "id": "constraint-dumbbells-only",
+        "category": "constraint",
+        "exercise_recall": 0.75,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press",
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "pag2-43",
+          "pag2-36",
+          "pag2-122",
+          "pag2-30",
+          "pag2-68"
+        ]
+      },
+      {
+        "id": "dose-adult-aerobic",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.3333333333333333,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "pag2-72",
+          "pag2-82",
+          "pag2-57",
+          "pag2-60",
+          "pag2-124"
+        ]
+      },
+      {
+        "id": "dose-adult-strength-days",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "pag2-63",
+          "pag2-48",
+          "pag2-72",
+          "pag2-57",
+          "pag2-77"
+        ]
+      },
+      {
+        "id": "dose-intensity",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.5,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "bulgarian-split-squat"
+        ],
+        "retrieved_passages": [
+          "pag2-17",
+          "pag2-127",
+          "pag2-51",
+          "pag2-60",
+          "pag2-76"
+        ]
+      },
+      {
+        "id": "dose-kids",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.3333333333333333,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "pag2-117",
+          "pag2-19",
+          "pag2-48",
+          "pag2-24",
+          "pag2-36"
+        ]
+      },
+      {
+        "id": "dose-older-balance",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "push-up",
+          "dumbbell-hip-thrust",
+          "goblet-squat",
+          "bulgarian-split-squat",
+          "dead-bug"
+        ],
+        "retrieved_passages": [
+          "pag2-72",
+          "pag2-71",
+          "kons2023-plyo-23",
+          "pag2-82",
+          "haugen2019-sprint-21"
+        ]
+      },
+      {
+        "id": "dose-pregnancy",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.3333333333333333,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "pag2-19",
+          "pag2-124",
+          "pag2-90",
+          "pag2-24",
+          "pag2-117"
+        ]
+      },
+      {
+        "id": "dose-safety",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-romanian-deadlift",
+          "goblet-squat"
+        ],
+        "retrieved_passages": [
+          "pag2-100",
+          "pag2-21",
+          "pag2-7",
+          "pag2-99",
+          "pag2-119"
+        ]
+      },
+      {
+        "id": "pop-beginner-adult",
+        "category": "population",
+        "exercise_recall": 0.4,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 0.0,
+        "passage_hit": 0.0,
+        "passage_mrr": 0.0,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "dumbbell-overhead-press",
+          "dumbbell-romanian-deadlift",
+          "one-arm-dumbbell-row"
+        ],
+        "forbidden_found": [
+          "pag2-72"
+        ],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "push-up",
+          "dumbbell-hip-thrust",
+          "dumbbell-reverse-lunge",
+          "dead-bug"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-21",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-9",
+          "pag2-72",
+          "kons2023-plyo-18"
+        ]
+      },
+      {
+        "id": "notes-older-load",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 0.0,
+        "passage_hit": 0.0,
+        "passage_mrr": 0.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "farmer-carry",
+          "dumbbell-hip-thrust",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "pag2-71",
+          "pag2-72",
+          "pag2-82",
+          "pag2-74",
+          "notes-nsca-older-adults-0"
+        ]
+      },
+      {
+        "id": "notes-youth-start",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 0.0,
+        "passage_hit": 0.0,
+        "passage_mrr": 0.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dead-bug",
+          "pallof-press",
+          "broad-jump",
+          "dumbbell-hip-thrust",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "haugen2019-sprint-9",
+          "kons2023-plyo-23",
+          "haugen2019-sprint-11",
+          "haugen2019-sprint-13"
+        ]
+      },
+      {
+        "id": "notes-weightlifting-progression",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "inverted-row",
+          "farmer-carry",
+          "one-arm-dumbbell-row",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "haugen2019-sprint-14",
+          "notes-nsca-weightlifting-1",
+          "haugen2019-sprint-19",
+          "haugen2019-sprint-1"
+        ]
+      },
+      {
+        "id": "gap-plyo-program",
+        "category": "coverage-gap",
+        "exercise_recall": 0.0,
+        "exercise_hit": 0.0,
+        "exercise_mrr": 0.0,
+        "passage_recall": 0.3333333333333333,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "box-jump",
+          "broad-jump",
+          "lateral-bound"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "bulgarian-split-squat"
+        ],
+        "retrieved_passages": [
+          "kons2023-plyo-18",
+          "kons2023-plyo-17",
+          "kons2023-plyo-21",
+          "kons2023-plyo-23",
+          "kons2023-plyo-16"
+        ]
+      },
+      {
+        "id": "research-sprint-acceleration",
+        "category": "research",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 0.6666666666666666,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "dumbbell-hip-thrust",
+          "dumbbell-step-up",
+          "glute-bridge",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "haugen2019-sprint-27",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-7",
+          "haugen2019-sprint-1"
+        ]
+      },
+      {
+        "id": "research-plyo-effects",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.5,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "box-jump",
+          "broad-jump",
+          "dumbbell-hip-thrust",
+          "glute-bridge",
+          "lateral-bound"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "kons2023-plyo-18",
+          "kons2023-plyo-23",
+          "kons2023-plyo-21",
+          "haugen2019-sprint-22"
+        ]
+      },
+      {
+        "id": "research-sprint-recovery",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "bulgarian-split-squat",
+          "dumbbell-hip-thrust",
+          "dumbbell-step-up",
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-15",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-4"
+        ]
+      },
+      {
+        "id": "gap-protein",
+        "category": "coverage-gap",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "bulgarian-split-squat"
+        ],
+        "retrieved_passages": [
+          "pag2-132",
+          "haugen2019-sprint-25",
+          "pag2-131",
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-24"
+        ]
+      }
+    ],
+    "hybrid": [
+      {
+        "id": "ex-glutes-dumbbells",
+        "category": "exercise-selection",
+        "exercise_recall": 0.8,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "dumbbell-step-up"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-hip-thrust",
+          "dumbbell-romanian-deadlift",
+          "goblet-squat",
+          "dumbbell-reverse-lunge",
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-2",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-weightlifting-0",
+          "notes-nsca-youth-ltad-2",
+          "pag2-105"
+        ]
+      },
+      {
+        "id": "ex-band-pull",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "inverted-row",
+          "pallof-press",
+          "one-arm-dumbbell-row",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "pag2-77",
+          "pag2-63",
+          "pag2-27",
+          "notes-nsca-older-adults-2"
+        ]
+      },
+      {
+        "id": "ex-unilateral-lower",
+        "category": "exercise-selection",
+        "exercise_recall": 0.4,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "bulgarian-split-squat",
+          "dumbbell-step-up",
+          "lateral-bound"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "goblet-squat",
+          "dumbbell-hip-thrust",
+          "box-jump",
+          "single-leg-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-20",
+          "kons2023-plyo-23",
+          "pag2-27",
+          "notes-nsca-youth-ltad-2",
+          "pag2-43"
+        ]
+      },
+      {
+        "id": "ex-explosive-speed",
+        "category": "exercise-selection",
+        "exercise_recall": 0.5,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.25,
+        "passage_recall": 0.5,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "kettlebell-swing",
+          "lateral-bound"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "single-leg-romanian-deadlift",
+          "dead-bug",
+          "broad-jump",
+          "box-jump"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-19",
+          "haugen2019-sprint-23",
+          "haugen2019-sprint-8",
+          "haugen2019-sprint-12"
+        ]
+      },
+      {
+        "id": "ex-biceps",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "inverted-row",
+          "one-arm-dumbbell-row",
+          "dumbbell-overhead-press",
+          "farmer-carry",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-youth-ltad-2",
+          "pag2-27",
+          "pag2-80",
+          "pag2-63",
+          "pag2-77"
+        ]
+      },
+      {
+        "id": "ex-hinge",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-hip-thrust",
+          "glute-bridge",
+          "kettlebell-swing",
+          "single-leg-romanian-deadlift",
+          "dumbbell-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "pag2-38",
+          "pag2-84",
+          "pag2-77",
+          "pag2-37",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "ex-anti-rotation",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "pallof-press",
+          "dead-bug",
+          "dumbbell-overhead-press",
+          "push-up",
+          "inverted-row"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-0",
+          "notes-nsca-older-adults-2",
+          "pag2-78",
+          "notes-nsca-youth-ltad-0",
+          "pag2-27"
+        ]
+      },
+      {
+        "id": "ex-grip",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "goblet-squat",
+          "dumbbell-overhead-press",
+          "dumbbell-step-up",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-4",
+          "notes-nsca-weightlifting-1",
+          "notes-nsca-weightlifting-0",
+          "haugen2019-sprint-20",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "ex-overhead",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-overhead-press",
+          "band-pull-apart",
+          "push-up",
+          "pallof-press",
+          "dead-bug"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "notes-nsca-weightlifting-1",
+          "pag2-77",
+          "pag2-27",
+          "notes-nsca-older-adults-3"
+        ]
+      },
+      {
+        "id": "ex-upper-back",
+        "category": "exercise-selection",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "band-pull-apart",
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "inverted-row",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-27",
+          "pag2-77",
+          "pag2-63",
+          "notes-nsca-youth-ltad-2",
+          "pag2-50"
+        ]
+      },
+      {
+        "id": "jargon-rdl",
+        "category": "jargon",
+        "exercise_recall": 0.5,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.5,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "dumbbell-romanian-deadlift",
+          "dumbbell-reverse-lunge",
+          "glute-bridge",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-3",
+          "notes-nsca-older-adults-2",
+          "notes-nsca-youth-ltad-1",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-youth-ltad-3"
+        ]
+      },
+      {
+        "id": "jargon-bss",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.3333333333333333,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "single-leg-romanian-deadlift",
+          "bulgarian-split-squat",
+          "lateral-bound",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-20",
+          "haugen2019-sprint-21",
+          "notes-nsca-weightlifting-1",
+          "kons2023-plyo-17",
+          "kons2023-plyo-9"
+        ]
+      },
+      {
+        "id": "jargon-kb",
+        "category": "jargon",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "kettlebell-swing",
+          "dumbbell-hip-thrust",
+          "single-leg-romanian-deadlift",
+          "glute-bridge",
+          "dumbbell-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-20",
+          "kons2023-plyo-18",
+          "haugen2019-sprint-21",
+          "kons2023-plyo-21",
+          "kons2023-plyo-9"
+        ]
+      },
+      {
+        "id": "constraint-no-equipment",
+        "category": "constraint",
+        "exercise_recall": 0.6,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "broad-jump",
+          "lateral-bound"
+        ],
+        "forbidden_found": [
+          "inverted-row",
+          "pallof-press"
+        ],
+        "retrieved_exercises": [
+          "push-up",
+          "dead-bug",
+          "glute-bridge",
+          "inverted-row",
+          "pallof-press"
+        ],
+        "retrieved_passages": [
+          "pag2-52",
+          "notes-nsca-older-adults-2",
+          "pag2-28",
+          "pag2-105",
+          "pag2-63"
+        ]
+      },
+      {
+        "id": "constraint-dumbbells-only",
+        "category": "constraint",
+        "exercise_recall": 0.75,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "single-leg-romanian-deadlift"
+        ],
+        "forbidden_found": [
+          "dumbbell-step-up",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_exercises": [
+          "dumbbell-reverse-lunge",
+          "goblet-squat",
+          "dumbbell-step-up",
+          "dumbbell-romanian-deadlift",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-3",
+          "kons2023-plyo-21",
+          "notes-nsca-youth-ltad-2",
+          "pag2-43",
+          "notes-nsca-older-adults-2"
+        ]
+      },
+      {
+        "id": "dose-adult-aerobic",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge",
+          "push-up",
+          "band-pull-apart",
+          "broad-jump",
+          "inverted-row"
+        ],
+        "retrieved_passages": [
+          "pag2-57",
+          "pag2-60",
+          "pag2-66",
+          "pag2-72",
+          "pag2-124"
+        ]
+      },
+      {
+        "id": "dose-adult-strength-days",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge",
+          "farmer-carry",
+          "push-up",
+          "inverted-row",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "pag2-63",
+          "pag2-77",
+          "pag2-66",
+          "pag2-57",
+          "pag2-72"
+        ]
+      },
+      {
+        "id": "dose-intensity",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "bulgarian-split-squat",
+          "box-jump",
+          "kettlebell-swing",
+          "broad-jump",
+          "farmer-carry"
+        ],
+        "retrieved_passages": [
+          "pag2-127",
+          "pag2-76",
+          "pag2-61",
+          "pag2-51",
+          "pag2-60"
+        ]
+      },
+      {
+        "id": "dose-kids",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge",
+          "broad-jump",
+          "lateral-bound",
+          "box-jump",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "pag2-48",
+          "pag2-46",
+          "pag2-117",
+          "pag2-47",
+          "pag2-3"
+        ]
+      },
+      {
+        "id": "dose-older-balance",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "farmer-carry",
+          "dumbbell-step-up",
+          "dumbbell-reverse-lunge",
+          "dumbbell-overhead-press"
+        ],
+        "retrieved_passages": [
+          "pag2-72",
+          "pag2-74",
+          "pag2-71",
+          "pag2-80",
+          "pag2-73"
+        ]
+      },
+      {
+        "id": "dose-pregnancy",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "glute-bridge",
+          "farmer-carry",
+          "pallof-press",
+          "box-jump",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-90",
+          "pag2-44",
+          "pag2-24",
+          "pag2-107",
+          "pag2-8"
+        ]
+      },
+      {
+        "id": "dose-safety",
+        "category": "dose",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "goblet-squat",
+          "dumbbell-romanian-deadlift",
+          "farmer-carry",
+          "dumbbell-reverse-lunge",
+          "push-up"
+        ],
+        "retrieved_passages": [
+          "pag2-100",
+          "pag2-7",
+          "pag2-104",
+          "pag2-105",
+          "pag2-101"
+        ]
+      },
+      {
+        "id": "pop-beginner-adult",
+        "category": "population",
+        "exercise_recall": 0.6,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 0.0,
+        "passage_hit": 0.0,
+        "passage_mrr": 0.0,
+        "forbidden": 1.0,
+        "missed_exercises": [
+          "dumbbell-romanian-deadlift",
+          "one-arm-dumbbell-row"
+        ],
+        "forbidden_found": [
+          "notes-nsca-older-adults-1",
+          "notes-nsca-older-adults-0",
+          "pag2-81",
+          "pag2-77"
+        ],
+        "retrieved_exercises": [
+          "push-up",
+          "goblet-squat",
+          "dumbbell-overhead-press",
+          "farmer-carry",
+          "dumbbell-hip-thrust"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-1",
+          "pag2-66",
+          "notes-nsca-older-adults-0",
+          "pag2-81",
+          "pag2-77"
+        ]
+      },
+      {
+        "id": "notes-older-load",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.25,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "goblet-squat",
+          "dumbbell-overhead-press",
+          "dumbbell-step-up",
+          "dumbbell-reverse-lunge"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-older-adults-0",
+          "pag2-82",
+          "pag2-77",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-weightlifting-1"
+        ]
+      },
+      {
+        "id": "notes-youth-start",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 0.2,
+        "forbidden": 1.0,
+        "missed_exercises": [],
+        "forbidden_found": [
+          "notes-nsca-older-adults-0",
+          "notes-nsca-older-adults-4"
+        ],
+        "retrieved_exercises": [
+          "push-up",
+          "dumbbell-hip-thrust",
+          "pallof-press",
+          "dead-bug",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "kons2023-plyo-23",
+          "pag2-47",
+          "notes-nsca-older-adults-0",
+          "notes-nsca-older-adults-4",
+          "notes-nsca-youth-ltad-3"
+        ]
+      },
+      {
+        "id": "notes-weightlifting-progression",
+        "category": "notes",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "farmer-carry",
+          "inverted-row",
+          "one-arm-dumbbell-row",
+          "dumbbell-hip-thrust",
+          "band-pull-apart"
+        ],
+        "retrieved_passages": [
+          "notes-nsca-weightlifting-2",
+          "notes-nsca-weightlifting-1",
+          "notes-nsca-weightlifting-3",
+          "haugen2019-sprint-19",
+          "notes-nsca-youth-ltad-1"
+        ]
+      },
+      {
+        "id": "gap-plyo-program",
+        "category": "coverage-gap",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 0.5,
+        "passage_recall": 0.6666666666666666,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "bulgarian-split-squat",
+          "broad-jump",
+          "lateral-bound",
+          "box-jump",
+          "dumbbell-reverse-lunge"
+        ],
+        "retrieved_passages": [
+          "kons2023-plyo-18",
+          "kons2023-plyo-22",
+          "kons2023-plyo-17",
+          "haugen2019-sprint-22",
+          "kons2023-plyo-16"
+        ]
+      },
+      {
+        "id": "research-sprint-acceleration",
+        "category": "research",
+        "exercise_recall": 1.0,
+        "exercise_hit": 1.0,
+        "exercise_mrr": 1.0,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "dumbbell-hip-thrust",
+          "box-jump",
+          "dumbbell-step-up",
+          "glute-bridge"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-17",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-27",
+          "haugen2019-sprint-8"
+        ]
+      },
+      {
+        "id": "research-plyo-effects",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "box-jump",
+          "dumbbell-hip-thrust",
+          "lateral-bound",
+          "single-leg-romanian-deadlift"
+        ],
+        "retrieved_passages": [
+          "kons2023-plyo-21",
+          "kons2023-plyo-18",
+          "haugen2019-sprint-22",
+          "kons2023-plyo-2",
+          "kons2023-plyo-23"
+        ]
+      },
+      {
+        "id": "research-sprint-recovery",
+        "category": "research",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": 1.0,
+        "passage_hit": 1.0,
+        "passage_mrr": 1.0,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "bulgarian-split-squat",
+          "dumbbell-hip-thrust",
+          "glute-bridge",
+          "dumbbell-step-up"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-14",
+          "haugen2019-sprint-13",
+          "haugen2019-sprint-15",
+          "haugen2019-sprint-12",
+          "haugen2019-sprint-17"
+        ]
+      },
+      {
+        "id": "gap-protein",
+        "category": "coverage-gap",
+        "exercise_recall": null,
+        "exercise_hit": null,
+        "exercise_mrr": null,
+        "passage_recall": null,
+        "passage_hit": null,
+        "passage_mrr": null,
+        "forbidden": 0.0,
+        "missed_exercises": [],
+        "forbidden_found": [],
+        "retrieved_exercises": [
+          "broad-jump",
+          "bulgarian-split-squat",
+          "dumbbell-overhead-press",
+          "one-arm-dumbbell-row",
+          "inverted-row"
+        ],
+        "retrieved_passages": [
+          "haugen2019-sprint-12",
+          "haugen2019-sprint-23",
+          "haugen2019-sprint-24",
+          "pag2-66",
+          "notes-nsca-weightlifting-1"
+        ]
+      }
+    ]
+  }
+}

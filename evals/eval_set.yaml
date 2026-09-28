@@ -40,14 +40,14 @@ questions:
   category: exercise-selection
   expected_exercises: [band-pull-apart]
   expected_coverage: partial  # only one band pull exists in the catalog
-  reviewed: false
+  reviewed: true
 
 - id: ex-unilateral-lower
   question: "Unilateral lower-body exercises"
   category: exercise-selection
   expected_exercises: [bulgarian-split-squat, dumbbell-reverse-lunge, dumbbell-step-up, single-leg-romanian-deadlift, lateral-bound]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
 
 - id: ex-explosive-speed
   question: "Explosive exercises to help me run faster"
@@ -55,21 +55,25 @@ questions:
   expected_exercises: [broad-jump, box-jump, lateral-bound, kettlebell-swing]
   expected_passages: [{source: haugen2019-sprint}, {source: kons2023-plyo}]
   expected_coverage: full  # v2: the sprint and plyometric papers now supply the principles
-  reviewed: false
+  reviewed: true
 
 - id: ex-biceps
   question: "What exercises can I do for biceps?"
   category: exercise-selection
   expected_exercises: [one-arm-dumbbell-row, inverted-row]
   expected_coverage: partial  # no curls in the catalog
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review (M. Saraswat): rows are acceptable answers, but only as secondary biceps work.
+    Answer-level rule, not yet checked by code: the answer must say explicitly that the biceps are
+    trained as a secondary muscle in these rows (not present them as biceps exercises).
 
 - id: ex-hinge
   question: "Hip hinge exercises"
   category: exercise-selection
   expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift, kettlebell-swing, dumbbell-hip-thrust, glute-bridge]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
 
 - id: ex-anti-rotation
   question: "Anti-rotation core exercise"
