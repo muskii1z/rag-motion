@@ -27,6 +27,9 @@ def test_only_needs_what_i_own_equipment_query():
     assert "dumbbell-hip-thrust" not in slugs  # needs a bench
 
 
-def test_keyword_search_finds_biceps_rows():
+def test_keyword_search_finds_exercises_that_mention_biceps():
+    # Since F1 the catalog has direct biceps curls, which rightly outrank rows that list biceps secondarily.
     exercises, _ = keyword_search_all("biceps", k_exercises=5, k_passages=1)
-    assert {"one-arm-dumbbell-row", "inverted-row"} <= {h.slug for h in exercises}
+    slugs = {h.slug for h in exercises}
+    assert "dumbbell-biceps-curl" in slugs
+    assert all("biceps" in h.primary_muscles or "biceps" in h.name.lower() for h in exercises)

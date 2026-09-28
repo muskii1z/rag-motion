@@ -27,13 +27,13 @@ CREATE TABLE IF NOT EXISTS exercise (
     primary_muscles  text[] NOT NULL DEFAULT '{}',
 
     movement_pattern text NOT NULL
-        CHECK (movement_pattern IN ('squat', 'hinge', 'lunge', 'push', 'pull', 'carry', 'core', 'jump')),
+        CHECK (movement_pattern IN ('squat', 'hinge', 'lunge', 'push', 'pull', 'carry', 'core', 'jump', 'isolation', 'sprint')),
 
     -- A list, because some exercises need more than one item (e.g. dumbbell + bench).
     -- Must be non-empty and only use known equipment names.
     equipment        text[] NOT NULL
         CHECK (cardinality(equipment) > 0)
-        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box']),
+        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar']),
 
     difficulty       text NOT NULL
         CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
@@ -65,6 +65,15 @@ CREATE TABLE IF NOT EXISTS exercise (
 -- CREATE TABLE IF NOT EXISTS skips existing tables, so new columns also need an ALTER.
 -- Step 8: record which model made each embedding.
 ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;
+
+-- Phase 1F (F1): the catalog grew to include curls, speed drills, racks, and pull-up bars.
+-- Drop and re-add the two value lists (safe to re-run; the constraint names are Postgres's defaults).
+ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_movement_pattern_check;
+ALTER TABLE exercise ADD CONSTRAINT exercise_movement_pattern_check
+    CHECK (movement_pattern IN ('squat', 'hinge', 'lunge', 'push', 'pull', 'carry', 'core', 'jump', 'isolation', 'sprint'));
+ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;
+ALTER TABLE exercise ADD CONSTRAINT exercise_equipment_check1
+    CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar']);
 
 -- ---- Step 12: document chunks ----
 -- One row per passage cut from a source document or project note (see data/sources.toml).

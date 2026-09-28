@@ -10,8 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-MovementPattern = Literal["squat", "hinge", "lunge", "push", "pull", "carry", "core", "jump"]
-Equipment = Literal["bodyweight", "dumbbell", "band", "kettlebell", "barbell", "bench", "box"]
+MovementPattern = Literal["squat", "hinge", "lunge", "push", "pull", "carry", "core", "jump", "isolation", "sprint"]
+Equipment = Literal["bodyweight", "dumbbell", "band", "kettlebell", "barbell", "bench", "box", "rack", "pullup-bar"]
 Difficulty = Literal["beginner", "intermediate", "advanced"]
 Laterality = Literal["bilateral", "unilateral"]
 BodyRegion = Literal["lower", "upper", "core", "full"]

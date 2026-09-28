@@ -4,9 +4,15 @@
     "name": "Goblet Squat",
     "description": "A squat performed holding one dumbbell vertically at the chest. The front-loaded weight acts as a counterbalance, which makes it easier to stay upright and sit between the hips. A foundational lower-body strength exercise for building squat technique and leg strength in beginners.",
     "instructions": "Hold one end of a dumbbell at chest height with both hands. Stand with feet about shoulder-width apart. Sit down between your hips while keeping your chest tall and elbows inside the knees. Drive through the whole foot to stand back up.",
-    "primary_muscles": ["quadriceps", "glutes", "adductors"],
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "adductors"
+    ],
     "movement_pattern": "squat",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -17,9 +23,15 @@
     "name": "Dumbbell Romanian Deadlift",
     "description": "A hip hinge where dumbbells travel down the front of the legs while the knees stay softly bent and the hips push back. It emphasizes the hamstrings and glutes through a long range of motion and teaches the hinge pattern used in deadlifts, swings, and jumping.",
     "instructions": "Hold a dumbbell in each hand in front of your thighs. With a slight knee bend, push your hips back and lower the weights along your legs until you feel a strong hamstring stretch. Keep your back flat. Squeeze the glutes to return to standing.",
-    "primary_muscles": ["hamstrings", "glutes", "spinal erectors"],
+    "primary_muscles": [
+      "hamstrings",
+      "glutes",
+      "spinal erectors"
+    ],
     "movement_pattern": "hinge",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -30,9 +42,14 @@
     "name": "Glute Bridge",
     "description": "A floor-based hip extension exercise performed lying on the back with knees bent. It isolates the glutes with minimal load on the spine, making it a common beginner exercise and warm-up for glute activation before squats, hinges, and sprinting.",
     "instructions": "Lie on your back with knees bent and feet flat, about hip-width apart. Brace your core and drive through your heels to lift your hips until your body forms a straight line from knees to shoulders. Pause, then lower with control.",
-    "primary_muscles": ["glutes", "hamstrings"],
+    "primary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
     "movement_pattern": "hinge",
-    "equipment": ["bodyweight"],
+    "equipment": [
+      "bodyweight"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -43,9 +60,15 @@
     "name": "Dumbbell Hip Thrust",
     "description": "A loaded hip extension with the upper back supported on a bench and a dumbbell resting across the hips. It trains the glutes hardest near full hip extension and is used to build glute strength that carries over to sprinting and jumping.",
     "instructions": "Sit with your upper back against the edge of a bench and a dumbbell held across your hips. Plant your feet so your shins are vertical at the top. Drive your hips up until your torso is parallel to the floor, keeping ribs down. Lower with control.",
-    "primary_muscles": ["glutes", "hamstrings"],
+    "primary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
     "movement_pattern": "hinge",
-    "equipment": ["dumbbell", "bench"],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -56,9 +79,15 @@
     "name": "Dumbbell Reverse Lunge",
     "description": "A single-leg exercise where you step backward into a lunge while holding dumbbells at your sides. Stepping back keeps more weight on the front leg and is usually easier to control than a forward lunge. Builds single-leg strength and balance for running and field sports.",
     "instructions": "Stand tall holding a dumbbell in each hand. Step one foot back and lower until both knees are bent about 90 degrees. Keep most of your weight on the front foot. Push through the front foot to return to standing, then switch legs.",
-    "primary_muscles": ["quadriceps", "glutes", "adductors"],
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "adductors"
+    ],
     "movement_pattern": "lunge",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
@@ -69,9 +98,16 @@
     "name": "Bulgarian Split Squat",
     "description": "A rear-foot-elevated split squat with the back foot resting on a bench. It places a high demand on the front leg's quadriceps and glutes and challenges balance. A staple single-leg strength exercise for athletes and for correcting side-to-side differences.",
     "instructions": "Stand in front of a bench and place the top of your back foot on it. Holding dumbbells at your sides, lower straight down until the front thigh is about parallel to the floor. Keep the front heel planted. Drive up through the front foot. Complete all reps, then switch sides.",
-    "primary_muscles": ["quadriceps", "glutes", "adductors"],
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "adductors"
+    ],
     "movement_pattern": "lunge",
-    "equipment": ["dumbbell", "bench"],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
@@ -82,9 +118,15 @@
     "name": "Dumbbell Step-Up",
     "description": "A single-leg exercise stepping onto a box or sturdy platform while holding dumbbells. It builds leg strength in a pattern similar to climbing stairs and sprinting, and the box height can be adjusted to make it easier or harder.",
     "instructions": "Hold a dumbbell in each hand and place one whole foot on a box about knee height. Lean slightly forward and drive through the top foot to stand on the box without pushing off the back foot. Step down with control. Complete all reps, then switch legs.",
-    "primary_muscles": ["quadriceps", "glutes"],
+    "primary_muscles": [
+      "quadriceps",
+      "glutes"
+    ],
     "movement_pattern": "lunge",
-    "equipment": ["dumbbell", "box"],
+    "equipment": [
+      "dumbbell",
+      "box"
+    ],
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
@@ -95,9 +137,14 @@
     "name": "Single-Leg Romanian Deadlift",
     "description": "A hip hinge performed on one leg while the other leg extends behind for balance. It trains the hamstrings and glutes of the standing leg and builds balance and hip stability, which matter for running and change of direction.",
     "instructions": "Hold a dumbbell in the hand opposite your standing leg. With a soft knee, hinge forward at the hip while your free leg reaches straight back. Keep your hips square to the floor. Lower until your torso is nearly parallel to the floor, then return to standing.",
-    "primary_muscles": ["hamstrings", "glutes"],
+    "primary_muscles": [
+      "hamstrings",
+      "glutes"
+    ],
     "movement_pattern": "hinge",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
@@ -108,9 +155,15 @@
     "name": "Kettlebell Swing",
     "description": "A ballistic hip hinge where a kettlebell is swung between the legs and driven to chest height by a powerful hip snap. It develops explosive hip extension, posterior-chain power, and conditioning. The arms guide the bell while the hips do the work.",
     "instructions": "Stand with feet a little wider than shoulder-width and a kettlebell slightly in front of you. Hike it back between your legs, then drive your hips forward forcefully to float the bell to chest height. Let it fall back into the hinge and repeat. Keep your back flat throughout.",
-    "primary_muscles": ["glutes", "hamstrings", "spinal erectors"],
+    "primary_muscles": [
+      "glutes",
+      "hamstrings",
+      "spinal erectors"
+    ],
     "movement_pattern": "hinge",
-    "equipment": ["kettlebell"],
+    "equipment": [
+      "kettlebell"
+    ],
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "full",
@@ -121,9 +174,15 @@
     "name": "Box Jump",
     "description": "A vertical jump onto a box, landing softly in a quarter squat. It trains lower-body power and rate of force development while keeping landing impact low. Used to improve jumping ability and explosiveness for sport.",
     "instructions": "Stand facing a box at a height you can land on comfortably. Swing your arms back, dip into a quarter squat, and jump explosively onto the box. Land softly with both feet and knees tracking over toes. Stand tall, then step down rather than jumping down.",
-    "primary_muscles": ["quadriceps", "glutes", "calves"],
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "calves"
+    ],
     "movement_pattern": "jump",
-    "equipment": ["box"],
+    "equipment": [
+      "box"
+    ],
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -134,9 +193,16 @@
     "name": "Broad Jump",
     "description": "A standing horizontal jump for maximum distance, landing in an athletic stance. It develops horizontal power, which relates closely to acceleration in sprinting. A common test and training exercise for explosiveness.",
     "instructions": "Stand with feet hip-width apart. Swing your arms back while hinging at the hips, then drive them forward as you jump as far as you can. Land on both feet with knees bent, absorbing the landing. Stick the landing before resetting.",
-    "primary_muscles": ["glutes", "quadriceps", "hamstrings", "calves"],
+    "primary_muscles": [
+      "glutes",
+      "quadriceps",
+      "hamstrings",
+      "calves"
+    ],
     "movement_pattern": "jump",
-    "equipment": ["bodyweight"],
+    "equipment": [
+      "bodyweight"
+    ],
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "lower",
@@ -147,9 +213,16 @@
     "name": "Lateral Bound",
     "description": "A side-to-side single-leg jump, pushing off one leg and landing on the other. It builds lateral power, single-leg landing control, and change-of-direction ability for field and court sports.",
     "instructions": "Stand on your right leg. Push off explosively to the left and land softly on your left leg, absorbing the landing with a bent knee and hip. Hold the landing briefly, then bound back to the right. Increase distance only when landings are stable.",
-    "primary_muscles": ["glutes", "quadriceps", "adductors", "calves"],
+    "primary_muscles": [
+      "glutes",
+      "quadriceps",
+      "adductors",
+      "calves"
+    ],
     "movement_pattern": "jump",
-    "equipment": ["bodyweight"],
+    "equipment": [
+      "bodyweight"
+    ],
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
@@ -160,9 +233,15 @@
     "name": "Push-Up",
     "description": "A bodyweight horizontal press from a plank position, lowering the chest to the floor and pushing back up. It builds chest, shoulder, and triceps strength while training the core to hold a straight body line. Can be made easier with hands elevated.",
     "instructions": "Start in a high plank with hands slightly wider than shoulders. Keep your body in a straight line from head to heels. Lower your chest toward the floor with elbows about 45 degrees from your body. Press back up to full arm extension.",
-    "primary_muscles": ["chest", "triceps", "front deltoids"],
+    "primary_muscles": [
+      "chest",
+      "triceps",
+      "front deltoids"
+    ],
     "movement_pattern": "push",
-    "equipment": ["bodyweight"],
+    "equipment": [
+      "bodyweight"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
@@ -173,9 +252,15 @@
     "name": "Dumbbell Overhead Press",
     "description": "A standing vertical press, pushing dumbbells from the shoulders to overhead. It builds shoulder and triceps strength and requires core stability to avoid leaning back. Dumbbells allow each arm to move independently.",
     "instructions": "Stand with a dumbbell in each hand at shoulder height, palms facing forward or inward. Brace your core and squeeze your glutes. Press the weights straight overhead until your arms are fully extended. Lower with control back to the shoulders.",
-    "primary_muscles": ["deltoids", "triceps", "upper trapezius"],
+    "primary_muscles": [
+      "deltoids",
+      "triceps",
+      "upper trapezius"
+    ],
     "movement_pattern": "push",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
@@ -186,9 +271,17 @@
     "name": "One-Arm Dumbbell Row",
     "description": "A horizontal pull performed one arm at a time with the opposite hand and knee supported on a bench. It builds upper-back and lat strength and allows a long range of motion for each side.",
     "instructions": "Place one hand and the same-side knee on a bench, back flat. Hold a dumbbell in the other hand with the arm hanging straight. Pull the dumbbell toward your hip, driving the elbow back. Lower under control. Complete all reps, then switch sides.",
-    "primary_muscles": ["latissimus dorsi", "rhomboids", "rear deltoids", "biceps"],
+    "primary_muscles": [
+      "latissimus dorsi",
+      "rhomboids",
+      "rear deltoids",
+      "biceps"
+    ],
     "movement_pattern": "pull",
-    "equipment": ["dumbbell", "bench"],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "upper",
@@ -199,9 +292,15 @@
     "name": "Band Pull-Apart",
     "description": "A light horizontal pulling exercise, stretching a resistance band across the chest with straight arms. It targets the rear shoulders and upper back and is often used in warm-ups and to balance out pressing volume.",
     "instructions": "Hold a resistance band in front of you at shoulder height, arms straight and hands shoulder-width apart. Pull the band apart by moving your hands out to the sides until the band touches your chest. Squeeze your shoulder blades together, then return slowly.",
-    "primary_muscles": ["rear deltoids", "rhomboids", "middle trapezius"],
+    "primary_muscles": [
+      "rear deltoids",
+      "rhomboids",
+      "middle trapezius"
+    ],
     "movement_pattern": "pull",
-    "equipment": ["band"],
+    "equipment": [
+      "band"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
@@ -212,9 +311,15 @@
     "name": "Inverted Row",
     "description": "A bodyweight horizontal pull, hanging under a bar set in a rack and pulling the chest up to it. It builds upper-back and arm strength and scales easily: a higher bar or bent knees makes it easier, a lower bar makes it harder.",
     "instructions": "Set a barbell in a rack at about waist height. Lie underneath and grip it slightly wider than shoulders, with heels on the floor and body straight. Pull your chest to the bar, squeezing your shoulder blades together. Lower until your arms are straight.",
-    "primary_muscles": ["latissimus dorsi", "rhomboids", "biceps"],
+    "primary_muscles": [
+      "latissimus dorsi",
+      "rhomboids",
+      "biceps"
+    ],
     "movement_pattern": "pull",
-    "equipment": ["barbell"],
+    "equipment": [
+      "barbell"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
@@ -225,9 +330,15 @@
     "name": "Dead Bug",
     "description": "A floor-based core exercise lying on the back, extending the opposite arm and leg while keeping the lower back pressed to the floor. It trains the deep core to resist arching, which supports trunk control during lifting and running.",
     "instructions": "Lie on your back with arms pointing up and hips and knees bent to 90 degrees. Press your lower back into the floor. Slowly extend one arm overhead and the opposite leg out straight, without letting your back arch. Return and switch sides.",
-    "primary_muscles": ["rectus abdominis", "transverse abdominis", "obliques"],
+    "primary_muscles": [
+      "rectus abdominis",
+      "transverse abdominis",
+      "obliques"
+    ],
     "movement_pattern": "core",
-    "equipment": ["bodyweight"],
+    "equipment": [
+      "bodyweight"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "core",
@@ -238,9 +349,14 @@
     "name": "Pallof Press",
     "description": "An anti-rotation core exercise, pressing a resistance band straight out from the chest while it pulls sideways. The core must resist being twisted toward the anchor. Useful for trunk stability in rotational and field sports.",
     "instructions": "Anchor a band at chest height and stand side-on to it, holding the band at your chest with both hands. Step out until there is tension. Brace and press your hands straight out in front of you without letting your torso rotate. Pause, return, and complete both sides.",
-    "primary_muscles": ["obliques", "transverse abdominis"],
+    "primary_muscles": [
+      "obliques",
+      "transverse abdominis"
+    ],
     "movement_pattern": "core",
-    "equipment": ["band"],
+    "equipment": [
+      "band"
+    ],
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "core",
@@ -251,12 +367,437 @@
     "name": "Farmer Carry",
     "description": "Walking while holding a heavy dumbbell in each hand at your sides. It builds grip strength, upper-back and trunk stability, and general work capacity. A simple full-body exercise that can also be used as a finisher.",
     "instructions": "Pick up a heavy dumbbell in each hand using a hip hinge. Stand tall with shoulders back and down. Walk with short, controlled steps for a set distance or time, keeping your torso upright. Set the weights down with the same hinge.",
-    "primary_muscles": ["forearms", "upper trapezius", "obliques", "glutes"],
+    "primary_muscles": [
+      "forearms",
+      "upper trapezius",
+      "obliques",
+      "glutes"
+    ],
     "movement_pattern": "carry",
-    "equipment": ["dumbbell"],
+    "equipment": [
+      "dumbbell"
+    ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "full",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "dumbbell-biceps-curl",
+    "name": "Dumbbell Biceps Curl",
+    "description": "An elbow-flexion exercise curling dumbbells from the thighs to the shoulders. It isolates the biceps and is the most direct way to train them, often used as accessory work after compound pulling.",
+    "instructions": "Stand tall with a dumbbell in each hand, palms forward. Keep the elbows close to the sides and curl the weights up without swinging the torso. Lower slowly to full elbow extension.",
+    "primary_muscles": [
+      "biceps",
+      "brachialis"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "dumbbell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "hammer-curl",
+    "name": "Hammer Curl",
+    "description": "A curl performed with palms facing each other. The neutral grip shifts more work to the brachialis and forearm muscles, building elbow-flexor size and grip support alongside the biceps.",
+    "instructions": "Hold dumbbells at your sides with palms facing in. Curl both weights up while keeping the thumbs pointing up and the elbows still. Lower with control.",
+    "primary_muscles": [
+      "brachialis",
+      "brachioradialis",
+      "biceps"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "dumbbell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "band-biceps-curl",
+    "name": "Band Biceps Curl",
+    "description": "A biceps curl against a resistance band anchored under the feet. Tension rises as the band stretches, so the top of the curl is hardest. A portable option when no weights are available.",
+    "instructions": "Stand on the middle of a band and hold the ends with palms forward. Curl the hands to the shoulders keeping elbows by your sides, then lower slowly against the band's pull.",
+    "primary_muscles": [
+      "biceps",
+      "brachialis"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "band"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "dumbbell-overhead-triceps-extension",
+    "name": "Dumbbell Overhead Triceps Extension",
+    "description": "An elbow-extension exercise lowering a dumbbell behind the head and pressing it back up. The overhead arm position stretches the long head of the triceps, making it a direct triceps builder.",
+    "instructions": "Hold one dumbbell overhead with both hands. Keep the upper arms close to the head and bend the elbows to lower the weight behind you. Extend the elbows to press it back overhead.",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "dumbbell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "bench-dip",
+    "name": "Bench Dip",
+    "description": "A bodyweight triceps exercise lowering and pressing the body with the hands on a bench behind you. Bending the knees makes it easier; straight legs or elevated feet make it harder.",
+    "instructions": "Sit on the edge of a bench, hands beside the hips, and slide forward off it. Bend the elbows straight back to lower the body, then press back up until the arms are straight.",
+    "primary_muscles": [
+      "triceps",
+      "chest",
+      "front deltoids"
+    ],
+    "movement_pattern": "push",
+    "equipment": [
+      "bench"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "barbell-back-squat",
+    "name": "Barbell Back Squat",
+    "description": "A squat with a barbell across the upper back, loaded from a rack. It allows heavy loading of the legs and hips and is a cornerstone strength exercise for athletes once squat technique is solid.",
+    "instructions": "Set the bar on the upper back in a rack and step back. With feet about shoulder-width, brace and sit down between the hips to at least parallel, then drive up through the whole foot.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "adductors",
+      "spinal erectors"
+    ],
+    "movement_pattern": "squat",
+    "equipment": [
+      "barbell",
+      "rack"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "barbell-deadlift",
+    "name": "Barbell Deadlift",
+    "description": "A hinge lifting a loaded barbell from the floor to standing. It trains the whole posterior chain under heavy load and builds the pulling strength that supports sprinting and jumping.",
+    "instructions": "Stand with the bar over mid-foot, grip it just outside the legs, and set a flat back. Push the floor away, keeping the bar close to the legs, and finish standing tall. Lower under control.",
+    "primary_muscles": [
+      "glutes",
+      "hamstrings",
+      "spinal erectors",
+      "forearms"
+    ],
+    "movement_pattern": "hinge",
+    "equipment": [
+      "barbell"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "bilateral",
+    "body_region": "full",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "power-clean",
+    "name": "Power Clean",
+    "description": "A weightlifting movement pulling a barbell from the floor explosively and catching it on the front of the shoulders in a partial squat. It trains rapid force production of the hips, knees, and ankles.",
+    "instructions": "From a deadlift start, lift the bar to above the knees, then extend the hips, knees, and ankles explosively. Pull yourself under the bar and catch it on the shoulders with elbows high in a quarter squat.",
+    "primary_muscles": [
+      "glutes",
+      "quadriceps",
+      "hamstrings",
+      "upper trapezius"
+    ],
+    "movement_pattern": "hinge",
+    "equipment": [
+      "barbell"
+    ],
+    "difficulty": "advanced",
+    "laterality": "bilateral",
+    "body_region": "full",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "depth-jump",
+    "name": "Depth Jump",
+    "description": "A plyometric exercise stepping off a box, landing, and jumping up immediately with minimal ground contact. It trains fast stretch-shortening cycle function and is a high-intensity drill reserved for well-prepared athletes.",
+    "instructions": "Stand on a low box and step off. Land on both feet and rebound into a maximal vertical jump as quickly as possible, keeping ground contact short. Land softly and reset between reps.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "calves"
+    ],
+    "movement_pattern": "jump",
+    "equipment": [
+      "box"
+    ],
+    "difficulty": "advanced",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "pistol-squat",
+    "name": "Pistol Squat",
+    "description": "A single-leg squat to full depth with the other leg held straight in front. It demands strength, balance, and mobility together, and is usually progressed from box-assisted versions.",
+    "instructions": "Stand on one leg with the other extended forward. Sit down slowly on the standing leg as deep as control allows, arms reaching forward for balance, then stand back up without touching the free foot down.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "adductors"
+    ],
+    "movement_pattern": "squat",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "advanced",
+    "laterality": "unilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "band-lateral-walk",
+    "name": "Band Lateral Walk",
+    "description": "Side-stepping with a mini band around the legs. It targets the hip abductors, especially the gluteus medius, and is common in warm-ups for knee and hip control before running or squatting.",
+    "instructions": "Place a mini band above the knees or around the ankles. Take a quarter-squat stance and step sideways, keeping tension on the band and the knees tracking over the toes. Repeat in both directions.",
+    "primary_muscles": [
+      "gluteus medius",
+      "glutes"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "band"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "kettlebell-deadlift",
+    "name": "Kettlebell Deadlift",
+    "description": "A hip hinge lifting a kettlebell from between the feet. The load stays close to the body's center, which makes it a simple way to teach the deadlift pattern before swings or barbell pulls.",
+    "instructions": "Stand over a kettlebell with feet about hip-width. Push the hips back, grip the handle with a flat back, then stand up by driving the hips forward. Lower it with the same hinge.",
+    "primary_muscles": [
+      "glutes",
+      "hamstrings",
+      "spinal erectors"
+    ],
+    "movement_pattern": "hinge",
+    "equipment": [
+      "kettlebell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "turkish-get-up",
+    "name": "Turkish Get-Up",
+    "description": "A slow, multi-step movement from lying to standing while holding a kettlebell overhead. It builds shoulder stability, trunk control, and coordination through many positions in one lift.",
+    "instructions": "Lie down holding a kettlebell straight up in one hand. Roll to the elbow, then the hand, lift the hips, sweep the leg under to a kneeling position, and stand, keeping the arm locked overhead. Reverse the steps to return.",
+    "primary_muscles": [
+      "obliques",
+      "deltoids",
+      "glutes"
+    ],
+    "movement_pattern": "core",
+    "equipment": [
+      "kettlebell"
+    ],
+    "difficulty": "advanced",
+    "laterality": "unilateral",
+    "body_region": "full",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "barbell-bench-press",
+    "name": "Barbell Bench Press",
+    "description": "A horizontal press lowering a barbell to the chest from a rack while lying on a bench. It allows heavy loading of the chest, shoulders, and triceps and is a standard upper-body strength measure.",
+    "instructions": "Lie on a bench with eyes under the bar, grip slightly wider than shoulders, and unrack it. Lower the bar to the lower chest with control, then press it back up over the shoulders.",
+    "primary_muscles": [
+      "chest",
+      "triceps",
+      "front deltoids"
+    ],
+    "movement_pattern": "push",
+    "equipment": [
+      "barbell",
+      "bench",
+      "rack"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "pull-up",
+    "name": "Pull-Up",
+    "description": "A vertical pull lifting the body until the chin clears a bar. It builds back and arm strength relative to body weight and can be made easier with a band or harder with added load.",
+    "instructions": "Hang from a bar with hands slightly wider than shoulders, palms away. Pull the elbows down toward the ribs until the chin clears the bar, then lower to straight arms with control.",
+    "primary_muscles": [
+      "latissimus dorsi",
+      "biceps",
+      "rhomboids"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "pullup-bar"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "barbell-bent-over-row",
+    "name": "Barbell Bent-Over Row",
+    "description": "A horizontal pull rowing a barbell to the torso from a hinged position. It trains the upper back and lats while the hips and trunk hold a stable hinge.",
+    "instructions": "Hinge forward with a flat back and the bar hanging at arm's length. Pull the bar to the lower ribs, squeezing the shoulder blades together, then lower it without losing the hinge.",
+    "primary_muscles": [
+      "latissimus dorsi",
+      "rhomboids",
+      "rear deltoids",
+      "biceps"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "barbell"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "split-squat",
+    "name": "Split Squat",
+    "description": "A static lunge with one foot forward and one back, lowering straight down. It builds single-leg strength and balance without equipment and is a simple progression toward rear-foot-elevated versions.",
+    "instructions": "Stand in a long split stance. Keep the torso upright and lower straight down until both knees are bent about 90 degrees, then drive through the front foot to rise. Complete all reps, then switch legs.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "movement_pattern": "lunge",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "unilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "nordic-hamstring-curl",
+    "name": "Nordic Hamstring Curl",
+    "description": "A kneeling exercise lowering the body forward under control while the heels are held down by a partner or anchor. It trains the hamstrings eccentrically and is widely used in field and sprint sports.",
+    "instructions": "Kneel with the ankles held down. Keeping the hips straight, lower the torso toward the floor as slowly as possible, catch yourself with the hands, and push back up to the start.",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "advanced",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "a-skip",
+    "name": "A-Skip",
+    "description": "A rhythmic sprint drill skipping forward while driving one knee up and striking the ground under the hips. It teaches posture, knee lift, and foot contact patterns used in sprinting.",
+    "instructions": "Skip forward, driving one knee to hip height while the other leg pushes off. Bring the lifted foot down actively under the hips and alternate legs with a quick rhythm and tall posture.",
+    "primary_muscles": [
+      "hip flexors",
+      "calves",
+      "glutes"
+    ],
+    "movement_pattern": "sprint",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "unilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "bounding",
+    "name": "Bounding",
+    "description": "Exaggerated running strides covering as much ground as possible with each push-off. It develops horizontal power and elastic strength for acceleration and top speed.",
+    "instructions": "Run forward with long, powerful strides, pushing hard off each foot and driving the opposite knee forward. Spend more time in the air than in normal running and land under the body.",
+    "primary_muscles": [
+      "glutes",
+      "hamstrings",
+      "calves",
+      "hip flexors"
+    ],
+    "movement_pattern": "sprint",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "unilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "single-leg-hop",
+    "name": "Single-Leg Hop",
+    "description": "Repeated forward hops on one leg. It builds single-leg power, landing control, and ankle stiffness, and exposes side-to-side differences in explosiveness.",
+    "instructions": "Stand on one leg and hop forward several times in a row, landing softly on the same leg and rebounding quickly. Keep the knee tracking over the toes. Repeat on the other leg.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes",
+      "calves"
+    ],
+    "movement_pattern": "jump",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "intermediate",
+    "laterality": "unilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "front-plank",
+    "name": "Front Plank",
+    "description": "Holding a straight body line supported on the forearms and toes. It trains the trunk to resist sagging and is a common foundation for core training.",
+    "instructions": "Place the forearms on the floor under the shoulders and extend the legs. Brace so the body forms a straight line from head to heels, and hold without letting the hips sag or lift.",
+    "primary_muscles": [
+      "rectus abdominis",
+      "transverse abdominis",
+      "obliques"
+    ],
+    "movement_pattern": "core",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "core",
     "source": "Drafted with AI assistance; pending coach review"
   }
 ]
