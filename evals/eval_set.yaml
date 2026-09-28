@@ -220,17 +220,25 @@ questions:
   category: dose
   expected_passages: [{source: pag2, pages: [10, 88]}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: checked against the quoted source text."
 
 # ---- Population: the right group's numbers ----
 - id: pop-beginner-adult
   question: "How much strength training should a beginner adult do each week, and which exercises could they start with?"
   category: population
-  expected_exercises: [goblet-squat, push-up, one-arm-dumbbell-row, dumbbell-romanian-deadlift, dumbbell-overhead-press]
-  expected_passages: [{source: pag2, pages: [8, 56, 60, 61]}]
+  expected_passages: [{source: pag2, pages: [8, 56, 60, 61, 62, 63]}]
+  acceptable_exercises: [band-pull-apart, dead-bug, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-reverse-lunge,
+                         dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, glute-bridge, goblet-squat,
+                         inverted-row, one-arm-dumbbell-row, pallof-press, push-up]  # all 14 beginner exercises
   forbidden_passages: [{source: notes-nsca-older-adults}, {source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 5"}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review: don't pick 5 exercises; the answer should list beginner exercises grouped by muscle group,
+    covering all major muscle groups (matching the Guidelines' "all major muscle groups"). Answer-level rule,
+    not yet checked by code. No single exercise is required, so exercises aren't scored here; the question
+    tests the dose passage and the population rule.
 
 # ---- NSCA notes ----
 - id: notes-older-load
@@ -238,7 +246,8 @@ questions:
   category: notes
   expected_passages: [{source: notes-nsca-older-adults, heading: "Programming guidelines"}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: checked against the quoted source text."
 
 - id: notes-youth-start
   question: "At what age can kids safely start resistance training?"
@@ -246,14 +255,16 @@ questions:
   expected_passages: [{source: notes-nsca-youth-ltad}]
   forbidden_passages: [{source: notes-nsca-older-adults}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: checked against the quoted source text."
 
 - id: notes-weightlifting-progression
   question: "How should an athlete progress from pulling derivatives to the full Olympic lifts?"
   category: notes
   expected_passages: [{source: notes-nsca-weightlifting, heading: "Exercise examples and progressions"}, {source: notes-nsca-weightlifting, heading: "Programming guidelines"}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: checked against the quoted source text."
 
 # ---- Known gaps: an honest system says so ----
 - id: gap-plyo-program
