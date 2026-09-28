@@ -31,3 +31,6 @@ See [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand
 - The page stays minimal: a question box, the answer with citations, and the evidence cards. No polished frontend.
 
 See [Step 10](../build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui).
+
+## Note (2026-09-28, Step 16): done
+Step 16 hardened the FastAPI app as planned: 31 tests, specific status codes with plain error messages (`src/ragmotion/errors.py`), and a rewritten README. Phase 1 is complete. See [Step 16](../build-log.md#step-16-tests-error-handling-readme-phase-1-complete) and [0023](0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md).

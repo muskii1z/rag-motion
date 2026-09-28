@@ -26,3 +26,5 @@ FastAPI (0.141.1) + uvicorn (0.54.0) serving one static page, `src/ragmotion/sta
 See [Step 10](../build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui).
 
 **Update 2026-09-25 (after Step 15):** the page was redesigned into a branded chat layout with a sources drawer, and `GET /api/info` was added (models, search mode, sources, counts). Same architecture. See [UI redesign](../build-log.md#ui-redesign-rag-motion-brand-and-chat-layout-after-step-15).
+
+**Update 2026-09-28 (Step 16):** the "Step 16" revisit signal is handled. Errors are no longer a generic 502 with the raw error text: `friendly_message()` returns 503 (database down, rate limit, connection), 502 (provider rejected the call), or 500 (our own errors), each with one plain sentence and the fix. The full traceback is logged on the server, and unexpected errors don't expose internals. `/api/info` handles errors the same way. Still open for any deployment beyond localhost: authentication and rate limits. See [Step 16](../build-log.md#step-16-tests-error-handling-readme-phase-1-complete).

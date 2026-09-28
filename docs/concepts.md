@@ -634,7 +634,9 @@ A source manifest is a small committed file listing every document the system in
 
 *After Step 15 update: a `format` field.* Each source now declares how it is read: `format = "jats-xml"` for the two research papers (`kons2023-plyo`, `haugen2019-sprint`), `"markdown"` for the notes, and `"pdf"` by default. The chunker picks its reader from it. The two papers carry license group A, the license evidence quoted from inside each XML file, a full attribution (authors, title, journal, year, DOI, "CC BY 4.0. Text extracted and chunked for this project."), local path, and sha256.
 
-*First seen: before Step 11. Extended: Steps 11 and 12, after Step 15.*
+*Step 16 update: `download_url`.* The two XML papers now carry a `download_url` in the manifest (and `Source` has the field), so `scripts/download_sources.py` can fetch every missing external document and verify its sha256. The manifest is now enough to rebuild `data/raw/` on a fresh clone. See [Reproducible setup from a fresh clone](#reproducible-setup-from-a-fresh-clone).
+
+*First seen: before Step 11. Extended: Steps 11 and 12, after Step 15, Step 16.*
 
 ### Text and data mining (TDM) reservations
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
@@ -1026,7 +1028,9 @@ Two different causes of wrong results. A **search problem** is about ranking: th
 
 **In an interview:** "My eval separated two kinds of failure. Jargon and exercise choice changed with the search method; equipment and population questions failed in every method. Those aren't search problems, they're filtering problems, so the fix is a WHERE clause, not a better ranker."
 
-*First seen: Step 15.*
+*Step 16 update: the plan, eval first.* On the reviewed baseline, forbidden-item checks passed 2 of 5. The fix has three parts: read the person's limits (equipment, population, level) from the question with a structured LLM step like Step 6, applying no filter when none are stated; filter exercises with `equipment <@ owned`; tag every chunk with its population (Guidelines chapter 3 kids and teens, 4 adults, 5 older adults, 6 pregnancy and conditions; notes by topic; papers athletes) and filter on it. But first the test gets stronger: only 3 questions test limits, so one flip moves the score 33–50%. About 8–10 coach-written questions come first, including one with no limits stated, to catch over-filtering (a filter removing something relevant). Success means the forbidden failures pass AND nothing else gets worse.
+
+*First seen: Step 15. Extended: Step 16.*
 
 ### Negative tests (unanswerable questions)
 A negative test is a question the sources cannot answer, put in the eval on purpose. The correct behavior is to say "not covered" and cite nothing, instead of producing a plausible answer from the model's training memory. rag-motion's is "How much protein should athletes eat per day?": there is no nutrition source in the corpus. Both the semantic and hybrid experiments answered "The provided evidence does not contain information about the recommended daily protein intake for athletes", with coverage `none` (expected `none`) and no citations, so both passed. The developer's first reading was that it looked like a failure; it is the pass. Without negative tests, an eval only rewards answering, and a system that always answers confidently would look perfect. See [the Q&A](build-log.md#after-step-15-langsmith-questions-and-the-negative-test-qa).
@@ -1160,6 +1164,45 @@ Two kinds of eval question need different review. **Source-anchored:** the right
 **In an interview:** "For guideline questions the source is the authority, so I check the key against the exact sentence. For exercise-choice questions the key is a coaching judgment, so I make the call, write the reason, and apply it consistently."
 
 *First seen: Eval walkthrough, part 1.*
+
+---
+
+## Testing
+
+### Unit tests vs evals
+Both check the system, but they answer different questions. A **unit test** checks that one small piece of code does exactly what it should, with a fixed input and one right output: "given this answer text, the citation parser finds these three ids." It passes or fails, runs in milliseconds, and needs no API. An **eval** checks answer quality across many realistic questions, where "right" is a matter of degree and the LLM's output varies: recall, coverage honesty, forbidden items. In Step 16 the 31 tests run in about 0.3 s for free; an answer eval takes minutes and costs about 2 cents. So tests run after every code change, and evals run after changes meant to improve quality. Tests say "the code is broken"; evals say "the answers got worse".
+
+**In an interview:** "I use two safety nets. Unit tests catch broken code in a third of a second with no API calls. Evals measure answer quality on 31 coach-reviewed questions. A change has to pass the tests before it's worth spending money on an eval run."
+
+*First seen: Step 16.*
+
+### Regression tests from real failures
+A regression is an old bug coming back after a later change. A regression test reproduces a bug that actually happened, so it can never return unnoticed. Step 16 turned two real citation failures into tests: the invented id `exercise-push-up` (Step 13, when the model glued a tag name onto an id) and the typo `haugen219-sprint-17` (after Step 15). The Lesson 2 hand-graded search (recall 1, hit 1, MRR 1) also became a test of the scoring code. Real failures make better tests than imagined ones, because they are the mistakes this system actually makes.
+
+**In an interview:** "My tests include the actual bugs I hit: an invented citation id and a typo'd one. Each became a test, so if a prompt or parser change lets them through again, I find out in a second instead of in a user's answer."
+
+*First seen: Step 16.*
+
+### Integration tests that skip gracefully
+An integration test checks that parts work together with a real outside system, here the Postgres database. They catch problems unit tests can't (for example, that the "only needs what I own" SQL query really excludes the step-up and hip thrust, or that every chunk has a vector). But they need that system running. Step 16's three database tests carry an `integration` marker (a label pytest can select or skip by), and `conftest.py` skips them automatically when Postgres can't be reached, instead of failing. So the unit tests still run anywhere, and a stopped Docker container doesn't look like broken code.
+
+**In an interview:** "Database tests are marked as integration tests and skip themselves if Postgres is down. A missing database is an environment problem, not a code failure, and the unit tests stay runnable on any machine."
+
+*First seen: Step 16.*
+
+### Proving a test can fail (breaking the code on purpose)
+A test that can't fail is useless: it would pass whether or not the code works. The check is to break the code on purpose and confirm the test goes red. This is the idea behind mutation testing (tools that make many small deliberate bugs and count how many the tests catch). In Step 16 Claude put the Step 13 bug back into `rag.py` (reading only one id per bracket). `test_find_citations_reads_single_and_grouped_ids` failed (1 failed, 5 passed). The file was then restored exactly, with no diff (no difference from the original), and everything passed again.
+
+**In an interview:** "I don't trust a test until I've seen it fail. I reintroduced a real citation bug on purpose, watched the test catch it, then restored the code."
+
+*First seen: Step 16.*
+
+### Fixtures, factories, and monkeypatching
+Tools that make tests short and isolated. `conftest.py` is a special pytest file whose setup is shared by every test in the folder. A **fixture** is reusable setup that pytest hands to any test that names it; the chunking tests use one called `small_limits`. (The automatic skip for integration tests is a different pytest feature, a hook that runs while tests are being collected.) A **factory** is a small helper that builds a valid test object with sensible defaults, so each test only states what matters: `make_exercise(...)`, `make_passage(...)`. **Monkeypatching** temporarily replaces a value or function during one test and puts it back afterwards; `small_limits` shrinks the chunker's 150–450-word limits to 10–30 so a few short lines can trigger merging and splitting. `conftest.py` also turns LangSmith tracing off before importing `ragmotion`, because `config.py` loads `.env` without overriding variables already set, so tests never send traces.
+
+**In an interview:** "Tests build their data with small factories and shrink settings like chunk-size limits with monkeypatching, so each test is a few lines and needs no real documents. Tracing is switched off in test setup so tests never talk to outside services."
+
+*First seen: Step 16.*
 
 ---
 
@@ -1722,7 +1765,9 @@ Observability means being able to see what a system did and why. LangSmith is a 
 
 *After Step 15 update: retention and hygiene.* Traces are kept 14 days on the free plan (a partial answer to the open free-tier question); eval results are also saved in `evals/results/`. Search-only eval traces were turned off and trace inputs trimmed to the question ([Trace hygiene](#trace-hygiene-disable-preview-friendly-inputs-metadata)).
 
-*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15, after Step 15.*
+*Step 16 update: tracing when things fail, and in tests.* The functions that summarize a step's output for the trace (`_summarize_result`, `_summarize_vectors`, `_as_trace_documents`) assumed a result always exists. When a call failed, LangSmith printed "process_outputs failed ... NoneType". They now return `{}` on failure, and LangSmith records the error itself. Tests switch tracing off in `conftest.py` so they never send traces. Lesson: observability code runs on the failure path too, so it must handle missing results.
+
+*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15, after Step 15, Step 16.*
 
 ### Tracing and traces
 Tracing means recording what happens inside each request automatically. A **trace** is the record of one request, shaped like a tree. Each box in the tree is a **run** (one step), with its inputs, outputs, start and end time, and, for model calls, tokens and cost. Runs have types, which LangSmith uses to display them: **chain** (a step that calls other steps, like `answer_question`), **retriever** (returns documents, like `search_all`), **embedding**, **llm** (a model call), and **tool** (a helper like `check_citations`). In Step 14 the tree for one question was:
@@ -1800,7 +1845,9 @@ When an API call fails, the `openai` library raises a different error type for e
 
 **In an interview:** "I handle auth, rate-limit, connection, and other status errors separately, because each needs a different fix, and I also check successful replies for truncation, refusals, and parse failures before using them."
 
-*First seen: Step 6.*
+*Step 16 update: one shared translator.* The same error types are now mapped in one place, `friendly_message()` in `src/ragmotion/errors.py`, used by the web app and the CLI scripts alike. A database that can't be reached raises a new `DatabaseUnavailable` error. See [Friendly error messages](#friendly-error-messages).
+
+*First seen: Step 6. Extended: Step 16.*
 
 ### Latency: where the time goes
 Latency is how long a request takes, from asking to getting the answer back. Step 9 searches took 180 to 380 ms each (milliseconds; 1,000 ms is one second). Almost all of that is the embedding call: the question travels over the internet to OpenRouter and Voyage and back. The database part, ranking 20 vectors on this machine, takes milliseconds. So speeding up the database would barely help; the network call dominates. `scripts/search.py` reports only the total time.
@@ -1824,6 +1871,27 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 
 *First seen: after Step 15.*
 
+### Friendly error messages
+When something fails, the user should get one plain sentence that says what's wrong and how to fix it, not a traceback (Python's multi-line report of where the error happened). `friendly_message(exc)` in `src/ragmotion/errors.py` does this translation for the web app and the CLI scripts. Examples: "Can't reach the database. Is Docker running? Start it with: docker compose up -d --wait"; "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in .env." Three rules: (1) name the fix, not just the problem; (2) keep the full details, but in the server log, where the developer can read them; (3) never show internals to the user for errors we didn't anticipate. Unknown errors say only "Unexpected error (Type). Details are in the server log." Internal details (file paths, queries, library messages) can confuse users and help attackers. Verified in Step 16 by simulation: `DATABASE_URL` pointed at an unused port, and a fake key, each produced the right one-line message. Docker was never stopped.
+
+**In an interview:** "Every failure becomes one sentence with the fix, like 'Is Docker running? Start it with docker compose up.' The full traceback goes to the server log, and unexpected errors never leak internals to the user."
+
+*First seen: Step 16.*
+
+### HTTP status codes 500, 502, 503
+An HTTP status code is the three-digit number a web server sends with every reply to say how the request went. Codes in the 500s mean the server side failed, not the user. **500** (Internal Server Error): something went wrong in our own code. **502** (Bad Gateway): a service behind us gave a bad reply, such as OpenRouter rejecting the key or returning an error. **503** (Service Unavailable): something we depend on is temporarily unreachable or overloaded, such as the database being down, a rate limit, or a network timeout; trying again later may work. In Step 10 every failure was a 502; since Step 16 `friendly_message()` picks the code that matches the cause, which also tells monitoring tools and client code whether a retry makes sense.
+
+**In an interview:** "I map failures to the right status codes: 503 when a dependency like the database is down and a retry may work, 502 when the LLM provider rejects the call, and 500 for our own bugs, with details only in the log."
+
+*First seen: Step 16.*
+
+### Reproducible setup from a fresh clone
+A setup is reproducible when someone with only the repo can rebuild the whole working system and get the same result. Here that means (the README's "Run it locally" section): install from `uv.lock` (`uv sync`), start Postgres with Docker Compose, apply `db/schema.sql`, seed and embed the exercises, download and verify the source documents, extract the PDF, then chunk and embed the passages. Writing the README in Step 16 exposed a gap: the source documents are git-ignored (licensing and size), and nothing fetched them. Fix: a `download_url` in the manifest for the two XML papers, and `scripts/download_sources.py`, which downloads any missing external document and checks every sha256 (a file fingerprint) against the manifest. The project's own notes live in the repo. Writing the setup instructions as if for a stranger is what found the gap.
+
+**In an interview:** "A fresh clone can rebuild everything: the lockfile pins packages, Docker Compose starts the database, and a download script fetches every source document from the manifest and verifies its hash. I found that last gap by writing the README's setup section as if I were a new user."
+
+*First seen: Step 16.*
+
 ---
 
 ## Web apps
@@ -1842,7 +1910,9 @@ FastAPI is a Python library for building web APIs (programs other programs call 
 
 **In an interview:** "The API is a small FastAPI app: a route serves the page, another takes a validated question and returns the answer, evidence, costs, and timings as JSON, with errors mapped to status codes. Uvicorn runs it on localhost only."
 
-*First seen: Step 10.*
+*Step 16 update: specific codes, safe messages.* Errors are no longer a blanket 502 with the raw error text. `friendly_message()` picks 500, 502, or 503 by cause and returns one plain sentence; the full traceback is logged on the server. `/api/info` handles errors the same way. See [HTTP status codes 500, 502, 503](#http-status-codes-500-502-503) and [Friendly error messages](#friendly-error-messages).
+
+*First seen: Step 10. Extended: Step 16.*
 
 ### Design tokens
 Design tokens are named values for a design's basic choices: colors, fonts, spacing. Code uses the name (for example "indigo" or "ink"), not the raw value (`#4B4FE8`), so one change updates the whole page and a dark mode is just a second set of values for the same names. The redesigned page defines a palette (sky, lilac, blush, ink, indigo, cyan, plus document green and notes amber) and three type roles: Bricolage Grotesque for display, Figtree for body text, JetBrains Mono for labels, ids, and metrics.
@@ -1916,6 +1986,17 @@ When git pushes to GitHub over HTTPS (the web protocol), it needs a login token.
 **In an interview:** "With more than one GitHub account on a machine, I don't trust whatever login git picks up. I pinned the push to the GitHub CLI's credentials for that one command, then confirmed on GitHub that the commits were linked to the right account."
 
 *First seen: Step 2.*
+
+---
+
+## Project documentation
+
+### README as the project's front page
+The README is the first file anyone sees on GitHub, so it is the project's front page: for a portfolio, often the only file a reviewer reads. Step 16's README answers a reviewer's questions in order: what it does; its status; how it works (mermaid diagrams, which are diagrams written as text that GitHub draws, for the question path and the ingestion pipeline); the key design choices, each linked to its decision record; the knowledge base with licenses and passage counts; the eval results with an honest reading of strengths and weaknesses; how to run it; the project layout; links to the docs; and limitations. Stating limitations openly (limits not enforced yet, top-5 only, small catalog, no conversation memory, not medical advice) makes the rest more believable. Writing the setup section as if for a stranger also found a real gap (see [Reproducible setup from a fresh clone](#reproducible-setup-from-a-fresh-clone)).
+
+**In an interview:** "My README leads with what the system does and how well, including where it fails: citations are reliable, but it doesn't yet respect equipment and age limits, and here's the measured plan to fix that."
+
+*First seen: Step 16.*
 
 ---
 

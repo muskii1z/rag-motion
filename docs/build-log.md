@@ -2827,3 +2827,110 @@ The two eval invocations are shown in the form documented in each script; the ex
 
 **Decisions.**
 - No new record. Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (coach review, `acceptable_exercises`, four answer-level rules, reviewed baseline).
+
+## Step 16: Tests, error handling, README (Phase 1 complete)
+**Date:** 2026-09-28 · **Commits:** `c3b066c` test: add unit and integration tests; clear error messages · `3e4770b` docs: README for the completed Phase 1; source download script (this docs update is committed and pushed right after)
+
+**Goal.** Put a safety net under the code before changing retrieval: automated tests, plain error messages, a reproducible setup, and a README that explains the project, which completes Phase 1.
+
+### Step 16 Q&A: what the eval says, and what to do next
+Before building, the developer asked four questions. They shaped the plan for Phase 1F (the "better RAG" phase that comes next).
+
+- **"Give me the results in plain English."** Claude's summary of the [reviewed baseline](#lesson-3-the-reviewed-baseline):
+  - It finds the right exercises about 9 times in 10, and the right passages about 97 times in 100. It is weakest on equipment questions.
+  - It never invented a source (citations valid 31/31) and always used the right material when there was some (30/30).
+  - It is honest about coverage (whether the evidence fully answers the question) on 29 of 31.
+  - The biggest problem is advice it shouldn't give: 2 of 5 passed. It suggested bench exercises to someone with only dumbbells, equipment exercises to someone with none, and older-adult advice to a beginner adult.
+  - One sentence: accurate and doesn't make things up, but doesn't respect a person's limits (equipment, age group).
+- **"What exactly do we have to do to improve that area?"** A three-part plan:
+  1. **Read the person's limits from the question** (equipment, population, level) with a structured LLM step, the same technique as Step 6's client profile. If the question states no limits, apply no filter.
+  2. **Filter exercises** with Step 5's "only needs what I own" query (`equipment <@ owned`, meaning every item the exercise needs is in the owned list). See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by).
+  3. **Tag every chunk with the population it's about, and filter.** Guidelines chapter 3 is kids and teens, chapter 4 adults, chapter 5 older adults, chapter 6 pregnancy and chronic conditions; the notes by topic; the research papers athletes.
+
+  Then re-run the same eval. Two things must be true: the forbidden-item failures pass, AND nothing else gets worse. "Worse" here mostly means over-filtering (a filter removing something that was relevant). Risks: the extraction step could miss the word "only" (the eval would catch that), and it adds one small LLM call per question.
+- **"What about improving the eval to test things like equipment?"** Two sides: fix the system, and first fix the test.
+  - The test has too few limit questions: 2 constraint and 1 population. With so few, one question flipping moves the score by 33–50%. It needs about 8–10 more, written by the coach: bands only; kettlebell plus bench; a bodyweight beginner home workout; an older adult; a youth athlete; pregnancy; and one question with no limits stated, to catch over-filtering.
+  - The coach's four answer-level rules (how an answer must be written, not what search must find) are not checked by code. Some can be checked with simple code (for example, the word "intermediate" must appear). Others, like "grouped by muscle group", need an LLM grader, and that grader must itself be checked against the coach's grades. See [Answer-level rules vs retrieval keys](concepts.md#answer-level-rules-vs-retrieval-keys) and [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge).
+  - Precision (how many returned items were right) is not measured.
+  - The right order: improve the test → new, stricter baseline → build the filters → re-run and compare. This turns walkthrough Lessons 4 and 6 into real work.
+- **"Where are the lessons coming from?"** Claude said plainly that it made up the 6-lesson structure as a teaching plan for this project. The concepts inside are standard: recall, hit rate, and MRR come from information retrieval (the field that studies search); baselines, answer keys, and change-one-thing testing come from RAG evaluation practice; writing the key before seeing results is ordinary test design. Status: Lessons 1–3 done; Lesson 5 partly done (adding the papers was a real benchmark comparison); Lessons 4 and 6 not yet.
+- **"What's even left for Phase 1?"** Only Step 16. **"Why Step 16 before the filters?"**
+  - Safety net: the filters change core search code, and tests catch breakage in seconds. The eval judges answer quality; tests judge whether the code is broken.
+  - A clean before/after story for the portfolio.
+  - Clearer errors speed up all later work.
+  - The case for filters first was acknowledged: it is the biggest weakness, and the eval context was fresh.
+  - **The developer chose Step 16.** Recorded in [0023](decisions/0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md).
+
+**What we did.**
+- **Tests** (pytest, Python's standard test runner). Configured in `pyproject.toml`: where tests live (`testpaths`), an import path (`pythonpath`), an `integration` marker, and filters that hide two kinds of library warnings. Seven files in `tests/`:
+  - `conftest.py` (shared test setup): turns LangSmith tracing off for tests. It must do this before importing `ragmotion`, because `config.py` loads `.env` without overriding variables that are already set. Also factories (small helpers that build test objects) `make_exercise` and `make_passage`, and an automatic skip for integration tests when Postgres can't be reached.
+  - `test_citations.py`: grouped ids are parsed and "[Figure 2]" is ignored; a clean answer passes. The **real failures become regression tests** (tests that stop an old bug coming back): the invented `exercise-push-up` from Step 13 and the typo `haugen219-sprint-17` from after Step 15. Also: an item listed but not cited, and general guidance that cites sources.
+  - `test_chunking.py`: hyphenated compounds kept ("moderate-to-vigorous"); wrapped lines joined; bullets keep their own lines; small sections merged up to the minimum with a page range; chunks never span chapters; long sections split at paragraph breaks, never mid-paragraph; big tables split by rows with the caption repeated; XML bibliography markers stripped; note labels don't repeat the title. These tests shrink the size limits by monkeypatching (temporarily replacing a value during one test) so small inputs exercise the rules.
+  - `test_evaluation.py`: the passage matchers (pages, heading case-insensitive, chapter, source-only); the Lesson 2 hand-graded example reproduced (recall 1, hit 1, MRR 1); recall 0.5 and MRR 0.5 with misses; forbidden items caught; the real eval set loads, with 31 unique ids, all reviewed, and valid coverage values.
+  - `test_models_and_sources.py`: `Exercise` rejects "trx" equipment and a bad slug; `ClientProfile.missing_fields` is computed; manifest license groups are A–C; external documents are hash-pinned; `verify_file` rejects a changed file.
+  - `test_integration_db.py` (marked `integration`, needs the real database): every exercise and chunk is embedded; the "only needs what I own" query excludes the step-up (needs a box) and the hip thrust (needs a bench); keyword search finds both biceps rows.
+  - `test_errors.py`: database down → the message mentions Docker; a bad API key → the message points to `OPENROUTER_API_KEY`; an unknown error → no internals leak.
+  - Result: 28 tests, then 31, all passing in about 0.3 s, with no API calls and no cost.
+- **Proved the tests can fail.** Claude temporarily put the Step 13 bug back into `rag.py` (one id per bracket). `test_find_citations_reads_single_and_grouped_ids` failed (1 failed, 5 passed). The file was restored exactly (no diff) and everything passed again.
+- **Error handling.** New `src/ragmotion/errors.py`:
+  - `DatabaseUnavailable`, raised by `db.get_connection()` (now with a 5-second `connect_timeout`).
+  - `friendly_message(exc)` returns an HTTP status code and one plain sentence with the fix:
+
+    | Failure | Status | Message says |
+    |---|---|---|
+    | Database down | 503 | "Can't reach the database. Is Docker running? Start it with: docker compose up -d --wait" |
+    | Bad API key | 502 | check `OPENROUTER_API_KEY` in `.env` |
+    | Rate limit or out of credit | 503 | wait, or check the key's limit |
+    | Connection or timeout | 503 | check the internet connection |
+    | Other provider error | 502 | try again, or another model via `LLM_MODEL` |
+    | Our own `RuntimeError`s | 500 | passed through (they already explain themselves) |
+    | Anything else | 500 | "Unexpected error (Type). Details are in the server log." |
+
+  - The web app logs the full traceback (the detailed error report) on the server and returns only the plain message; the page shows it as-is, and `/api/info` does the same. `scripts/ask.py` and `scripts/search.py` print "Error: ..." instead of a traceback.
+- **Fixed a bug found while verifying** (see Problems and fixes): the LangSmith trace-summary functions now handle failed calls.
+- **README rewritten** ([README](../README.md)): what it does; status (Phase 1 complete); mermaid diagrams (diagrams written as text that GitHub draws) of the question path and the ingestion pipeline; a design-choices table linked to the decision records; the knowledge base with licenses and passage counts; the licensing policy in brief; the reviewed eval results with an honest reading (reliable citations and admits gaps; the weakness is limits; the planned fix is filters measured by the same eval; the papers as an example of the eval loop); full local setup; test and eval commands; project layout; docs links; limitations (limits not enforced, top-5 only, small catalog and thin program-design sources, no conversation memory, not medical advice). All relative links were checked to exist.
+- **Closed a reproducibility gap.** While writing the setup section, it turned out a fresh clone had no way to get the git-ignored source documents. Added `download_url` to the two XML sources in `data/sources.toml`, a `download_url` field on `Source`, and `scripts/download_sources.py`, which downloads any missing external document and verifies every sha256. The notes already live in the repo.
+- **`CLAUDE.md` updated:** Step 16 done, Phase 1 complete; the Phase 1F plan written eval-first (extend the eval with coach questions and answer-rule checks, new baseline, then filters, re-run; then larger k, query rewriting, tuned hybrid, reranking; program-design sources before Phase 2); a tests line added to the stack list.
+
+**Commands.**
+```bash
+uv run pytest
+# 28 tests passed, then 31 after more were added. About 0.3 s, no API calls.
+# With the Step 13 bug put back on purpose: 1 failed, 5 passed in that file. Restored: all pass.
+
+# A CLI question with DATABASE_URL pointed at an unused port:
+# Error: Can't reach the database. Is Docker running? Start it with: docker compose up -d --wait
+
+# A CLI question with a fake OPENROUTER_API_KEY:
+# Error: OpenRouter rejected the API key. Check OPENROUTER_API_KEY in .env.
+
+uv run python scripts/download_sources.py
+# All three external documents verified against their sha256.
+```
+The two error simulations are shown in outline: which script (`ask.py` or `search.py`), the exact questions, and how the variables were overridden were not recorded. Docker was never stopped; pointing `DATABASE_URL` at an unused port simulates a down database safely. Normal questions were also re-run after the trace fix and worked (exact command not recorded).
+
+**What we saw.**
+- The whole suite runs in about 0.3 s, fast enough to run after every change. The eval takes minutes and costs money; tests take a moment and cost nothing.
+- A test is only proven useful when it fails on broken code. The citation test did.
+- Both simulated failures produced one readable sentence with the fix, instead of a stack of internal errors.
+- Writing the README's setup section exposed a real gap (no way to fetch the source documents), which a new user would have hit on their first try.
+
+**Problems and fixes.**
+- **LangSmith crashed on failed calls.** During the error simulations LangSmith printed "process_outputs failed ... NoneType". The trace-summary functions (`_summarize_result`, `_summarize_vectors`, `_as_trace_documents`) assumed a result always exists; on a failed call there is none. Fix: all three return `{}` when there's no result; LangSmith records the error itself. Normal questions were checked afterwards and still worked.
+- **Fresh clones couldn't get the source documents.** Fixed with `download_url` in the manifest and `scripts/download_sources.py`.
+- **Tests could have sent traces.** Tracing is disabled in `conftest.py` before `ragmotion` is imported, because `.env` loading doesn't override variables already set.
+
+**Open questions.**
+- How many tests are in each file was not recorded, only the total (31).
+- Whether the web page was checked by hand with the new error messages was not recorded.
+- Precision and the four answer-level rules are still unmeasured (planned first in Phase 1F).
+
+**Learned.**
+- New: [Unit tests vs evals](concepts.md#unit-tests-vs-evals), [Regression tests from real failures](concepts.md#regression-tests-from-real-failures), [Integration tests that skip gracefully](concepts.md#integration-tests-that-skip-gracefully), [Proving a test can fail (breaking the code on purpose)](concepts.md#proving-a-test-can-fail-breaking-the-code-on-purpose), [Fixtures, factories, and monkeypatching](concepts.md#fixtures-factories-and-monkeypatching), [Friendly error messages](concepts.md#friendly-error-messages), [HTTP status codes 500, 502, 503](concepts.md#http-status-codes-500-502-503), [Reproducible setup from a fresh clone](concepts.md#reproducible-setup-from-a-fresh-clone), [README as the project's front page](concepts.md#readme-as-the-projects-front-page)
+- Extended: [Typed API errors](concepts.md#typed-api-errors) (one shared `friendly_message`), [FastAPI and uvicorn](concepts.md#fastapi-and-uvicorn) (specific status codes), [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals) (trace summaries on failure; tracing off in tests), [Source manifest](concepts.md#source-manifest-and-provenance-fields-on-chunks) (`download_url`), [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems) (the Phase 1F plan)
+
+**Decisions.**
+- New: [0023. Phase 1 completion: tests and friendly errors before retrieval changes](decisions/0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md).
+- Updated: [0006](decisions/0006-interface-cli-first.md) (Step 16 done), [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Phase 1 complete), [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (its Step 16 revisit signal handled), [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (Phase 1F starts by extending the eval).
+
+**Phase 1 status: complete.** Steps 0–16 done. Next: Phase 1F, eval first.

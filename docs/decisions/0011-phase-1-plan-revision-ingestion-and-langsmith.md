@@ -60,3 +60,6 @@ See [the build log entry](../build-log.md#after-step-10-grounding-mode-labeled-g
 ## Note (2026-09-25, Step 14): LangSmith built
 
 LangSmith tracing was added in [Step 14](../build-log.md#step-14-langsmith-tracing-on-the-rag-pipeline), after ingestion as reordered above. How it was added (wrap the LLM client, decorate the pipeline steps) is recorded in [0020](0020-observability-langsmith-wrap-client-decorate-steps.md). The first traces already showed something the printed stages had not: the embedding call is almost all of retrieval time (0.95 s of 0.99 s).
+
+## Note (2026-09-28, Step 16): Phase 1 complete
+Step 16 (tests, error handling, README) is done, so every step of the revised Phase 1 plan is complete. Phase 1F comes next, measured against the coach-reviewed baseline, and it starts by extending the eval before any filters are built. See [0023](0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md) and [Step 16](../build-log.md#step-16-tests-error-handling-readme-phase-1-complete).
