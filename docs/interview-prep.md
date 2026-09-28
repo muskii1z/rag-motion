@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 1F, F7b (the coach's four presentation rules tried in the answer prompt, three versions, 3 runs each; none beat the plain prompt: the grouping rule padded focused answers, coverage claims fell from 111/120 to 104–107/120, extras-free answers 87% → 81–83%; prompt reverted; decision 0030 proposed, developer confirmation pending; idea for later: labels shown by code from catalog data).
+Last updated: Phase 1F, F7b (the coach's four presentation rules tried in the answer prompt, three versions, 3 runs each; none beat the plain prompt: the grouping rule padded focused answers, coverage claims fell from 111/120 to 104–107/120, extras-free answers 87% → 81–83%; prompt reverted; decision 0030 accepted ("keep it undone"); idea for later: labels shown by code from catalog data).
 
 ---
 

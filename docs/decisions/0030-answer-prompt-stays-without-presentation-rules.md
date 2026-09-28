@@ -1,5 +1,5 @@
 # 0030. Answer prompt stays without the coach's presentation rules (three versions measured, reverted)
-**Date:** 2026-09-28 · **Step:** Phase 1F, F7b · **Status:** proposed (recommended to the developer; their confirmation of the revert is pending)
+**Date:** 2026-09-28 · **Step:** Phase 1F, F7b · **Status:** accepted (developer confirmed 2026-09-28: "keep it undone")
 
 ## Context
 The coach has four presentation rules for answers: group exercises by muscle group; label intermediate or advanced exercises for beginners; label bodyweight exercises when the person states their equipment; label exercises that train the target muscle only as a secondary muscle. Since F2, an AI judge grades answers on these rules ([0025](0025-ai-judge-for-coach-labeling-rules.md)). F7a found that the answer prompt (`ANSWER_SYSTEM_PROMPT` in `src/ragmotion/rag.py`) never states them, which is why a bigger k didn't fix grouping ([Matching the fix to the failure](../concepts.md#matching-the-fix-to-the-failure-filters-k-prompt-instructions)).
