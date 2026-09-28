@@ -49,3 +49,17 @@ def test_the_real_eval_set_loads_and_is_fully_reviewed():
     assert len({q.id for q in questions}) == len(questions), "question ids must be unique"
     assert all(q.reviewed for q in questions)
     assert all(q.expected_coverage in ("full", "partial", "none") for q in questions)
+
+
+def test_answer_key_only_uses_real_exercises_and_never_contradicts_itself():
+    import json
+
+    from ragmotion.ingestion import PROJECT_ROOT
+
+    catalog = {e["slug"] for e in json.loads((PROJECT_ROOT / "data" / "exercises.json").read_text())}
+    for q in load_eval_set():
+        for field_name in ("expected_exercises", "forbidden_exercises", "acceptable_exercises"):
+            unknown = set(getattr(q, field_name)) - catalog
+            assert not unknown, f"{q.id}.{field_name} names exercises not in the catalog: {unknown}"
+        assert not set(q.expected_exercises) & set(q.forbidden_exercises), f"{q.id}: expected and forbidden overlap"
+        assert not set(q.acceptable_exercises) & set(q.forbidden_exercises), f"{q.id}: acceptable and forbidden overlap"

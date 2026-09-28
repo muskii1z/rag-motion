@@ -42,41 +42,51 @@ questions:
   question: "Upper-body pulling exercises with resistance bands"
   category: exercise-selection
   expected_exercises: [band-pull-apart]
+  acceptable_exercises: [band-biceps-curl]
   expected_coverage: partial  # only one band pull exists in the catalog
   reviewed: true
+  # F2: band curl acceptable; coverage stays partial.
 
 - id: ex-unilateral-lower
   question: "Unilateral lower-body exercises"
   category: exercise-selection
-  expected_exercises: [bulgarian-split-squat, dumbbell-reverse-lunge, dumbbell-step-up, single-leg-romanian-deadlift, lateral-bound]
+  expected_exercises: [bulgarian-split-squat, dumbbell-reverse-lunge, dumbbell-step-up, single-leg-romanian-deadlift, lateral-bound, split-squat, pistol-squat, single-leg-hop]
+  acceptable_exercises: [a-skip, bounding]
   expected_coverage: full
   reviewed: true
+  # F2: added split squat, pistol, single-leg hop; sprint drills acceptable.
 
 - id: ex-explosive-speed
   question: "Explosive exercises to help me run faster"
   category: exercise-selection
-  expected_exercises: [broad-jump, box-jump, lateral-bound, kettlebell-swing]
+  expected_exercises: [broad-jump, box-jump, lateral-bound, kettlebell-swing, depth-jump, bounding, single-leg-hop, power-clean]
+  acceptable_exercises: [a-skip]
   expected_passages: [{source: haugen2019-sprint}, {source: kons2023-plyo}]
   expected_coverage: full  # v2: the sprint and plyometric papers now supply the principles
   reviewed: true
+  # F2: added depth jump, bounding, single-leg hop, power clean; A-skip acceptable (technique drill).
 
 - id: ex-biceps
   question: "What exercises can I do for biceps?"
   category: exercise-selection
-  expected_exercises: [one-arm-dumbbell-row, inverted-row]
-  expected_coverage: partial  # no curls in the catalog
+  expected_exercises: [dumbbell-biceps-curl, hammer-curl, band-biceps-curl]
+  acceptable_exercises: [one-arm-dumbbell-row, inverted-row, pull-up, barbell-bent-over-row]
+  expected_coverage: full
   reviewed: true
   notes: >-
     Coach review (M. Saraswat): rows are acceptable answers, but only as secondary biceps work.
     Answer-level rule, not yet checked by code: the answer must say explicitly that the biceps are
     trained as a secondary muscle in these rows (not present them as biceps exercises).
+  # F2: curls now exist, so coverage is full; rows and pull-ups acceptable only if labeled as secondary biceps work.
 
 - id: ex-hinge
   question: "Hip hinge exercises"
   category: exercise-selection
-  expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift, kettlebell-swing, dumbbell-hip-thrust, glute-bridge]
+  expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift, kettlebell-swing, dumbbell-hip-thrust, glute-bridge, barbell-deadlift, kettlebell-deadlift]
+  acceptable_exercises: [power-clean]
   expected_coverage: full
   reviewed: true
+  # F2: added barbell and kettlebell deadlifts; power clean acceptable (includes a hinge).
 
 - id: ex-anti-rotation
   question: "Anti-rotation core exercise"
@@ -90,12 +100,13 @@ questions:
   question: "Something to build grip strength"
   category: exercise-selection
   expected_exercises: [farmer-carry]
-  acceptable_exercises: [one-arm-dumbbell-row, inverted-row, dumbbell-romanian-deadlift, kettlebell-swing]
+  acceptable_exercises: [one-arm-dumbbell-row, inverted-row, dumbbell-romanian-deadlift, kettlebell-swing, barbell-deadlift, pull-up]
   expected_coverage: full
   reviewed: true
   notes: >-
     Coach review: the farmer carry is the grip exercise. Rows, RDLs, and swings may be mentioned only if
     the answer says grip is trained secondarily (same rule as ex-biceps).
+  # F2: deadlift and pull-up acceptable as secondary grip work.
 
 - id: ex-overhead
   question: "Overhead pressing exercise for the shoulders"
@@ -108,12 +119,14 @@ questions:
 - id: ex-upper-back
   question: "Exercises for the upper back and rear shoulders"
   category: exercise-selection
-  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row, farmer-carry]
+  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row, farmer-carry, pull-up, barbell-bent-over-row]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: added the farmer carry (upper trapezius) to the three pulls."
 
 # ---- Coach jargon and abbreviations ----
+  # F2: added pull-up and bent-over row.
+
 - id: jargon-rdl
   question: "beginner RDL"
   category: jargon
@@ -144,20 +157,18 @@ questions:
 - id: constraint-no-equipment
   question: "Exercises that need no equipment"
   category: constraint
-  expected_exercises: [push-up, dead-bug, glute-bridge, broad-jump, lateral-bound]
-  forbidden_exercises: [band-pull-apart, box-jump, bulgarian-split-squat, dumbbell-hip-thrust, dumbbell-overhead-press,
-                        dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat,
-                        inverted-row, kettlebell-swing, one-arm-dumbbell-row, pallof-press, single-leg-romanian-deadlift]
+  expected_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
+  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, single-leg-romanian-deadlift, turkish-get-up]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: every exercise that needs any equipment is forbidden (all 15 non-bodyweight exercises)."
+  # F2 (42-exercise catalog): expect all 11 bodyweight exercises, forbid all 31 others (coach's rule from batch 3). Top-5 recall ceiling 5/11.
 
 - id: constraint-dumbbells-only
   question: "I only have a pair of dumbbells. Good lower-body exercises?"
   category: constraint
-  expected_exercises: [goblet-squat, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, single-leg-romanian-deadlift,
-                       glute-bridge, broad-jump, lateral-bound]
-  forbidden_exercises: [dumbbell-step-up, dumbbell-hip-thrust, bulgarian-split-squat, box-jump, kettlebell-swing]  # need a box, bench, or kettlebell
+  expected_exercises: [a-skip, bounding, broad-jump, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, glute-bridge, goblet-squat, lateral-bound, pistol-squat, single-leg-hop, single-leg-romanian-deadlift, split-squat]
+  forbidden_exercises: [band-lateral-walk, barbell-back-squat, box-jump, bulgarian-split-squat, depth-jump, dumbbell-hip-thrust, dumbbell-step-up, kettlebell-deadlift, nordic-hamstring-curl]
   expected_coverage: full
   reviewed: true
   notes: >-
@@ -166,6 +177,8 @@ questions:
     exercises vs a top-5 search means the best possible recall here is 5/7 (0.71).
 
 # ---- Dose and guidelines (Physical Activity Guidelines) ----
+  # F2: expect the 12 dumbbell/bodyweight lower-body exercises; forbid the 9 needing other equipment. Top-5 recall ceiling 5/12.
+
 - id: dose-adult-aerobic
   question: "How much aerobic activity should adults get each week?"
   category: dose
@@ -228,9 +241,7 @@ questions:
   question: "How much strength training should a beginner adult do each week, and which exercises could they start with?"
   category: population
   expected_passages: [{source: pag2, pages: [8, 56, 60, 61, 62, 63]}]
-  acceptable_exercises: [band-pull-apart, dead-bug, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-reverse-lunge,
-                         dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, glute-bridge, goblet-squat,
-                         inverted-row, one-arm-dumbbell-row, pallof-press, push-up]  # all 14 beginner exercises
+  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
   forbidden_passages: [{source: notes-nsca-older-adults}, {source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 5"}]
   expected_coverage: full
   reviewed: true
@@ -241,6 +252,8 @@ questions:
     tests the dose passage and the population rule.
 
 # ---- NSCA notes ----
+  # F2: all 24 beginner exercises acceptable.
+
 - id: notes-older-load
   question: "How heavy should older adults lift to build strength?"
   category: notes
@@ -270,20 +283,24 @@ questions:
 - id: gap-plyo-program
   question: "How should I program plyometrics for a high school soccer player?"
   category: coverage-gap
-  expected_exercises: [box-jump, broad-jump, lateral-bound]
+  expected_exercises: [box-jump, broad-jump, lateral-bound, single-leg-hop, bounding]
+  acceptable_exercises: [depth-jump]
   expected_passages: [{source: notes-nsca-youth-ltad}, {source: kons2023-plyo}, {source: haugen2019-sprint, heading: "Plyometric"}]
   expected_coverage: partial  # effects are covered; a sets/reps prescription for this athlete still isn't
   reviewed: true
   notes: "Coach review: partial is right. Effects are covered; a sets/reps/frequency prescription for this athlete needs program-design sources (planned before Phase 2)."
+  # F2: added single-leg hop and bounding; depth jump acceptable only if labeled advanced.
 
 - id: research-sprint-acceleration
   question: "What's the best way to train sprint acceleration?"
   category: research  # v2: was a coverage gap before the Haugen paper
-  expected_exercises: [broad-jump]
+  expected_exercises: [broad-jump, bounding]
+  acceptable_exercises: [a-skip]
   expected_passages: [{source: haugen2019-sprint, heading: "Acceleration"}, {source: haugen2019-sprint, heading: "Resisted Sprinting"}, {source: haugen2019-sprint, heading: "Sprint Training"}]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: ok as is."
+  # F2: added bounding; A-skip acceptable.
 
 - id: research-plyo-effects
   question: "Does plyometric training actually improve sprint and jump performance?"
