@@ -1,6 +1,7 @@
 # rag-motion evaluation set (Step 15)
 #
 # STATUS: expected answers drafted by Claude, then REVIEWED BY THE COACH (M. Saraswat), all 31, on 2026-09-28.
+# v3 (F2): answer keys updated for the 42-exercise catalog; 9 equipment/population questions added (40 total).
 # v2 (after adding the Kons 2023 plyometrics and Haugen 2019 sprint papers): sprint is no longer a gap,
 # plyometric/explosive questions accept the new papers as evidence, and two research questions were added.
 # Scores are provisional until each question's `reviewed` is set to true.
@@ -324,3 +325,103 @@ questions:
   expected_coverage: none  # no nutrition sources yet
   reviewed: true
   notes: "Coach review: keep as none until nutrition sources are added."
+
+# ---- F2: equipment and population questions (drafted by Claude, answers set by the coach, 2026-09-28) ----
+- id: constraint-bands-only
+  question: "I only have resistance bands. What can I do for a full-body workout?"
+  category: constraint
+  expected_exercises: [band-pull-apart, pallof-press, band-biceps-curl, band-lateral-walk]
+  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
+  forbidden_exercises: [barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, power-clean, pull-up, single-leg-romanian-deadlift, turkish-get-up]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: band exercises expected; bodyweight exercises fine if labeled as bodyweight; anything needing other equipment is forbidden.
+
+- id: constraint-one-kettlebell
+  question: "I have one kettlebell at home. What exercises can I do?"
+  category: constraint
+  expected_exercises: [kettlebell-swing, kettlebell-deadlift, turkish-get-up]
+  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, goblet-squat, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
+  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, hammer-curl, inverted-row, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, single-leg-romanian-deadlift]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: the three kettlebell exercises expected (Turkish get-up labeled intermediate). Goblet squat is fine done with the kettlebell even though the catalog lists a dumbbell. Bodyweight fine if labeled. Everything else forbidden.
+
+- id: constraint-dumbbells-bench
+  question: "I have dumbbells and a flat bench. Give me a full-body routine."
+  category: constraint
+  expected_exercises: [bench-dip, bulgarian-split-squat, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, farmer-carry, goblet-squat, hammer-curl, one-arm-dumbbell-row, single-leg-romanian-deadlift]
+  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
+  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, box-jump, depth-jump, dumbbell-step-up, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, pallof-press, power-clean, pull-up, turkish-get-up]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: every exercise that needs only dumbbells and/or a bench is expected; bodyweight fine if labeled; anything needing a barbell, box, rack, kettlebell, band, pull-up bar or anchor is forbidden.
+
+- id: constraint-beginner-home
+  question: "I'm a complete beginner working out at home with no equipment. Where should I start?"
+  category: constraint
+  expected_exercises: [glute-bridge, push-up, dead-bug, split-squat, front-plank]
+  acceptable_exercises: [a-skip]
+  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, bounding, box-jump, broad-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, lateral-bound, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, pistol-squat, power-clean, pull-up, single-leg-hop, single-leg-romanian-deadlift, turkish-get-up]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: the beginner bodyweight exercises are the answer (A-skip is a beginner bodyweight drill, fine to mention). Anything needing equipment, and anything above beginner level, is forbidden.
+
+- id: pop-older-adult-new
+  question: "What strength exercises are good for a 70-year-old who is new to exercise?"
+  category: population
+  expected_passages: [{source: notes-nsca-older-adults}, {source: pag2, chapter: "Chapter 5"}]
+  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
+  forbidden_exercises: [bounding, box-jump, broad-jump, depth-jump, lateral-bound, nordic-hamstring-curl, pistol-squat, power-clean, single-leg-hop]
+  forbidden_passages: [{source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 3"}]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: beginner exercises only; no jumps and no advanced exercises. Evidence should come from the older-adult notes and the Guidelines' older-adults chapter, not the youth material.
+
+- id: pop-youth-start
+  question: "What exercises can a 10-year-old start with?"
+  category: population
+  expected_passages: [{source: notes-nsca-youth-ltad}]
+  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
+  forbidden_exercises: [depth-jump, nordic-hamstring-curl, pistol-squat, power-clean]
+  forbidden_passages: [{source: notes-nsca-older-adults}]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: base it on the youth notes. The notes say start by learning lifts with very light loads, use hops, skips and jumps as plyometrics, and don't hand children adult programs; the Olympic lifts come after a long teaching path. So beginner exercises are fine and the four advanced exercises (depth jump, power clean, pistol squat, Nordic curl) are forbidden as starting points.
+
+- id: pop-pregnancy-strength
+  question: "What strength exercises are safe during pregnancy?"
+  category: population
+  expected_passages: [{source: pag2, pages: [79, 80, 81]}]
+  forbidden_passages: [{source: notes-nsca-youth-ltad}, {source: notes-nsca-older-adults}]
+  expected_coverage: partial
+  reviewed: true
+  notes: >-
+    Coach: use the Guidelines' pregnancy section. The catalog has no pregnancy-specific guidance, so an honest answer is partial. Must not make medical claims.
+
+- id: constraint-full-gym-intermediate
+  question: "Best lower-body strength exercises for an intermediate lifter in a full gym?"
+  category: constraint
+  expected_exercises: [barbell-back-squat, barbell-deadlift, bulgarian-split-squat, single-leg-romanian-deadlift]
+  acceptable_exercises: [dumbbell-hip-thrust, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, goblet-squat, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, pistol-squat, split-squat]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Guards against over-filtering: with a full gym nothing is off limits, so a filter that drops the barbell lifts fails here. Other lower-body exercises are fine.
+
+- id: constraint-pullup-bar-only
+  question: "I only have a pull-up bar. What upper-body exercises can I do?"
+  category: constraint
+  expected_exercises: [pull-up]
+  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
+  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, single-leg-romanian-deadlift, turkish-get-up]
+  expected_coverage: full
+  reviewed: true
+  notes: >-
+    Coach: pull-up expected; bodyweight exercises (push-up) fine if labeled. Inverted row is forbidden because the catalog version uses a barbell. Everything else needing equipment is forbidden.

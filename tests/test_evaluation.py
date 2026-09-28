@@ -45,7 +45,7 @@ def test_forbidden_items_are_caught():
 
 def test_the_real_eval_set_loads_and_is_fully_reviewed():
     questions = load_eval_set()
-    assert len(questions) == 31
+    assert len(questions) == 40
     assert len({q.id for q in questions}) == len(questions), "question ids must be unique"
     assert all(q.reviewed for q in questions)
     assert all(q.expected_coverage in ("full", "partial", "none") for q in questions)
