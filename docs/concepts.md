@@ -169,7 +169,9 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 *Phase 1F F5 update: the population rule, replaced by a filter.* The Step 13 population rule stayed in place, but the durable fix was a population filter on passages. With it, answers citing wrong-group material went from 1 of 13 (after F4) to 0 of 13. A second lesson from the same step: prompts still matter for small *extraction* jobs, as long as the result is checked. The limit-reading prompt first defaulted "athletes" to adults; rewording it fixed all 40 ([Saying what not to infer](#saying-what-not-to-infer-default-assumptions-in-extraction-prompts)).
 
-*First seen: Step 13. Extended: Phase 1F F3 + F4, F5.*
+*Phase 1F F7a update: the other side, presentation belongs in the prompt.* The ceiling applies to hard limits that must never break. For presentation (group by muscle group, label bodyweight, secondary, and intermediate exercises), the prompt is the right tool: there is nothing to filter, and a bigger k didn't fix them. The answer prompt doesn't state these rules yet. See [Matching the fix to the failure](#matching-the-fix-to-the-failure-filters-k-prompt-instructions).
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a.*
 
 ### Saying what not to infer (default assumptions in extraction prompts)
 When a model fills in a form, it tends to fill gaps with a likely default. In F5, the limit reader tagged questions about "athletes" and "an intermediate lifter" as `adults`, even though the prompt said athletes → null. The fix was to spell out what does *not* count, with examples: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Then all 40 were right. This worked where the Step 13 answer rule didn't because it's a small, narrow job with one field, and the result was checked on every eval question.
@@ -488,7 +490,16 @@ Top-k retrieval means "return the k best-ranked results", where k is a number yo
 
 *Eval walkthrough update: k caps recall.* When a question expects more items than k, perfect recall is impossible. The coach-reviewed "dumbbells only" question expects 7 exercises, so top 5 can score at most 5/7 = 0.71. See [Recall ceiling from top-k](#recall-ceiling-from-top-k).
 
-*First seen: Step 9. Extended: Eval walkthrough part 1.*
+*Phase 1F F7a update: k measured instead of assumed.* The developer asked why k is 5. It was a common default from Step 9, never tested. With filters on, exercise recall was 0.83 at k = 5, 0.94 at 10, and 0.99 at 15. In full answers (3 runs each), k = 10 named more of the right exercises (completeness 0.80 → 0.92) but also more exercises outside the key (answers citing only keyed exercises 87% → 78%), mostly on focused and research questions. So the tradeoff described above showed up in the numbers. The developer kept k = 5 for every question ([0029](decisions/0029-exercise-k-stays-5-for-all-questions.md)). See [Adaptive k](#adaptive-k-k-chosen-per-question-type).
+
+*First seen: Step 9. Extended: Eval walkthrough part 1, Phase 1F F7a.*
+
+### Adaptive k (k chosen per question type)
+Instead of one k for every question, pick k from the kind of question. A "list everything" question ("exercises with no equipment") has many right answers and needs room; a focused question ("what is a BSS?") has one or two and is better served by a short list with less noise. The question type can be read by the same small LLM call that already reads the equipment and age group (the intake form), as an extra field such as `wants_list`. The cost is one more field that can be misread, and one more thing to test. Recommended in F7a after measuring k = 5 vs 10, and **not adopted**: the developer kept k = 5 for every question because it is simpler, and the completeness gain (0.80 → 0.92) wasn't worth the extras on focused questions ([0029](decisions/0029-exercise-k-stays-5-for-all-questions.md)).
+
+**In an interview:** "A bigger k made list answers more complete but let extra exercises into focused answers. Adaptive k, more room only for list questions, was the textbook fix. I chose to keep 5 for everything: simpler, and a 12-point completeness gain didn't justify a new moving part and messier focused answers."
+
+*First seen: Phase 1F, F7a.*
 
 ### Hard constraints and negation
 A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner only". Negation is a rule phrased as "not" or "no". Embeddings are bad at both. They place texts by overall meaning, so "exercises that need no equipment" lands near texts about equipment and simple exercises, and cannot check that an exercise's equipment list is empty. In Step 9 that question returned Inverted Row (barbell) and Pallof Press (band) and missed two bodyweight jumps. The fix is a [metadata filter](#metadata-filtering) on the column that stores the fact: `equipment <@ ARRAY['bodyweight']`.
@@ -839,6 +850,13 @@ A filter design choice: what happens to items with no tag? Here an empty populat
 
 *First seen: Phase 1F, F5.*
 
+### Matching the fix to the failure (filters, k, prompt instructions)
+Different failures need different tools. **Hard limits** (equipment the person doesn't own, the wrong age group) go in filters in code, because a prompt rule can still slip. **Breadth** (a list question needs more than 5 exercises) is controlled by k. **Presentation** (grouping by muscle group, labeling an exercise as bodyweight, secondary, or intermediate) belongs in the prompt, because it's about how the answer is written, and writing is the model's job. F7a showed the cost of using the wrong tool: raising k to 10 made list answers more complete, but the beginner-adult answer still wasn't grouped by muscle group on any run, because no prompt ever asked for it.
+
+**In an interview:** "I sort failures by type before fixing them. Hard constraints get a filter in code, breadth gets a bigger k, and formatting gets an instruction in the prompt. I learned that by trying a bigger k on a grouping problem: more exercises didn't make the answer grouped, because the model had never been told to group."
+
+*First seen: Phase 1F, F7a.*
+
 ---
 
 ## Document ingestion
@@ -1184,7 +1202,9 @@ If you write or adjust the expected answers after looking at what the system ret
 
 **In an interview:** "Recall asks 'did we find everything we needed?', precision asks 'was everything we returned useful?'. I measure recall plus a forbidden rate, so harmful extras count against the system and harmless ones don't."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F7a update: a rough precision check on answers.* Testing a bigger k needed both sides, because more results can raise recall and lower precision at once. The answer eval gained `exercise_completeness` (recall of the answer's cited exercises) and `only_keyed_exercises` (no cited exercise outside the key: a precision proxy). k = 5 → 10: completeness 0.80 → 0.92, only keyed 87% → 78%. See [Answer completeness and extra items](#answer-completeness-and-extra-items-answer-level-recall-and-precision).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F7a.*
 
 ### Expected, acceptable, and forbidden items
 The answer key has three tiers for exercises:
@@ -1196,7 +1216,9 @@ The middle tier exists because some choices are neither right nor wrong. For "be
 
 **In an interview:** "My answer key isn't just right or wrong. It has expected, forbidden, and an 'acceptable if labeled' tier, because coaching has grey zones: an intermediate exercise can be fine for a beginner if the answer says so."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F7a update: the acceptable tier is now scored.* `only_keyed_exercises` treats expected plus acceptable as the allowed set and flags anything else the answer cites. Because the acceptable lists were written as examples, not as complete lists, some flagged "extras" may be fine choices (see [Proxy metrics](#proxy-metrics-read-what-they-flag-not-just-the-number)).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F7a.*
 
 ### Answer-level rules vs retrieval keys
 Two layers of correctness. The **retrieval key** says what search should find (expected, acceptable, forbidden). **Answer-level rules** say how the written answer should present it. The coach recorded four during the review, as notes in `eval_set.yaml`:
@@ -1211,7 +1233,9 @@ None is checked by code yet. They are candidates for new answer checks (Lesson 4
 
 *Phase 1F F2 update: now checked.* The four rules have names (`label-level`, `label-secondary`, `label-bodyweight`, `group-by-muscle`) in `src/ragmotion/judge.py`. A new eval field, `answer_rules`, attaches them to the 13 questions where the coach stated them, rather than to every question. An [AI judge](#llm-as-judge-ai-judge) grades them. In the F2 baseline, 13 of 15 verdicts were [not applicable](#not_applicable-verdicts-rules-with-a-trigger); one pass (kettlebell swing and Turkish get-up labeled intermediate) and one fail (the beginner-adult answer wasn't grouped by muscle group, a top-5 limit).
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F2.*
+*Phase 1F F7a update: the answer model was never told the rules.* At k = 10 the beginner-adult answer still wasn't grouped by muscle group (0 of 3 runs), a push-up went unlabeled as bodyweight, and a bench press went unlabeled as secondary work for biceps. The four rules live only in the judge's instructions, not in the answering prompt. The eval checks a rule the answer model has never seen. The fix under consideration is to state them in the answer prompt, as a separate measured change ([Matching the fix to the failure](#matching-the-fix-to-the-failure-filters-k-prompt-instructions)).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F2, F7a.*
 
 ### Recall ceiling from top-k
 If a question expects more items than the search returns (k), perfect recall is impossible: the best possible score is k divided by the number expected. After the coach's review, "I only have a pair of dumbbells. Good lower-body exercises?" expects 7 exercises, so with top 5 the ceiling is 5/7 = 0.71. The actual semantic result was 3/7 = 0.43, lower still, because two forbidden exercises took two of the five slots. This is a real finding about k, not an eval bug: "list everything" questions need more room than top 5. How to address it is not decided. See [Top-k retrieval](#top-k-retrieval).
@@ -1220,7 +1244,9 @@ If a question expects more items than the search returns (k), perfect recall is 
 
 *Phase 1F F3 + F4 update: the filter lifted recall to the ceiling.* With the equipment filter, forbidden exercises no longer take slots. From the saved results: "no equipment" now scores 0.45 (5 of 11 expected), "dumbbells only" 0.42 (5 of 12), "dumbbells and a bench" 0.38 (5 of 13). Every one of the 5 slots is an expected exercise; the ceiling itself is the limit now. Raising k for "list everything" questions is F7.
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F F3 + F4.*
+*Phase 1F F7a update: raising the ceiling, measured.* Exercise recall with filters: 0.83 (k = 5), 0.94 (k = 10), 0.99 (k = 15). The constraint category went 0.76 → 0.91 → 0.98, and coverage-gap questions 0.60 → 1.00. The cost: 1 of 40 questions (`constraint-beginner-home`) started retrieving forbidden advanced bodyweight exercises (pistol squat, bounding, and others) once more slots opened, because exercises are filtered by equipment but not by level. A higher ceiling also lets in whatever the filters don't catch. The F6 guess that the beginner-adult grouping failure was a top-5 ceiling problem turned out wrong: it still failed at k = 10.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F F3 + F4, F7a.*
 
 ### Domain-expert review of an answer key
 An AI-drafted answer key is a starting point, not a truth. In the walkthrough the developer, as the coach, reviewed all 31 questions in batches of 5. Method for catalog questions: read the question's exact words; filter the **full** catalog by them (level, equipment, muscles); decide the edge cases and write the reason in the question's `notes`. For document questions: check the key against the verbatim source sentences. What the review found in Claude's draft:
@@ -1354,7 +1380,23 @@ When an evaluator crashes on a question, it usually records no score, not a zero
 
 **In an interview:** "A crashed evaluator doesn't give you a bad score, it gives you no score, so the sample silently shrinks. When I ran six evals in parallel, my AI judge hit a rate limit and most verdicts were missing. Now I check each evaluator's error count before I look at its pass rate."
 
-*First seen: Phase 1F, F6.*
+*Phase 1F F7a update: the retry held.* The six F7a answer runs went in pairs, in parallel. With the F6 wait-and-retry in the judge, there were 0 evaluator errors.
+
+*First seen: Phase 1F, F6. Extended: Phase 1F, F7a.*
+
+### Answer completeness and extra items (answer-level recall and precision)
+Two code checks added in F7a to judge the written answer, not the search. **Completeness** (`exercise_completeness`): of the exercises the key expects, what share did the answer actually cite? Its comment reads "named X of Y". **Extras** (`only_keyed_exercises`): did the answer cite any exercise outside the key's expected and acceptable lists? It scores 1 if not, 0 if so, and lists the extras. Both score only the 23 of 40 questions whose key lists expected exercises. They are needed together to test k: more exercises in front of the model should raise completeness and can lower "only keyed". At k = 5 vs 10 (3 runs each): completeness 0.80 → 0.92; only keyed 60/69 → 54/69. The extras at k = 10 clustered on focused and research questions (for example 7 extra exercises in an answer about the Bulgarian split squat).
+
+**In an interview:** "To test a bigger k I needed two numbers, not one: did the answer name more of the right exercises, and did wrong ones sneak in. k = 10 took completeness from 0.80 to 0.92 but dropped clean answers from 87% to 78%, and the extras were all on focused questions. I decided the completeness gain wasn't worth it and kept k at 5."
+
+*First seen: Phase 1F, F7a.*
+
+### Proxy metrics (read what they flag, not just the number)
+A proxy metric measures something close to what you care about, because the real thing is hard to measure. `only_keyed_exercises` stands in for "did the answer include exercises a coach wouldn't want?". But it really measures "did the answer include anything not on our lists", and the acceptable lists were never meant to be complete. So some flagged extras may be good coaching choices (for example hammer curl for a grip question) and some are real noise. The habit: print what the metric flags, have the domain expert read it, and treat the number as a pointer, not a verdict. If the coach adds good extras to the acceptable lists, the metric gets closer to the real thing.
+
+**In an interview:** "My 'no extra exercises' check is a proxy: it flags anything not in my answer key, and my key's 'acceptable' lists aren't exhaustive. So the script prints every extra and my coach reads them. I don't read 87% versus 78% as a precise number until that review is done."
+
+*First seen: Phase 1F, F7a.*
 
 ## Testing
 

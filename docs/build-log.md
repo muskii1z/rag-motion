@@ -3487,7 +3487,7 @@ The last forbidden item from F4 (`pop-beginner-adult` retrieving older-adult and
 **Next.** F6: write up the full before/after comparison, update the README, and record the coach's coverage-key decisions.
 
 ## Phase 1F, F6: Re-run the eval, compare before and after the filters, update the README
-**Date:** 2026-09-28 · **Commit:** `286cce2` docs: F6 before/after comparison and README update (includes the eval key change, the judge retry, the README, and CLAUDE.md)
+**Date:** 2026-09-28 · **Commit:** `286cce2` docs: F6 before/after comparison and README update (includes the eval key change, the judge retry, the README, and CLAUDE.md); this log entry recorded in `5a9c574` docs: record F6 (before/after comparison)
 
 **Goal.** Produce a trustworthy before/after comparison of the equipment and age-group filters on the same 40-question eval, and show it in the README.
 
@@ -3588,3 +3588,103 @@ The retrieval eval was not re-run in F6. Its numbers come from the F5 results fi
 - Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (coverage keys changed by the coach, new dataset, final comparison), [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F6 done, the plan's outcome), [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md) (retry on rate limits; README design claim updated).
 
 **Next.** F7+: a larger k for "list everything" questions, query rewriting for jargon, tuned hybrid, reranking. Optional: coach review of the `ex-band-pull` and `ex-overhead` coverage keys.
+
+## Phase 1F, F7a: Experiment with 5, 10, and 15 exercises per question
+**Date:** 2026-09-28 · **Commit:** `ec98303` eval: k-exercises experiment (F7a): completeness and extra-exercise checks
+
+**Goal.** Find out whether showing the answer model more exercises (a bigger k) makes list answers more complete without letting unfitting exercises sneak into focused answers, and use that to choose between keeping 5, a bigger k for every question, or a bigger k only for list questions.
+
+**What we did.**
+- **The developer asked:** "Will making a larger list be better for all overall searches? Why is it 5 right now?" Answer: 5 was a common default picked in Step 9 and never tested. k (short for "top-k") is how many search results the model gets to see. A bigger k should help list questions: "no equipment" has 11 right answers in the key but only 5 slots. It may hurt focused questions, because the model gets more loosely related exercises it could wrongly include. The cost is negligible: exercise entries are short and there are only 42. So the plan was to measure instead of guess. Only the exercise count changes in the answer test; passages stay at 5, because they are long and already score well. The developer: "yes do that, and we'll see what works best or if we should have 10 as a list thing only."
+- **`evals/run_retrieval_eval.py`** gained a `--k` option. Note: it sets k for exercises *and* passages (both use the same number).
+- **`evals/run_answer_eval.py`** gained a `--k-exercises` option (passages stay at 5). The LangSmith experiment name gets a `-k10` suffix when k isn't 5, and the experiment metadata records `k_exercises`. The answer run's output now includes `retrieved_exercises`, so evaluators can see what the model was shown.
+- **Two new code checks (evaluators) in the answer eval.** Both score only the 23 questions whose key lists expected exercises; the others get no score.
+  - `exercise_completeness`: the share of the key's expected exercises that the answer cited. Comment: "named X of Y". This is recall at the answer level.
+  - `only_keyed_exercises`: 1 if every exercise the answer cited is in the key's expected or acceptable list, else 0; the comment lists the extras. This is a rough precision check. It is only a proxy: the acceptable lists were never meant to be complete, so an "extra" may be a fine choice. The script prints the extras so the coach can read them.
+  - The summary now prints means for fractional scores, and the failures list prints the extras.
+- **Ran retrieval at k = 5, 10, and 15,** and the answer eval 3 times at k = 5 and 3 times at k = 10, all with filters on (the default). The answer runs went in pairs, in parallel. The judge's rate-limit retry from F6 held: 0 evaluator errors.
+
+**Commands.**
+```bash
+uv run python evals/run_retrieval_eval.py --k 5
+uv run python evals/run_retrieval_eval.py --k 10
+uv run python evals/run_retrieval_eval.py --k 15
+# Results: evals/results/retrieval-20260928-150751.json (k=5), -150852.json (k=10),
+# -150950.json (k=15). Search only, no LLM.
+
+uv run python evals/run_answer_eval.py --k-exercises 5    # x3
+uv run python evals/run_answer_eval.py --k-exercises 10   # x3
+# Full answers, filters on, 40 questions each. Run in pairs in parallel.
+# 0 evaluator errors.
+
+uv run pytest -q
+# 37 passed.
+```
+
+**What we saw.**
+
+*1. Retrieval, semantic + filters (the default), 40 questions.*
+
+| k | Exercise recall (23 q.) | Constraint | Exercise-selection | Coverage-gap | Questions with a forbidden item |
+|---|---|---|---|---|---|
+| 5 | 0.83 | 0.76 | 0.85 | 0.60 | 0.00 |
+| 10 | 0.94 | 0.91 | 0.94 | 1.00 | 0.03 |
+| 15 | 0.99 | 0.98 | 0.99 | 1.00 | 0.03 |
+
+(Recall: share of the key's expected exercises that appear in the results. "Constraint", "exercise-selection", and "coverage-gap" are question categories in the eval.)
+- Recall climbs with k, as expected: the top-5 ceiling was the limit (see [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k)).
+- The forbidden rate went from 0 to 0.03 (1 of 40 questions) at k = 10 and 15. The results files show which: `constraint-beginner-home`. At k = 10 it retrieved bounding, single-leg hop, pistol squat, and lateral bound; at k = 15 also broad jump. These need no equipment, so the equipment filter lets them through, but the key forbids them for a beginner. Exercises are filtered by equipment only, not by level or population. More slots let these in.
+- Passage recall (0.97) and passage MRR (0.86) were the same at all three k values, even though this script's `--k` also raised the passage count.
+
+*2. Answers, filters on, totals over 3 runs each.*
+
+| Check | k = 5 | k = 10 |
+|---|---|---|
+| Citations valid | 120/120 | 120/120 |
+| Coverage claim correct | 111/120 | 112/120 |
+| Used expected evidence | 115/117 | 117/117 |
+| No forbidden citations | 39/39 | 39/39 |
+| Exercise completeness (mean) | **0.80** | **0.92** |
+| Only keyed exercises | **60/69 (87%)** | **54/69 (78%)** |
+| Judge: label-level | 3/3 | 3/3 |
+| Judge: label-secondary | 2/3 | 3/4 |
+| Judge: label-bodyweight | 0/1 | 0/2 |
+| Judge: group-by-muscle | 0/3 | 0/3 |
+
+- Completeness went up (0.80 → 0.92) and "only keyed" went down (87% → 78%). That is the predicted tradeoff: more right exercises named, and more exercises outside the key.
+- No forbidden citations stayed 39/39 at k = 10, even though retrieval now surfaces forbidden exercises for `constraint-beginner-home`. In these 3 runs the model didn't cite them.
+- The judge's denominators differ between k values (for example label-secondary 3 vs 4), because a rule only counts when the answer triggers it (see [not_applicable verdicts](concepts.md#not_applicable-verdicts-rules-with-a-trigger)). The judge numbers rest on very few cases.
+
+*3. Extra exercises (cited, but not in the key's expected or acceptable list), with how many of the 3 runs.*
+- **k = 5:** `ex-grip` hammer curl (3); `ex-upper-back` dumbbell overhead press (3); `gap-plyo-program` A-skip (3).
+- **k = 10:** `constraint-dumbbells-only` farmer carry (3); `ex-explosive-speed` dumbbell reverse lunge and single-leg Romanian deadlift (3); `ex-hinge` Nordic hamstring curl (1); `ex-upper-back` overhead press (1); `gap-plyo-program` A-skip (3); `jargon-bss` 7 extras (1 run: reverse lunge, step-up, lateral bound, pistol squat, single-leg hop, single-leg RDL, split squat); `research-sprint-acceleration` 7 extras (3 runs: box jump, depth jump, hip thrust, lateral bound, Nordic curl, power clean, single-leg hop).
+- The extras concentrate on focused questions (`jargon-bss`, one exercise asked about by its abbreviation) and research questions. That is exactly the predicted downside. List questions gained completeness.
+
+*4. Judge failures at k = 10.*
+- `pop-beginner-adult`, group-by-muscle: fails on all 3 runs, even with 10 exercises. The answer is "one run-on list" with no muscle-group headings, and it misses core.
+- `constraint-dumbbells-bench`, label-bodyweight: the push-up is named without a "bodyweight" label.
+- `ex-biceps`, label-secondary: the bench press is named as a pairing without a secondary-muscle label.
+
+*5. The key insight.* In F6 the beginner-adult grouping failure was put down to the top-5 ceiling. With 10 exercises it still fails. Grouping by muscle group and labeling (intermediate, secondary muscles, bodyweight) are presentation rules, and the answer prompt never states them: they appear only in the judge's instructions (`src/ragmotion/judge.py`), not in the answering prompt (`src/ragmotion/rag.py`). A bigger k doesn't fix a rule the model was never given. Hard limits belong in filters in code; presentation belongs in the prompt, which is the right tool for formatting; k controls breadth. See [Matching the fix to the failure](concepts.md#matching-the-fix-to-the-failure-filters-k-prompt-instructions).
+
+**Problems and fixes.** None. The judge retry from F6 handled rate limits with 2 runs in parallel (0 evaluator errors).
+
+**The developer's decision.** Options put to the developer: (a) k = 10 for all questions; (b) k = 10 only for list questions, via a `wants_list` flag on the intake form; (c) additionally, the coach's presentation rules (group by muscle group; label bodyweight, secondary, and intermediate) in the answer prompt, as a separate measured change. The recommendation given was (b), then (c). The developer chose none of the k changes: "I think we should just do 5." Exercise k stays at 5 for every question; no adaptive k. Why: simpler, and the gain in list completeness (0.80 → 0.92) wasn't worth the extra unasked-for exercises on focused and research questions (87% → 78% clean). Tradeoff accepted: list questions (for example "exercises that need no equipment", or the beginner-adult question that should be grouped by muscle group) stay limited to 5 exercises. The `--k` and `--k-exercises` options stay in the eval scripts for future tests. See [0029](decisions/0029-exercise-k-stays-5-for-all-questions.md).
+
+**Open questions.**
+- Option (c), the coach's presentation rules in the answer prompt, was not decided in this brief. Whether it comes next is not recorded.
+- The coach should read the extras list. Some extras may be good choices that belong in the acceptable lists (for example hammer curl for grip, or A-skip for plyometric programming); others are real noise. Until then, `only_keyed_exercises` is a rough number.
+- `constraint-beginner-home` retrieves advanced bodyweight exercises at k = 10. A level filter (read in F3 but not used) would stop that. Not decided.
+- The LangSmith experiment names for the 6 answer runs and the cost of the runs were not recorded here.
+
+**Developer questions.**
+- "Will making a larger list be better for all overall searches? Why is it 5 right now?" 5 was an untested default from Step 9. A bigger k should help list questions and may hurt focused ones, and the cost difference is negligible, so we measured it. The measurement matched the prediction: completeness 0.80 → 0.92, answers with only keyed exercises 87% → 78%, with the extras on focused and research questions.
+
+**Learned.**
+- New: [Adaptive k (k chosen per question type)](concepts.md#adaptive-k-k-chosen-per-question-type), [Answer completeness and extra items](concepts.md#answer-completeness-and-extra-items-answer-level-recall-and-precision), [Proxy metrics](concepts.md#proxy-metrics-read-what-they-flag-not-just-the-number), [Matching the fix to the failure](concepts.md#matching-the-fix-to-the-failure-filters-k-prompt-instructions)
+- Extended: [Top-k retrieval](concepts.md#top-k-retrieval), [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k), [Recall vs precision](concepts.md#recall-vs-precision), [Expected, acceptable, and forbidden items](concepts.md#expected-acceptable-and-forbidden-items), [Answer-level rules vs retrieval keys](concepts.md#answer-level-rules-vs-retrieval-keys), [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models), [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores)
+
+**Decisions.**
+- New: [0029. Exercise k stays at 5 for every question (measured against 10 and 15; no adaptive k)](decisions/0029-exercise-k-stays-5-for-all-questions.md) (accepted).
+
+**Next.** Not recorded in the brief. Remaining F7+ items in CLAUDE.md: query rewriting for jargon, tuned hybrid, reranking; option (c) above is still open.
