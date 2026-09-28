@@ -22,3 +22,17 @@ The vocabularies grow large, change often, or need their own attributes. Then mo
 
 ## Note (2026-09-24, Step 5): the allowed values now live in two places
 Step 5 added an `Exercise` Pydantic model in `src/ragmotion/models.py` whose `Literal` types mirror these CHECK lists, so the seed script can reject bad entries in Python, with the slug and field named, before anything reaches the database. The CHECK constraints stay as the final safety net. Tradeoff: adding an allowed value (for example a TRX strap) now means editing both `schema.sql` and `models.py`, and the two lists must be kept in sync by hand. See [Validate before write](../concepts.md#validate-before-write) and [Step 5](../build-log.md#step-5-write-20-exercises-seed-script-query-by-hand).
+
+## Update (2026-09-28, Phase 1F F1): the lists grew, through a real migration
+The catalog grew from 20 to 42 exercises (see the [F1 entry](../build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42)), and the fixed lists had to change for the first time since Step 4. This is the "adding a value means editing the schema" tradeoff above, now paid for real.
+
+- **Movement patterns** added: `isolation` (single-joint or targeted work: curls, triceps extension, Nordic curl, band lateral walk) and `sprint` (running drills: A-skip, bounding). Full list: squat, hinge, lunge, push, pull, carry, core, jump, isolation, sprint.
+- **Equipment** added: `rack` (back squat, bench press), `pullup-bar` (pull-up), and `anchor` (see below). Full list: bodyweight, dumbbell, band, kettlebell, barbell, bench, box, rack, pullup-bar, anchor.
+- **How it was changed.** The table already held data, so editing `CREATE TABLE` alone would do nothing (`IF NOT EXISTS` skips it). `db/schema.sql` now drops and re-adds the two constraints by their Postgres default names, `exercise_movement_pattern_check` and `exercise_equipment_check1`, using `DROP CONSTRAINT IF EXISTS`, so the file stays safe to re-run. The `CREATE TABLE` lists were updated too, for fresh installs. See [Migration: changing allowed values](../concepts.md#migration-changing-allowed-values-drop-and-re-add-a-check).
+- **Both copies updated.** The `Literal` types in `src/ragmotion/models.py` were changed in the same commits. The two lists still have to be kept in sync by hand; nothing checks this automatically.
+
+### Why `anchor` is an equipment value
+The Nordic hamstring curl uses no weights, but the heels must be held down by a partner or an anchoring device. Labeled `bodyweight`, it would pass a "no equipment" filter (`equipment <@ ARRAY['bodyweight']`) and be suggested to someone who can't do it alone. The coach flagged this in review. Options considered in the session were not recorded beyond the choice itself; the chosen fix was a new value, `anchor`, meaning "needs something or someone to hold you in place". Tradeoffs: `anchor` covers two different things (a person and a device), and a client's owned-equipment list must now include it for the Nordic curl to appear. It is the first equipment value that isn't a piece of gym equipment you buy; the vocabulary now describes "what you need besides your body".
+
+### Revisit signal, checked
+The vocabularies are now 10 values each, still small, and changed once since Step 4. Not yet at the "large or changes often" threshold. If F4 (the equipment filter) or client profiles need attributes per value (for example "commonly found at home"), that is the signal to move to lookup tables.

@@ -360,7 +360,9 @@ An embedding is computed from a piece of text at one moment. If the text is late
 
 *Step 8 update:* The seed script now also clears `embedding_model` when content changes, and `scripts/embed_exercises.py` picks up exactly those rows (plus any made by a different model) on its next run. Editing `exercise_to_text()` also makes every vector stale, but the database can't detect that, so the rule is to re-run with `--all` after editing it. See [Embedding provenance (embedding_model column)](#embedding-provenance-embedding_model-column).
 
-*First seen: Step 5. Extended: Step 8.*
+*Phase 1F F1 update: the rule in practice.* After the coach review, 22 exercises were edited (level, description, equipment). Re-seeding updated those 22 rows and cleared their vectors; the next `embed_exercises.py` run recomputed exactly those 22. Nobody had to remember to re-embed.
+
+*First seen: Step 5. Extended: Steps 8 and F1.*
 
 ### Query rewriting
 Query rewriting means an LLM rewrites the user's question into better search terms before the search runs. People ask conversationally and in shorthand; the search works better on clear, explicit terms. With a small glossary of exercise abbreviations in the prompt (RDL = Romanian deadlift, BSS = Bulgarian split squat, SL RDL = single-leg RDL, KB = kettlebell), "BSS alternatives with a KB" could become a search for Bulgarian split squat alternatives using a kettlebell. It is cheap to improve: you edit a prompt, you don't re-index the data. The cost is one extra LLM call per question, which adds time and a small charge. Planned as a Phase 1F experiment, measured against the Step 15 baseline. Not built yet. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -1062,7 +1064,9 @@ Semantic passage MRR also fell (0.70 → 0.65), for a real reason: 53 new passag
 
 *Eval walkthrough update: the developer's own version.* "When we bring in new material, that's where evals are useful, because we can test against the same standard of questions." Claude's nuance: when new material changes what's correct, update those specific keys deliberately; that version becomes the new baseline. See [When the answer key changes, the scores change](#when-the-answer-key-changes-the-scores-change).
 
-*First seen: after Step 15. Extended: Eval walkthrough part 1.*
+*Phase 1F F1 update: the catalog grew, and the keys went stale.* The exercise catalog went from 20 to 42. On the same 31 reviewed questions, semantic exercise recall fell 0.91 → 0.76 (hit 1.00 → 0.94, MRR 0.97 → 0.75), with no change to search. The biceps key still expects the two rows, but the new curls fill the top 5, so it scores 0. The saved results showed the opposite problem too: for "no equipment", search returned `bench-dip` and `band-biceps-curl`, which aren't on the old forbidden list, so a wrong answer scored as a pass. Stale keys undercount both hits and mistakes. Passage scores didn't move, because the documents didn't change. This is why F2 updates the keys (expected and forbidden lists) before any filter is built. See [Data, then test, then fix](#data-then-test-then-fix).
+
+*First seen: after Step 15. Extended: Eval walkthrough part 1, Phase 1F F1.*
 
 ### System failures vs eval-expectation errors
 When a score drops, either the system did something wrong or the eval expected the wrong thing. The only way to tell is to read the actual answer and evidence. From the eval v2 round:
@@ -1149,7 +1153,9 @@ Seven questions' lists changed; four gained acceptable lists; the rest were conf
 
 **In an interview:** "An LLM drafted my eval's answer key, and I reviewed every question as a coach, without seeing the system's output. I found real errors: an inconsistency about beginner exercises, a missed exercise, a missing page, forbidden lists that were far too short. Then I re-ran the baseline on the reviewed key."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F1 update: the same review for catalog data.* Claude drafted 22 new exercises, and the coach reviewed them from a table of level, type, equipment, and main muscles, answering four specific questions. Changes: Turkish get-up to intermediate with a technique warning; the Nordic curl needs a new equipment value (`anchor`). Confirmed with a reason: back squat and deadlift intermediate, power clean a hinge, deadlift full body. Reviewed rows are marked "reviewed by M. Saraswat" in their `source` field; the original 20 still say "pending coach review".
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F1.*
 
 ### When the answer key changes, the scores change
 Scores can move with no change to the system, just because the ruler changed. During the review, semantic exercise recall went 0.89 → 0.90 → 0.91 → 0.90 → 0.91 across re-runs, and hybrid passage recall rose from 0.89 to 0.95 when one question's key was revised. A better key can even change which search mode looks best. So compare only runs graded against the same version of the key. When the key must change (new material changes what's correct, or an expert finds an error), change specific keys deliberately, write down why, and treat that version as the new baseline. The LangSmith dataset name includes a hash of the file, so the reviewed key automatically became a new dataset (`rag-motion-eval-a2d30357`). See also [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
@@ -1166,6 +1172,13 @@ Two kinds of eval question need different review. **Source-anchored:** the right
 *First seen: Eval walkthrough, part 1.*
 
 ---
+
+### Data, then test, then fix
+An ordering rule for improving a system that is measured by an eval. First change the **data** the system searches (here, the exercise catalog). Then update the **test** (the eval's answer keys) to match that data and record a baseline. Only then build the **fix** (here, metadata filters) and re-run. The reason: answer keys are tied to the data. "I only have dumbbells" expects every dumbbell exercise in the catalog, so adding exercises after the baseline would force rewriting keys and re-recording the baseline, and the before/after comparison would mix two changes. Phase 1F follows this order: F1 grows the catalog, F2 updates and extends the eval, F3–F6 build and measure the filters. See [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md).
+
+**In an interview:** "I grew the catalog before rebuilding my eval, and the eval before building filters. My answer keys list specific exercises, so if I'd added data after the baseline, I'd have had to rewrite the keys and my before/after numbers would have measured two changes at once."
+
+*First seen: Phase 1F, F1.*
 
 ## Testing
 
@@ -1205,6 +1218,13 @@ Tools that make tests short and isolated. `conftest.py` is a special pytest file
 *First seen: Step 16.*
 
 ---
+
+### Tests encode data assumptions
+A test that runs against real data quietly assumes what that data contains. When the data changes on purpose, the test can fail even though the code is fine. In F1, `test_keyword_search_finds_biceps_rows` expected keyword search for "biceps" to return the two rows that list biceps as a secondary muscle. After three curls were added, they rightly outranked those rows, and the test failed. The fix was to update the assumption, not the code: the new test, `test_keyword_search_finds_exercises_that_mention_biceps`, checks that a curl is present and that every hit lists biceps, with a comment saying why. The better long-term habit is to test a property ("every result mentions biceps") rather than a specific list of rows, so the test survives data growth.
+
+**In an interview:** "When I doubled my catalog, one test failed. The code was fine; the test assumed which rows would come back. I rewrote it to check a property, 'every result mentions biceps', so adding data won't break it again, and I note in the test why it changed."
+
+*First seen: Phase 1F, F1.*
 
 ## Terminal basics
 
@@ -1348,7 +1368,9 @@ A Pydantic model is a Python class that describes the exact shape of some data: 
 
 *Step 6 update:* The same technique now shapes LLM output. `ClientProfile` in `models.py` reuses the `Equipment` and `Difficulty` `Literal` lists, so the LLM can only name the 7 equipment types the exercise table knows ("resistance bands" becomes `band`, and can match exercises later). Each field has a `description` that becomes part of the schema the model sees. The model also has a normal Python method, `missing_fields()`. See [Structured output (strict JSON schema)](#structured-output-strict-json-schema).
 
-*First seen: Step 5. Extended: Step 6.*
+*Phase 1F F1 update:* `MovementPattern` gained `isolation` and `sprint`; `Equipment` gained `rack`, `pullup-bar`, and `anchor`, in the same commits as the schema change. Because `ClientProfile` reuses `Equipment`, the profile step can now name these too.
+
+*First seen: Step 5. Extended: Steps 6 and F1.*
 
 ### Config module (pydantic-settings)
 A config module is the one place in the code that knows where settings come from. `src/ragmotion/config.py` defines a pydantic-settings `Settings` class that reads environment variables and the `.env` file; everything else imports `settings` from it. Non-secret settings get defaults: `database_url` defaults to the local Docker URL (`localhost:5434`), so the database works before `.env` exists. Secrets (API keys) are optional in `Settings`, and each later step checks for the key it needs, so early steps don't fail because of a key they don't use.
@@ -1574,7 +1596,9 @@ A CHECK constraint is a rule on which values a column may hold, enforced on ever
 
 **In an interview:** "Filters are only as good as the data. I used CHECK constraints on equipment, difficulty, and movement pattern, so a typo like 'Dumbell' is rejected on insert instead of silently dropping out of search results."
 
-*First seen: Step 4.*
+*Phase 1F F1 update:* the lists were widened for the first time (patterns `isolation`, `sprint`; equipment `rack`, `pullup-bar`, `anchor`), by dropping and re-adding the two constraints. See [Migration: changing allowed values](#migration-changing-allowed-values-drop-and-re-add-a-check) and [Controlled vocabulary](#controlled-vocabulary).
+
+*First seen: Step 4. Extended: Phase 1F, F1.*
 
 ### Identity column and ID gaps
 An identity column is a number Postgres assigns automatically to each new row: `integer GENERATED ALWAYS AS IDENTITY`. It is the modern replacement for the older `serial` type. Numbers are handed out even when an insert then fails, and are not given back. In Step 4, four inserts were rejected, and the next valid row got `id` 4, not 1. Gaps like this are normal in Postgres, so an id should never be treated as meaningful or as a count of rows.
@@ -1649,6 +1673,20 @@ A migration is a change to the structure of a database that already holds data. 
 **In an interview:** "CREATE TABLE IF NOT EXISTS won't add a new column to a table that already exists, so I added it with ALTER TABLE ... ADD COLUMN IF NOT EXISTS. The schema file stays re-runnable on both a fresh and an existing database. With more changes I'd move to a migration tool."
 
 *First seen: Step 8.*
+
+### Controlled vocabulary
+A controlled vocabulary is a fixed, agreed list of words allowed in a field, instead of free text. rag-motion has several: movement pattern (10 values), equipment (10 values), difficulty, laterality, body region. It makes filters reliable, because "dumbbell" is always spelled the same way. It also forces design choices: each value has to mean one clear thing a filter can act on. In F1 the Nordic curl uses no weights but needs a partner or an anchoring device to hold the heels. Labeled `bodyweight`, it would appear for "no equipment"; so the coach added the value `anchor`. The vocabulary lives in two places, the CHECK constraints in `db/schema.sql` and the `Literal` types in `models.py`, and both must change together. See [0010](decisions/0010-exercise-table-check-constraints.md).
+
+**In an interview:** "My equipment field is a controlled vocabulary, and designing it is a coaching decision, not just a data one. The Nordic curl has no weights, but you can't do it alone, so I added an 'anchor' value; otherwise a 'no equipment' filter would suggest an exercise the client can't do."
+
+*First seen: Phase 1F, F1 (the lists themselves date from Step 4).*
+
+### Migration: changing allowed values (drop and re-add a CHECK)
+Adding a value to a CHECK constraint on a table that already has data is a migration. Postgres can't edit a constraint in place, so you drop it and add a new one. In F1, `db/schema.sql` does this for the movement-pattern and equipment lists: `ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;` then `ADD CONSTRAINT exercise_equipment_check1 CHECK (...)` with the longer list. Two details matter. The names are Postgres's defaults (it named them when the table was created in Step 4), so the script must use exactly those names. And `IF EXISTS` keeps the file re-runnable. The lists inside `CREATE TABLE` were updated too, so a fresh install gets the same rules. When the new constraint is added, Postgres checks every existing row against it, so a new list that dropped a value still in use would fail loudly.
+
+**In an interview:** "When the catalog grew I had to widen two CHECK constraints on a live table. I wrote it as drop-and-re-add by the constraint names Postgres had generated, with IF EXISTS, so the schema file still runs cleanly on both a fresh and an existing database."
+
+*First seen: Phase 1F, F1. Related: [Migration: adding a column (ALTER TABLE)](#migration-adding-a-column-alter-table).*
 
 ### LATERAL join
 A normal subquery in `FROM` runs once, on its own. A `LATERAL` subquery runs once per row of the table before it, and can use that row's values. That is what "for each exercise, find its 3 closest other exercises" needs: the inner query orders by distance to the current exercise's vector and keeps 3. Step 8 used it to list the nearest neighbors of all 20 exercises at once. The exact query was not saved; its shape was roughly:

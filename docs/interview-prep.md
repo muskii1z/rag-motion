@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Step 16 (tests, error handling, README; Phase 1 complete).
+Last updated: Phase 1F, F1 (exercise catalog expanded to 42; Phase 1F order set: data, then eval, then filters).
 
 ---
 
@@ -315,6 +315,7 @@ Evidence so far:
   - Re-chunking deletes and re-inserts one source's rows in one transaction; a rerun gave identical counts. See [Idempotent script](concepts.md#idempotent-script) (extended).
   - Inspection queries saved in `db/queries/chunks.sql` (chunks per source with size range; labels for one chapter).
 - [Step 13](build-log.md#step-13-embed-chunks-search-exercises-and-documents-together-answers-cite-both): both tables searched in SQL with the same query vector. `CHUNK_SEARCH_SQL` in `retrieval.py` mirrors the exercise search; `search_all()` runs both with one embedding. A per-chapter count query in psql proved every chapter was chunked and exposed the back cover leaking into Appendix 1 (fixed via `skip_pages`). See [Sanity-checking a transformation](concepts.md#sanity-checking-a-transformation-account-for-what-was-removed) (extended).
+- [Phase 1F, F1](build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42): the CHECK constraints paid off and were changed for the first time. Widened on a live table by dropping and re-adding them by their generated names, with `IF EXISTS`, so `schema.sql` still runs on fresh and existing databases. See [Migration: changing allowed values](concepts.md#migration-changing-allowed-values-drop-and-re-add-a-check) and the [0010 update](decisions/0010-exercise-table-check-constraints.md).
 
 ## Evaluation
 
@@ -414,6 +415,12 @@ Evidence so far:
   - **The eval's own gaps, named.** Only 3 limit questions (one flip = 33–50%), four answer-level rules unchecked, precision unmeasured. Plan: about 8–10 coach-written questions and rule checks first, a new baseline, then filters. See the [0021 update](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
   - **Honesty point:** asked where the 6-lesson walkthrough came from, Claude said it made up that structure as a teaching plan; the concepts in it (recall, hit rate, MRR, baselines, answer keys written before results) are standard.
   - Point to make: "Tests tell me the code does what I wrote; evals tell me whether what I wrote gives good answers. I need both, and I run the cheap one constantly."
+- **[Phase 1F, F1](build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42): a better catalog made the score worse, because the answer keys went stale.** Commits `c9a4dd3`, `541048a`. Decision: [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md).
+  - The catalog grew 20 → 42. On the same 31 reviewed questions, semantic exercise recall fell 0.91 → 0.76 (hit 1.00 → 0.94, MRR 0.97 → 0.75); hybrid 0.76; keyword 0.58. Passage scores unchanged (0.97 recall, 0.78 MRR), since documents didn't change.
+  - Cause: the keys predate the new exercises. The biceps question expects two rows that train biceps secondarily; three curls now correctly take the top spots, so it scores 0. Explosive speed (0.25) now retrieves bounding, A-skip, single-leg hop, and depth jump, which the old key doesn't list.
+  - The opposite error, found in the saved results: for "no equipment", `bench-dip` and `band-biceps-curl` came back but aren't on the old forbidden list, so a wrong result scored as a pass. Stale keys undercount both hits and mistakes.
+  - Consequence for the plan: data first, then update the keys and re-baseline (F2), then build filters. See [Data, then test, then fix](concepts.md#data-then-test-then-fix) and [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows) (extended).
+  - Point to make: "When I doubled my exercise catalog, recall dropped from 0.91 to 0.76 without any change to search. The system was fine; my answer key described the old catalog. That's why I grow the data first, then rebuild the key and the baseline, and only then build the fix I want to measure."
 
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
@@ -574,6 +581,12 @@ Evidence so far:
   - **Reproducible setup:** a fresh clone couldn't fetch the git-ignored source documents. Now `download_url` in the manifest plus `scripts/download_sources.py` download and verify every external document by sha256. See [Reproducible setup from a fresh clone](concepts.md#reproducible-setup-from-a-fresh-clone).
   - **README:** full local setup from `git clone` to a running web app, plus test and eval commands. See the [README](../README.md#run-it-locally) and [README as the project's front page](concepts.md#readme-as-the-projects-front-page).
   - Point to make: "Before deploying I'd want exactly what Step 16 added: tests that run in a second, errors that tell the operator what to fix, and a setup that rebuilds from a clean clone. Then the deployment itself is mostly configuration: a hosted Postgres URL, keys in the host's secret settings, and auth and rate limits on the API."
+- **[Phase 1F, F1](build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42): schema migrations on a database that already holds data.**
+  - Widening the allowed movement patterns and equipment meant changing CHECK constraints on a live table. `CREATE TABLE IF NOT EXISTS` would skip the change, so `schema.sql` drops and re-adds the two constraints by name, with `IF EXISTS`, and also updates the `CREATE TABLE` lists for fresh installs. One file, safe on both. See [Migration: changing allowed values](concepts.md#migration-changing-allowed-values-drop-and-re-add-a-check).
+  - The Python copy of the lists (`models.py`) changed in the same commit; keeping the two in sync is still manual ([0010 update](decisions/0010-exercise-table-check-constraints.md)).
+  - Data changes flowed through the pipeline safely: re-seeding after the coach review updated 22 rows and cleared their vectors, and the embedding script recomputed exactly those ([Stale embeddings](concepts.md#stale-embeddings), extended).
+  - A test tied to old data failed and was rewritten to check a property instead of specific rows ([Tests encode data assumptions](concepts.md#tests-encode-data-assumptions)).
+  - Point to make: "My schema file is also my migration: it creates the tables on a fresh database and upgrades an existing one, and it's safe to run twice. With more frequent changes I'd move to a migration tool like Alembic, as planned in my decision records."
 - Actual deployment not yet done. Still missing for a deployment beyond localhost: authentication and rate limits ([0015](decisions/0015-local-web-ui-fastapi-static-html.md)).
 
 ## Security
@@ -802,3 +815,6 @@ Evidence so far:
 - **Model choice is still open on eval numbers.** Step 10 said the eval would decide between Gemini (fast, overclaims) and Qwen (slow, more honest). Step 15 ran Gemini only: overclaiming measured at 3 of 29. Running the same experiment with another model is now one setting change; not done yet.
 - **Harden first or improve first** ([0023](decisions/0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md), [Step 16 Q&A](build-log.md#step-16-qa-what-the-eval-says-and-what-to-do-next)): with a measured weakness (forbidden checks 2/5) and no tests, the developer chose tests, errors, and the README before the filters. Gained: a safety net before changing core search code, a clean before/after story, faster debugging from clear errors. Given up: the known failures stay a little longer, and eval context has to be picked up again later. Same thinking inside Phase 1F: strengthen the eval before building the filters.
   - Point to make: "I had a clear weakness to fix, but the fix touched core search code with no tests under it. I spent one step on tests first, so when I change retrieval, I'll know in a second whether I broke something, and the eval will tell me whether I improved it."
+- **Vocabulary design: `anchor` as equipment** ([0010 update](decisions/0010-exercise-table-check-constraints.md), [F1](build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42)): the Nordic curl uses no weights but needs a partner or an anchoring device. Labeled `bodyweight`, a "no equipment" filter would suggest it to someone who can't do it alone. The coach chose a new value, `anchor`. Gained: filters stay truthful about what a client needs. Given up: one value now covers a person and a device; a client must list `anchor` to see the Nordic curl; one more value to keep in sync in two files. See [Controlled vocabulary](concepts.md#controlled-vocabulary).
+  - Point to make: "Designing the equipment list was a coaching decision. 'Bodyweight' would have been technically true and practically wrong for the Nordic curl."
+- **Data first vs fix first** ([0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md)): growing the catalog and rebuilding the eval before the filters delays the fix for the known weakness by two stages, and retires the old 0.91 baseline. Gained: answer keys written once, for the catalog the filters will search, and a before/after comparison that measures only the filters. Also: Claude drafts, the coach reviews, as the authoring method (over writing all 22 by hand or importing from wger), trading some coach time per exercise for speed with an expert check.

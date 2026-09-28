@@ -2934,3 +2934,144 @@ The two error simulations are shown in outline: which script (`ask.py` or `searc
 - Updated: [0006](decisions/0006-interface-cli-first.md) (Step 16 done), [0011](decisions/0011-phase-1-plan-revision-ingestion-and-langsmith.md) (Phase 1 complete), [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (its Step 16 revisit signal handled), [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (Phase 1F starts by extending the eval).
 
 **Phase 1 status: complete.** Steps 0–16 done. Next: Phase 1F, eval first.
+
+## Phase 1F begins; F1: exercise catalog expanded to 42
+**Date:** 2026-09-28 · **Commits:** `c9a4dd3` feat: expand exercise catalog to 42 (F1 draft, pending coach review) · `541048a` data: coach review of the 22 new exercises; add 'anchor' equipment (this docs update is committed and pushed right after)
+
+**Goal.** Start Phase 1F (the "better RAG" phase) by growing the exercise catalog from 20 to 42 before the eval is rebuilt, so the new answer keys describe the catalog the filters will actually search.
+
+### Phase 1F plan: data first, then the test, then the fix
+The developer asked what to do next, and whether to add more exercises and program-design information (sets, reps, frequency).
+
+- **Answer: yes to both, and the order matters. Data first, then the test, then the fix.**
+  - Answer keys (the expected results for each eval question) depend on the catalog. "I only have dumbbells" expects every dumbbell exercise. If exercises were added after the new baseline, those keys would have to be rewritten, and the baseline with them.
+  - Program-design sources are not needed for the equipment and population filters. They come right before Phase 2, because the programming agent needs them. The pipeline for research papers (Europe PMC XML, [0022](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md)) already exists.
+- **The plan:**
+
+  | Step | What |
+  |---|---|
+  | F1 | Expand the catalog (~20 → ~40). Claude drafts, the coach reviews. |
+  | F2 | Strengthen the test: update keys for the new catalog; the coach writes ~8–10 equipment and population questions; code checks for the four answer-level rules; new baseline. |
+  | F3 | Read the person's limits (equipment, population, level) from the question. |
+  | F4 | Equipment filter. |
+  | F5 | Population tags on passages, and a filter on them. |
+  | F6 | Re-run the eval and compare. |
+  | F7+ | Larger k for "list everything" questions; jargon and query rewriting; search tuning. |
+  | Before Phase 2 | Program-design sources: Schoenfeld 2021, Pelland 2024, and the coach's notes on NSCA *Essentials* chapters 18–19. |
+
+- **Developer choices:**
+  - Fill all four gap areas: arms, advanced lifts, more equipment variety, and more bodyweight and speed work.
+  - Authoring: Claude drafts, the coach reviews. Not self-written, and not imported from wger (an open exercise database).
+- Recorded in [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md).
+
+**What we did.**
+- **Widened the allowed values.** The catalog uses controlled vocabularies (fixed lists of allowed words) for movement pattern and equipment; see [0010](decisions/0010-exercise-table-check-constraints.md).
+  - Movement patterns: added `isolation` (curls, triceps extension, Nordic curl, band lateral walk) and `sprint` (A-skip, bounding).
+  - Equipment: added `rack` (back squat, bench press) and `pullup-bar` (pull-up). After the coach review, also `anchor` (a partner or anchoring device, for the Nordic curl).
+- **Wrote the change as a re-runnable migration** (a scripted change to the structure of a database that already holds data). In `db/schema.sql`, the two CHECK constraints are dropped and re-added by their Postgres default names (`exercise_movement_pattern_check`, `exercise_equipment_check1`), with `DROP CONSTRAINT IF EXISTS`, so the file stays safe to re-run. The lists inside `CREATE TABLE` were updated too, for fresh installs.
+- **Kept code and database in sync.** The `Literal` types in `src/ragmotion/models.py` (the Python copy of the allowed values) were updated to match. The two lists must be kept in sync by hand ([0010](decisions/0010-exercise-table-check-constraints.md)).
+- **Added 22 original exercises** to `data/exercises.json`. Labels as committed after the coach review:
+
+  | Area | Exercise | Pattern | Equipment | Level |
+  |---|---|---|---|---|
+  | Arms | `dumbbell-biceps-curl` | isolation | dumbbell | beginner |
+  | Arms | `hammer-curl` | isolation | dumbbell | beginner |
+  | Arms | `band-biceps-curl` | isolation | band | beginner |
+  | Arms | `dumbbell-overhead-triceps-extension` | isolation | dumbbell | beginner |
+  | Arms | `bench-dip` | push | bench | beginner |
+  | Heavier / advanced | `barbell-back-squat` | squat | barbell, rack | intermediate |
+  | Heavier / advanced | `barbell-deadlift` | hinge | barbell | intermediate |
+  | Heavier / advanced | `power-clean` | hinge | barbell | advanced |
+  | Heavier / advanced | `depth-jump` | jump | box | advanced |
+  | Heavier / advanced | `pistol-squat` | squat | bodyweight | advanced |
+  | Equipment variety | `band-lateral-walk` | isolation | band | beginner |
+  | Equipment variety | `kettlebell-deadlift` | hinge | kettlebell | beginner |
+  | Equipment variety | `turkish-get-up` | core | kettlebell | intermediate |
+  | Equipment variety | `barbell-bench-press` | push | barbell, bench, rack | intermediate |
+  | Equipment variety | `pull-up` | pull | pullup-bar | intermediate |
+  | Equipment variety | `barbell-bent-over-row` | pull | barbell | intermediate |
+  | Bodyweight and speed | `split-squat` | lunge | bodyweight | beginner |
+  | Bodyweight and speed | `nordic-hamstring-curl` | isolation | anchor | advanced |
+  | Bodyweight and speed | `a-skip` | sprint | bodyweight | beginner |
+  | Bodyweight and speed | `bounding` | sprint | bodyweight | intermediate |
+  | Bodyweight and speed | `single-leg-hop` | jump | bodyweight | intermediate |
+  | Bodyweight and speed | `front-plank` | core | bodyweight | beginner |
+
+  The catalog is now 42. It has advanced exercises for the first time (power clean, depth jump, pistol squat, Nordic curl); in Step 5 the count of advanced exercises was 0.
+- **Seeded and embedded.** The seed printed "Inserted 22, unchanged 20"; the embedding step then covered 42/42.
+- **Fixed a test that encoded an old data assumption** (see Problems and fixes).
+- **Ran the retrieval eval** on the grown catalog. Results saved as `evals/results/retrieval-20260928-132643.json`.
+- **Coach review of the 22.** Claude showed them as a table (level, type, equipment, main muscles) with four questions. The coach's calls:
+  - Back squat and deadlift stay intermediate.
+  - Turkish get-up → intermediate. The coach: "can be intermediate but it's pretty difficult". The description now says it is technically demanding and to learn the steps without load first.
+  - Nordic curl needs a partner or an anchoring device → new equipment value `anchor`, so a "no equipment" filter won't show it.
+  - Power clean stays a hinge ("includes a hinge").
+  - Barbell deadlift stays full body.
+- **Marked the 22 as reviewed.** Their `source` field says "Drafted with AI assistance, reviewed by M. Saraswat". The original 20 still say "Drafted with AI assistance; pending coach review".
+- **Re-seeded after the review.** 22 rows updated. Because their content changed, the seed script cleared their embeddings, and `embed_exercises.py` recomputed them. This is the Step 5 stale-embedding rule working as designed ([Stale embeddings](concepts.md#stale-embeddings)).
+
+**Commands.**
+```bash
+docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 < db/schema.sql
+# Applies the widened CHECK lists (drop and re-add). Form from the file's header; output not recorded.
+
+uv run python scripts/seed_exercises.py
+# First run: Inserted 22, unchanged 20. After the coach review: 22 updated (embeddings cleared).
+
+uv run python scripts/embed_exercises.py
+# 42/42 embedded. After the coach review: recomputed the 22 cleared rows.
+
+uv run pytest
+# One integration test failed (biceps keyword search). After updating it: 31 passed.
+
+uv run python evals/run_retrieval_eval.py
+# Semantic exercise recall 0.91 -> 0.76. Saved evals/results/retrieval-20260928-132643.json.
+```
+These are the documented forms of each command; the exact invocations were not recorded in the brief.
+
+**What we saw.**
+- **Retrieval eval, before and after the catalog grew** (same 31 reviewed questions, top 5):
+
+  | Mode | Exercise recall | Exercise hit | Exercise MRR |
+  |---|---|---|---|
+  | semantic, reviewed baseline | 0.91 | 1.00 | 0.97 |
+  | semantic, 42 exercises | 0.76 | 0.94 | 0.75 |
+  | hybrid, 42 exercises | 0.76 | 0.94 | 0.71 |
+  | keyword, 42 exercises | 0.58 | 0.65 | 0.52 |
+
+  Recall is the share of expected exercises found in the top 5; hit is whether at least one was; MRR (mean reciprocal rank) rewards finding the first right one near the top. The hybrid and keyword hit and MRR values were read from the saved results file while writing these docs.
+- **This is not a search regression.** The answer keys were written for the 20-exercise catalog. The biceps key still expects the two rows (`one-arm-dumbbell-row`, `inverted-row`), but the three curls and two triceps exercises now fill the top 5, so that question scores 0. A better catalog made the score worse, because the ruler is out of date. This is the evidence for doing F2 (update the keys) before any filter work.
+- **Per-question detail, read from the saved results file while writing these docs** (semantic mode). Every question with exercise recall below 1.0:
+
+  | Question | Recall | New exercises that took top-5 slots |
+  |---|---|---|
+  | `ex-biceps` | 0.00 | dumbbell-biceps-curl, hammer-curl, band-biceps-curl, bench-dip, dumbbell-overhead-triceps-extension |
+  | `constraint-no-equipment` | 0.20 | split-squat, bench-dip, band-biceps-curl, front-plank |
+  | `ex-explosive-speed` | 0.25 | bounding, a-skip, single-leg-hop, depth-jump |
+  | `constraint-dumbbells-only` | 0.43 | none (3 of 7, as in the reviewed baseline) |
+  | `ex-unilateral-lower` | 0.60 | split-squat, single-leg-hop |
+  | `gap-plyo-program` | 0.67 | depth-jump, a-skip, single-leg-hop |
+  | `ex-upper-back` | 0.75 | barbell-bent-over-row |
+
+  Passage scores did not move (semantic passage recall 0.97, passage MRR 0.78, as in the reviewed baseline), which fits: only the exercise catalog changed.
+- **Stale forbidden lists can hide failures, too** (also from the results file, not discussed in the session). For "no equipment", search returned `bench-dip` (needs a bench) and `band-biceps-curl` (needs a band). Neither is on that question's forbidden list, because the list names the 15 equipment exercises of the old catalog. So the question scored 0 forbidden (a pass) while showing two wrong exercises. Semantic forbidden rate went 0.10 → 0.06; part of that "improvement" is this blind spot. Stale keys undercount recall *and* undercount mistakes.
+- **The stale-embedding rule worked without anyone thinking about it.** Editing 22 rows cleared exactly those 22 vectors, and the next embedding run rebuilt exactly those.
+
+**Problems and fixes.**
+- **A test broke because the data changed on purpose.** `test_keyword_search_finds_biceps_rows` assumed keyword search for "biceps" returns the two rows that list biceps as a secondary muscle. Now three curls rightly outrank them. The code wasn't broken; the test's assumption was out of date. Replaced with `test_keyword_search_finds_exercises_that_mention_biceps`: `dumbbell-biceps-curl` must be in the results, and every hit must list biceps (in its muscles or name). 31 tests pass. Lesson: tests encode assumptions about data; when the data changes on purpose, update the assumption, and say why in a comment (the new test has one). See [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions).
+- **The Nordic curl didn't fit the equipment list.** Labeled bodyweight, it would have appeared under "no equipment", but it needs a partner or an anchoring device. Fixed with a new equipment value, `anchor`, added to both `schema.sql` and `models.py`.
+- **Turkish get-up was under-rated in the draft.** Moved to intermediate by the coach, with a technique warning in the description.
+
+**Open questions.**
+- The original 20 exercises still say "pending coach review". When will they be reviewed?
+- The eval's forbidden lists don't include the new equipment exercises (see What we saw). F2 must update forbidden lists as well as expected lists.
+- Output of applying the schema migration was not recorded.
+- Voyage embedding cost for the 22 new rows plus 22 re-embeds was not recorded (expected tiny, per the Step 8 and Step 13 figures).
+
+**Learned.**
+- New: [Data, then test, then fix](concepts.md#data-then-test-then-fix), [Controlled vocabulary](concepts.md#controlled-vocabulary), [Migration: changing allowed values (drop and re-add a CHECK)](concepts.md#migration-changing-allowed-values-drop-and-re-add-a-check), [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions)
+- Extended: [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows) (catalog growth: recall 0.91 → 0.76 from stale keys; stale forbidden lists), [Stale embeddings](concepts.md#stale-embeddings) (the rule in practice), [CHECK constraints](concepts.md#check-constraints) (widened by migration), [Pydantic model and Literal types](concepts.md#pydantic-model-and-literal-types) (lists updated with the schema), [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key) (the same review applied to catalog data)
+
+**Decisions.**
+- New: [0024. Phase 1F order: data, then eval, then filters](decisions/0024-phase-1f-order-data-then-eval-then-filters.md).
+- Updated: [0010](decisions/0010-exercise-table-check-constraints.md) (new vocabulary; `anchor` rationale; first real migration of the lists).

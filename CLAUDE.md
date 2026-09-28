@@ -36,6 +36,19 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 
 Update the Status column as steps complete.
 
+## Phase 1F: better RAG (data, then test, then fix)
+
+| Step | What | Status |
+|---|---|---|
+| F1 | Expand exercise catalog (20 -> 42; Claude drafts, coach reviews) | done (22 new reviewed; original 20 still pending review) |
+| F2 | Strengthen the eval: update expected AND forbidden lists for the 42-exercise catalog; coach writes ~8-10 equipment/population questions; code checks for the four answer-level rules; new baseline | next |
+| F3 | Read limits (equipment, population, level) from the question | |
+| F4 | Equipment filter (`equipment <@ owned`) | |
+| F5 | Population tags on chunks + filter | |
+| F6 | Re-run the eval and compare | |
+| F7+ | Larger k for "list everything", query rewriting for jargon, tuned hybrid, reranking | |
+| Pre-Phase 2 | Program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18-19) | |
+
 **Next: Phase 1F, better RAG (eval first).** 1) Extend the eval: ~8–10 coach-written equipment/population questions and code checks for the coach's four answer-level rules (label intermediate, label secondary muscles, label bodyweight options, group by muscle group); run for a new baseline. 2) Build filters: extract equipment/population from the question, filter exercises with `equipment <@ owned`, tag chunks by population and filter them. 3) Re-run and compare. Then: larger k for 'list everything' questions, query rewriting, tuned hybrid, reranking. Before Phase 2: program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19).
 
 **Original Phase 1F note:** Add metadata filtering, hybrid search (keyword + semantic, run separately and merged), reranking, and query rewriting (an LLM rewrites the question before search, using a glossary of exercise abbreviations like RDL, BSS, SL RDL, KB) one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
