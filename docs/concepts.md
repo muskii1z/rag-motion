@@ -68,7 +68,9 @@ Structured output forces the model to reply in an exact template instead of free
 
 *After Step 15 update: a shape can arrive broken.* The schema guarantees shape only for a complete reply. Twice in 31 eval answers the reply was cut off mid-string and failed validation. The code now retries once ([Retry on malformed structured output](#retry-on-malformed-structured-output)).
 
-*First seen: Step 6. Extended: after Step 15.*
+*Phase 1F F3 + F4 update: structured output as the input to a filter.* `QuestionLimits` (`equipment_limited`, `equipment_owned`, `limit_phrase`) is filled by a structured call at temperature 0. `equipment_owned` is typed with the same allowed equipment names as the exercise table, so the model can't return "resistance bands" when the database says `band`; the output plugs straight into a SQL filter. `limit_phrase` records the exact words that state the limit, so a person can check why a filter was applied.
+
+*First seen: Step 6. Extended: after Step 15, Phase 1F F3 + F4.*
 
 ### Hallucinated inference
 When a model fills a field from its own assumptions instead of the text. Examples from Step 6: "early 30s" became age 30; "played college soccer" became experience level "intermediate"; `bodyweight` was added to equipment though not listed. The output looks confident and valid. Countered with explicit prompt rules: numbers must come from the text; ranges or hedges ("maybe twice a week") become null, with the exact wording saved in `context_notes`; experience level only when stated or clearly implied. The rules fixed most cases on Qwen, but it still inferred "intermediate" afterwards.
@@ -102,7 +104,11 @@ Deterministic means the same input always gives the same, exactly correct output
 
 **In an interview:** "I only ask the LLM for what needs language understanding. Anything code can compute exactly, like which fields are missing, is computed in Python, because the model got it wrong when I let it do it."
 
-*First seen: Step 6.*
+*Phase 1F F3 + F4 update: "always add bodyweight" is a rule, not a question.* The limit-reading form (`QuestionLimits`) asks the LLM only for what the question says: whether equipment is limited, and which equipment the person has. The rule "everyone can do bodyweight exercises" is applied in code by `owned_equipment()`, which adds `bodyweight` to the owned list every time. If the model were asked to remember it, it could forget on some questions; in code it can't.
+
+**In an interview (with evidence):** "My filter needs 'bodyweight' in every owned list. I don't ask the model to add it; one line of Python does. The model reads the language, the code applies the rules."
+
+*First seen: Step 6. Extended: Phase 1F F3 + F4.*
 
 ### Output length cap (max_tokens)
 `max_tokens` is the most tokens the model may write in its reply. Always set it. In Step 6 the first call had none, and the host (GMICloud) defaulted to the model's whole context window (131,072 tokens) for the reply. With 170 input tokens that exceeded the model's limit, so the request failed with HTTP 400 (the server rejecting a bad request). Failed requests aren't charged. Set to 1000 now; a profile is about 200 tokens. It also caps cost, since output tokens are billed. If a reply hits the cap, `finish_reason` is `"length"`, and the code raises an error instead of using a cut-off answer.
@@ -159,7 +165,9 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 **In an interview:** "I added a prompt rule against mixing populations and the cheap model still slipped in one of two runs. Prompt wording has a ceiling. If a mistake matters, I remove the chance to make it, with a retrieval filter or a code check, instead of asking the model more firmly."
 
-*First seen: Step 13.*
+*Phase 1F F3 + F4 update: the structural fix, measured.* In the F2 baseline, the evidence already listed each exercise's equipment and the model was asked to respect the person's limits, yet 5 of 13 limit questions cited a forbidden item. With the equipment filter in SQL, 12 of 13 passed; the one left is a population problem that the equipment filter doesn't touch. See [Pre-filtering vs prompt rules vs post-filtering](#pre-filtering-vs-prompt-rules-vs-post-filtering).
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4.*
 
 ---
 
@@ -284,7 +292,11 @@ Metadata is the structured information stored in regular columns, such as equipm
 
 **In an interview (with evidence):** "My eval showed that keyword, semantic, and hybrid search all returned a hip thrust for a client with only dumbbells, and all returned older-adult passages for a beginner adult. When every search mode fails the same way, better search isn't the fix. A filter is."
 
-*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, 13, and 15.*
+*Phase 1F F3 + F4 update: built and measured.* The exercise search now has an equipment filter, `equipment <@ owned`, where `owned` comes from the question ([Query understanding](#query-understanding-reading-limits-from-the-question)). It runs inside the same SQL query as the similarity ranking, before the top 5 are chosen, so the LLM never sees an exercise the person can't do. On the same 40 questions as the F2 baseline: forbidden rate 0.17 → 0.03, exercise recall 0.80 → 0.83, constraint-category recall 0.66 → 0.76; answers without forbidden citations 8/13 → 12/13. The one remaining forbidden result is a wrong-population passage, which needs the passage filter (F5).
+
+**In an interview (with evidence):** "I read the person's equipment from the question, then filter in SQL with 'everything this exercise needs is in what they own'. On my 40-question eval, the share of questions with a forbidden result fell from 17% to 3%, and nothing that should stay got removed."
+
+*First seen: between Steps 2 and 3. Extended: Steps 4, 5, 9, 13, and 15, Phase 1F F3 + F4.*
 
 ### Hybrid search
 Hybrid search runs [keyword search](#keyword-search) and [semantic search](#semantic-search) on the same question and merges the two ranked lists (results ordered best-first) into one. Each covers the other's blind spot: keyword search catches exact names like "RDL", and semantic search catches meaning like "hip hinge". "Hybrid" means this specific keyword-plus-semantic combination, not semantic search plus filters.
@@ -478,7 +490,9 @@ A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner on
 
 *Eval walkthrough update: still the weakest category on the coach-reviewed key.* Constraint exercise recall (semantic) is 0.51. "No equipment" now forbids all 15 exercises that need equipment and still retrieved two of them; "dumbbells only" retrieved the step-up and hip thrust. Both constraint questions still cite forbidden exercises in the answer exam.
 
-*First seen: Step 9. Extended: Steps 10 and 15, Eval walkthrough part 1.*
+*Phase 1F F3 + F4 update: fixed for equipment.* With the equipment filter on, "no equipment" and "beginner at home" no longer retrieve bench dip, band curl, or inverted row, and "pull-up bar only" no longer retrieves inverted row, dumbbell row, or band pull-apart. "No equipment" became `owned = [bodyweight]`, a fact the database checks, instead of a phrase the embedding had to interpret.
+
+*First seen: Step 9. Extended: Steps 10 and 15, Eval walkthrough part 1, Phase 1F F3 + F4.*
 
 ### One query vector, two tables (combined search)
 Step 13 made a second corpus (collection of texts) searchable: the 147 document and notes chunks, embedded with the same model (voyage-4-lite) and the same document mode as the exercises. Because both tables' vectors live in the same meaning space, one question needs only one embedding. `search_all(question, k_exercises, k_passages)` in `retrieval.py` embeds the question once, in query mode, then runs two SQL searches with that same vector: top 5 exercises and top 5 passages. Each list is ranked separately and handed to the LLM as two kinds of evidence. Separate lists matter because the two tables answer different things (exercises say which moves; passages say how much and why), and a single merged top 5 could be all one kind. It only works because both tables used the same embedding model; a different model's vectors couldn't be compared ([Embedding model lock-in](#embedding-model-lock-in)).
@@ -777,7 +791,23 @@ Training guidance is population-specific: the right dose for older adults, youth
 
 *Step 15 update: measured.* The eval's population question ("beginner adult") retrieved forbidden older-adult or youth material in all three search modes (semantic: `pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`), and hybrid lost the expected adult passage entirely. In the answer eval the model cited older-adult material. The reverse also showed up: for a youth question (notes-youth-start), keyword and hybrid retrieved older-adult notes. More evidence for population tags and a retrieval filter.
 
-*First seen: Step 13. Extended: Step 15.*
+*Phase 1F F3 + F4 update: now the last forbidden failure.* After the equipment filter, `pop-beginner-adult` is the only question (of 40) whose retrieval still includes a forbidden item (`pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`), and the only one of 13 whose answer still cites one. Population tags and a passage filter (F5) are next.
+
+*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4.*
+
+### Query understanding (reading limits from the question)
+Query understanding means turning the words of a question into structured information before searching. Here it's an intake form: a small LLM call (`extract_limits`) reads the question and fills in `QuestionLimits`: is equipment limited (true only if the question says what the person has, or that they have nothing), which equipment they own (allowed names only), and the exact phrase that says so. The filter then uses the form. An LLM does this instead of keyword rules because people phrase limits in many ways ("a pair of dumbbells", "at home with no equipment"). "Limited" is read strictly: "dumbbell exercises for glutes" names equipment but doesn't say it's all the person has, so no filter.
+
+**In an interview:** "Before searching, a cheap model fills in an intake form from the question: what equipment the person says they have. It was right on all 40 eval questions, including ones that mention equipment without limiting it, and it costs about three thousandths of a cent per question."
+
+*First seen: Phase 1F, F3 + F4.*
+
+### Pre-filtering vs prompt rules vs post-filtering
+Three places to enforce a rule like "only what I own". **Prompt rules:** tell the model to respect it; it can still slip (in the F2 baseline, 5 of 13 limit questions cited a forbidden item). **Post-filtering:** let the model answer, then remove or reject forbidden items afterward; the answer may then be built around something that has to be cut. **Pre-filtering:** remove unusable items in the database query before similarity ranking, so the model never sees them. This project pre-filters: it is deterministic and cheap, and it frees the top-5 slots for usable items. Its risk: if the limit is read wrong, good items vanish silently, so over-filtering needs its own test ([Over-filtering trap question](#over-filtering-trap-question)).
+
+**In an interview:** "I don't ask the model to ignore exercises the person can't do; I make sure it never sees them. The filter runs in SQL before ranking, which took my forbidden-citation failures from 5 of 13 to 1 of 13. The cost is that a wrong reading of the limits would hide good exercises, so I test for that too."
+
+*First seen: Phase 1F, F3 + F4.*
 
 ---
 
@@ -1018,7 +1048,9 @@ With few test questions, one question changing moves the average a lot. Hit rate
 
 **In an interview:** "With 29 questions I treat anything under about five points as noise. One question flipping moves a small average a lot. So I'd say semantic clearly beats keyword on my data, but I wouldn't claim it clearly beats hybrid yet."
 
-*First seen: Step 15. Extended: Eval walkthrough part 1.*
+*Phase 1F F3 + F4 update:* after the filter, `citations_valid` went from 40/40 to 39/40. The failing question has no equipment limit, so its search was identical; re-running it 3 times gave 1 failure and 2 clean runs. A one-question change can be chance. See [Run-to-run noise](#run-to-run-noise).
+
+*First seen: Step 15. Extended: Eval walkthrough part 1, Phase 1F F3 + F4.*
 
 ### Eval-driven development (baseline first)
 Build the evaluation before making improvements, record a baseline, change one thing, rerun, and keep the change only if it beats the baseline by more than noise. In Step 15 this shaped the plan: the eval came before adding more documents, so that adding the plyometrics review, the sprint review, and the Army field manual becomes a measured change, and any damage (for example, the extractor breaking on two-column papers) shows up as a drop. Phase 1F follows the same loop: metadata filters, hybrid weights, reranking, and query rewriting, one at a time.
@@ -1034,7 +1066,9 @@ Two different causes of wrong results. A **search problem** is about ranking: th
 
 *Step 16 update: the plan, eval first.* On the reviewed baseline, forbidden-item checks passed 2 of 5. The fix has three parts: read the person's limits (equipment, population, level) from the question with a structured LLM step like Step 6, applying no filter when none are stated; filter exercises with `equipment <@ owned`; tag every chunk with its population (Guidelines chapter 3 kids and teens, 4 adults, 5 older adults, 6 pregnancy and conditions; notes by topic; papers athletes) and filter on it. But first the test gets stronger: only 3 questions test limits, so one flip moves the score 33–50%. About 8–10 coach-written questions come first, including one with no limits stated, to catch over-filtering (a filter removing something relevant). Success means the forbidden failures pass AND nothing else gets worse.
 
-*First seen: Step 15. Extended: Step 16.*
+*Phase 1F F3 + F4 update: the diagnosis confirmed.* A filter, not better ranking, fixed the equipment failures: forbidden rate 0.17 → 0.03 with the same embeddings and the same ranking. The one failure left (`pop-beginner-adult`, wrong-population passages) is also a filtering problem, for passages; F5 builds that filter.
+
+*First seen: Step 15. Extended: Step 16, Phase 1F F3 + F4.*
 
 ### Negative tests (unanswerable questions)
 A negative test is a question the sources cannot answer, put in the eval on purpose. The correct behavior is to say "not covered" and cite nothing, instead of producing a plausible answer from the model's training memory. rag-motion's is "How much protein should athletes eat per day?": there is no nutrition source in the corpus. Both the semantic and hybrid experiments answered "The provided evidence does not contain information about the recommended daily protein intake for athletes", with coverage `none` (expected `none`) and no citations, so both passed. The developer's first reading was that it looked like a failure; it is the pass. Without negative tests, an eval only rewards answering, and a system that always answers confidently would look perfect. See [the Q&A](build-log.md#after-step-15-langsmith-questions-and-the-negative-test-qa).
@@ -1145,7 +1179,9 @@ If a question expects more items than the search returns (k), perfect recall is 
 
 **In an interview:** "My coach-reviewed key expects seven exercises for one question, but search returns five, so the best possible recall is 0.71. The eval exposed that my k is too small for 'list everything' questions."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F3 + F4 update: the filter lifted recall to the ceiling.* With the equipment filter, forbidden exercises no longer take slots. From the saved results: "no equipment" now scores 0.45 (5 of 11 expected), "dumbbells only" 0.42 (5 of 12), "dumbbells and a bench" 0.38 (5 of 13). Every one of the 5 slots is an expected exercise; the ceiling itself is the limit now. Raising k for "list everything" questions is F7.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F F3 + F4.*
 
 ### Domain-expert review of an answer key
 An AI-drafted answer key is a starting point, not a truth. In the walkthrough the developer, as the coach, reviewed all 31 questions in batches of 5. Method for catalog questions: read the question's exact words; filter the **full** catalog by them (level, equipment, muscles); decide the edge cases and write the reason in the question's `notes`. For document questions: check the key against the verbatim source sentences. What the review found in Claude's draft:
@@ -1220,7 +1256,23 @@ A filter can fail in two directions: it can let wrong items through, or remove r
 
 **In an interview:** "I added a question with no limits on purpose. If my equipment filter starts removing barbell lifts for someone with a full gym, that question fails, so the eval catches over-filtering as well as under-filtering."
 
-*First seen: Phase 1F, F2.*
+*Phase 1F F3 + F4 update: passed with the filter on.* The limit reader correctly returned "not limited" for "full gym", so no filter ran, and all 4 expected barbell lifts were still retrieved. Three other questions that name equipment without limiting it ("beginner glute exercises using dumbbells", "upper-body pulling exercises with resistance bands", "KB exercise for hip power") were also correctly left unfiltered.
+
+*First seen: Phase 1F, F2. Extended: Phase 1F F3 + F4.*
+
+### One change at a time (ablation)
+Change one thing, measure, then change the next. An ablation study is the formal version: switch components on or off one at a time to see what each contributes. The coach's version: change one variable in a client's program, or you can't tell what worked. Phase 1F builds the filters in separate parts (equipment in F3 + F4, population in F5), and the eval scripts can switch the filter off (`--no-filters`) to reproduce the baseline. Reading the limits and the equipment filter were built together, because neither does anything without the other.
+
+**In an interview:** "I add one retrieval change at a time and keep a switch to turn it off, so every score change has one cause. The equipment filter alone took forbidden results from 17% to 3% of questions, and I know the remaining 3% is a population problem, not an equipment one."
+
+*First seen: Phase 1F, F3 + F4.*
+
+### Run-to-run noise
+The same question can get a different LLM answer on different runs, because answers are sampled (the answering call uses temperature 0.2). So a single failure after a change might be the change, or might be chance. The check: see whether the change could even touch that question, then re-run it a few times. In F3 + F4, one question failed a citation check after the filter was added; it had no equipment limit (so identical search), and re-running it 3 times gave 1 failure and 2 clean runs.
+
+**In an interview:** "After adding my filter, one citation check failed. That question wasn't filtered at all, so I re-ran it three times: it failed once in three. That's model randomness, not a regression, and I only know because I checked instead of trusting a single run."
+
+*First seen: Phase 1F, F3 + F4.*
 
 ## Testing
 
@@ -1718,7 +1770,9 @@ Two ways to filter on a list column like `equipment`. `'dumbbell' = ANY(equipmen
 
 *Eval walkthrough update: the same distinction in the answer key.* "Beginner glute exercises **using** dumbbells" expects the hip thrust (dumbbell plus a bench), while "I **only** have a pair of dumbbells" forbids it. In the walkthrough exercise, the developer correctly explained why; it is the same distinction as `= ANY` vs `<@`. The coach's dumbbells-only key also expects the three bodyweight lower-body exercises, since they need nothing the client lacks: the same logic as `<@ ARRAY['dumbbell','bodyweight']`.
 
-*First seen: Step 5. Extended: Eval walkthrough part 1.*
+*Phase 1F F3 + F4 update: now in the search code.* The Step 5 hand-written query became the real filter: `AND (%(owned)s::text[] IS NULL OR equipment <@ %(owned)s::text[])`. An integration test checks it with a bands-only list: the filtered query returns only band and bodyweight exercises, the unfiltered one all 42. One consequence of `<@` being exact: goblet squat is listed as a dumbbell exercise, so it disappears for a kettlebell-only person even though the coach said it counts with a kettlebell. The filter is only as right as the data.
+
+*First seen: Step 5. Extended: Eval walkthrough part 1, Phase 1F F3 + F4.*
 
 ### Migration: adding a column (ALTER TABLE)
 A migration is a change to the structure of a database that already holds data. Step 8 needed a new column, `embedding_model`, on the existing `exercise` table. Adding it inside `CREATE TABLE IF NOT EXISTS` was not enough: that statement skips the whole thing when the table already exists, so an existing database would never get the column. So `db/schema.sql` now has it in two places: inside `CREATE TABLE`, for fresh setups, and as `ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;`, for databases that already have the table. `IF NOT EXISTS` keeps the file safe to re-run. Applying it printed "relation exists" (the create was skipped) and then `ALTER TABLE` (the column was added). This is a migration in its simplest form; a migration tool (for example Alembic, planned in [0005](decisions/0005-database-access-psycopg-raw-sql.md)) numbers and tracks such changes once there are many.
@@ -1740,6 +1794,13 @@ Adding a value to a CHECK constraint on a table that already has data is a migra
 **In an interview:** "When the catalog grew I had to widen two CHECK constraints on a live table. I wrote it as drop-and-re-add by the constraint names Postgres had generated, with IF EXISTS, so the schema file still runs cleanly on both a fresh and an existing database."
 
 *First seen: Phase 1F, F1. Related: [Migration: adding a column (ALTER TABLE)](#migration-adding-a-column-alter-table).*
+
+### Optional filter in one query (NULL means no filter)
+A way to write one SQL query whose filter can be switched off: `AND (%(owned)s::text[] IS NULL OR equipment <@ %(owned)s::text[])`. If the code passes `None` (SQL NULL) for `owned`, the first half is true for every row, so nothing is removed. If it passes a list, only exercises whose equipment fits inside the list are kept. The `::text[]` tells Postgres the value is a list of text even when it is NULL. One query for both cases means filtered and unfiltered search can't drift apart.
+
+**In an interview:** "My search has one SQL query with an optional filter: pass no equipment list and it's plain similarity search, pass one and it only returns exercises the person can do. I don't keep two copies of the query."
+
+*First seen: Phase 1F, F3 + F4.*
 
 ### LATERAL join
 A normal subquery in `FROM` runs once, on its own. A `LATERAL` subquery runs once per row of the table before it, and can use that row's values. That is what "for each exercise, find its 3 closest other exercises" needs: the inner query orders by distance to the current exercise's vector and keeps 3. Step 8 used it to list the nearest neighbors of all 20 exercises at once. The exact query was not saved; its shape was roughly:

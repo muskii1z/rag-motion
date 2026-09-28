@@ -3212,3 +3212,136 @@ uv run python evals/run_answer_eval.py
 **Decisions.**
 - New: [0025. AI judge for the coach's labeling rules](decisions/0025-ai-judge-for-coach-labeling-rules.md).
 - Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (a fifth, LLM-judged evaluator; eval set 40 questions), [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F2 done).
+
+## Phase 1F, F3 + F4: Read equipment limits from the question and filter exercises
+**Date:** 2026-09-28 · **Commit:** `72027ab` feat: equipment filter from the question's limits (F3 + F4)
+
+**Goal.** Stop the app from suggesting exercises that need equipment the person doesn't have, and measure the change against the F2 baseline on the same 40-question eval.
+
+### Where this step sits (the developer's questions)
+- **"What is F3, how many Fs are there... we have the baseline now, so shouldn't we fix the filters and see if it made a difference?"** Phase 1F runs F1 to F7+. F3–F5 are the filter, built in three parts (read the limits, filter exercises by equipment, tag and filter passages by population). F6 is the full comparison. So yes: the next move was the fix.
+- **"Are we building filters one at a time for a reason, and what does 'read the limits' mean simply?"**
+  - One at a time so we know which change caused which effect. It is like changing one variable in a client's program: change two at once and you can't tell which one worked. See [One change at a time (ablation)](concepts.md#one-change-at-a-time-ablation).
+  - The equipment filter could be built now because exercises are already tagged with their equipment. The population filter needs passages tagged first (F5).
+  - "Read the limits" = an AI fills in an intake form (equipment, level, population) from the question, so the filter knows what to remove. In this step the form holds equipment only.
+- **Why F3 and F4 were done together.** The form is useless without the filter, and the filter has nothing to use without the form. The developer also wanted to move faster.
+
+**What we did.**
+- **The intake form: `QuestionLimits`** (a Pydantic model in `src/ragmotion/models.py`). Three fields:
+  - `equipment_limited` (true/false): true only if the question says what the person has, or that they have nothing.
+  - `equipment_owned`: the equipment they have, using only the allowed equipment names.
+  - `limit_phrase`: the exact words in the question that state the limit.
+  - A method, `owned_equipment()`, computed in code, not by the model. It returns the owned list plus `bodyweight` (everyone can do bodyweight exercises), or `None` when the question states no limit (which means: no filter). See [Deterministic vs generated](concepts.md#deterministic-vs-generated) (extended).
+- **Reading the limits: `extract_limits(question)`** in `src/ragmotion/llm.py`. A structured LLM call (the model must fill in `QuestionLimits`), default model `google/gemini-2.5-flash-lite`, `temperature=0`, `max_tokens=300`, traced in LangSmith as `extract_limits`. The prompt says:
+  - Record only what the question says.
+  - "Dumbbell exercises for glutes" names equipment but is not a limit.
+  - "Full gym" is not a limit.
+  - Map to allowed names only ("resistance bands" → `band`, "pull-up bar" → `pullup-bar`).
+  - See [Query understanding (reading limits from the question)](concepts.md#query-understanding-reading-limits-from-the-question).
+- **The filter** in `src/ragmotion/retrieval.py`. The exercise search SQL gained one condition:
+  ```sql
+  AND (%(owned)s::text[] IS NULL OR equipment <@ %(owned)s::text[])
+  ```
+  `<@` means "is contained by": keep an exercise only if everything it needs is in the owned list. When `owned` is NULL (no limit stated), the condition is always true and nothing is filtered. See [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by) (extended) and [Optional filter in one query (NULL means no filter)](concepts.md#optional-filter-in-one-query-null-means-no-filter).
+  - An `owned` parameter was added to `search_exercises`, `search_all`, `keyword_search_all`, and `hybrid_search_all`, so all three search modes can filter.
+  - Passages are **not** filtered by equipment. Their filter is population (F5).
+- **The pipeline** in `src/ragmotion/rag.py`. `answer_question(..., use_filters=True)` now calls `extract_limits` first, then searches with `owned`.
+  - `RAGResult` gained `limits` and `limits_usage` (tokens and cost of the extra call).
+  - Timings include a `"limits"` entry. Trace metadata includes `use_filters`; trace output includes the limits read.
+- **Evals.**
+  - `evals/run_retrieval_eval.py` gained a fourth row, `semantic+filter`.
+  - `evals/run_answer_eval.py` gained `--no-filters`, which reproduces the F2 baseline. Filtered runs use the experiment prefix `answers-semantic-filtered` and record `use_filters` in the metadata.
+- **Tests (35 pass, up from 33).**
+  - Unit test: `owned_equipment()` always adds `bodyweight`, and returns `None` when the question is not limited.
+  - Integration test: it reuses a stored exercise vector as the query (so no API call) and checks that the filtered SQL returns only band and bodyweight exercises, while the unfiltered SQL returns all 42.
+- `CLAUDE.md` was also updated in the same commit.
+
+**Commands.**
+```bash
+uv run pytest -q
+# 35 passed.
+
+# extract_limits run on all 40 eval questions, read by eye (exact command not recorded).
+# Total cost $0.0013.
+
+uv run python evals/run_retrieval_eval.py --details
+# Saved evals/results/retrieval-20260928-140728.json (now 4 rows: semantic, keyword, hybrid, semantic+filter).
+
+uv run python evals/run_answer_eval.py
+# Experiment answers-semantic-filtered-a2703a28, same dataset as F2 (rag-motion-eval-0b0fc360).
+
+# notes-weightlifting-progression re-run 3 times to diagnose one citation failure (exact command not recorded).
+# 1 of 3 runs failed citations_valid; 2 of 3 were clean.
+```
+
+**What we saw.**
+
+*1. Reading the limits: correct on all 40 questions.* Filters were applied to exactly the 7 questions that say what the person has:
+
+| Question | Allowed equipment (after code adds bodyweight) |
+|---|---|
+| `constraint-no-equipment` | bodyweight |
+| `constraint-dumbbells-only` | bodyweight, dumbbell |
+| `constraint-bands-only` | band, bodyweight |
+| `constraint-one-kettlebell` | bodyweight, kettlebell |
+| `constraint-dumbbells-bench` | bench, bodyweight, dumbbell |
+| `constraint-beginner-home` | bodyweight |
+| `constraint-pullup-bar-only` | bodyweight, pullup-bar |
+
+Correctly **not** filtered: "Beginner glute exercises using dumbbells", "Upper-body pulling exercises with resistance bands", "KB exercise for hip power", and the trap question "full gym" (`constraint-full-gym-intermediate`). These name equipment but don't say it's all the person has.
+
+*2. Retrieval eval, same 40 questions, top 5.* F2 baseline (semantic) vs semantic+filter:
+
+| Metric | semantic (F2 baseline) | semantic+filter | Change |
+|---|---|---|---|
+| Exercise recall | 0.80 | 0.83 | +0.03 |
+| Exercise hit | 1.00 | 1.00 | same |
+| Exercise MRR | 0.96 | 0.96 | same |
+| Passage recall / hit / MRR | 0.97 / 1.00 / 0.79 | 0.97 / 1.00 / 0.79 | same |
+| Forbidden rate | 0.17 | **0.03** | −0.14 |
+| Constraint-category exercise recall (8 questions) | 0.66 | **0.76** | +0.10 |
+
+- **Examples of forbidden items now gone:**
+  - `constraint-beginner-home` no longer retrieves bench dip, band curl, or inverted row.
+  - `constraint-pullup-bar-only` no longer retrieves inverted row, one-arm dumbbell row, or band pull-apart.
+  - `constraint-bands-only` no longer retrieves farmer carry.
+- **No over-filtering.** The trap question (full gym) still retrieves all 4 expected barbell lifts. See [Over-filtering trap question](concepts.md#over-filtering-trap-question) (extended).
+- **The one remaining forbidden retrieval** (0.03 = 1 of 40 questions): `pop-beginner-adult` still returns wrong-population passages (`pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`). That is a passage problem, and passages aren't equipment-filtered. It's F5's job.
+- **The remaining low constraint recalls are now at the top-k ceiling** (computed from the saved results file while writing these docs). `constraint-no-equipment` 0.45 (5 of 11 expected), `constraint-dumbbells-only` 0.42 (5 of 12), `constraint-dumbbells-bench` 0.38 (5 of 13). In each, all 5 slots are now filled with expected exercises; the question simply expects more than 5. See [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k) (extended).
+
+*3. Answer eval.* F2 baseline `answers-semantic-0b42f62a` vs filtered `answers-semantic-filtered-a2703a28`:
+
+| Evaluator | Before | After |
+|---|---|---|
+| `no_forbidden_citations` | 8/13 | **12/13** |
+| `citations_valid` | 40/40 | 39/40 (see Problems) |
+| `coverage_correct` | 36/40 | 36/40 |
+| `used_expected_evidence` | 38/39 | 38/39 |
+
+- **AI judge (coach's labeling rules):**
+  - `label-bodyweight`: now 1/1 pass. The dumbbells-only answer named split squat and said it "can be done with bodyweight".
+  - `label-level`: 1/1 pass.
+  - `group-by-muscle`: 0/1 (`pop-beginner-adult`). Top 5 can't list everything; this needs a larger k (F7).
+- **The remaining forbidden failure:** `pop-beginner-adult`, citing wrong-population passages. F5.
+- **Coverage notes for the coach:**
+  - `constraint-bands-only` now claims `partial` (the key says `full`). With only 4 band exercises for a "full-body workout", `partial` is arguably honest. The coach decides.
+  - `constraint-pullup-bar-only` claims `partial` again (key `full`); this key was already flagged as possibly wrong in F2.
+- **Cost and latency.** One extra small LLM call per question: about $0.00003 and a few hundred milliseconds.
+
+**Problems and fixes.**
+- **`notes-weightlifting-progression` failed `citations_valid` in the filtered run.** It was not caused by the filter: that question states no equipment limit, so its search is identical to the baseline. Re-ran it 3 times: in 1 of 3 runs the model listed 4 passage ids in `cited_ids` without citing them inline in the answer text; 2 of 3 were clean. Cause: answer-model randomness (the answering call runs at temperature 0.2). Not fixed; noted. Lesson: a single run has noise, and a one-question change can be chance. See [Run-to-run noise](concepts.md#run-to-run-noise).
+
+**Open questions.**
+- Coverage keys for `constraint-bands-only` and `constraint-pullup-bar-only` (`full` vs `partial`) await the coach's decision.
+- Each question still ran once per experiment. Run-to-run variation over the whole 40-question set is still not measured; only one question was re-run.
+- Goblet squat is dropped for kettlebell-only questions, because the catalog lists it as a dumbbell exercise. The coach said in F2 it counts when done with the kettlebell. It was only "acceptable" there, so no score changed. Should the catalog list it as dumbbell or kettlebell?
+- Level ("beginner") is read but not yet filtered. `constraint-beginner-home` passes today because every bodyweight exercise it retrieves is acceptable, not because of a level filter. Whether a level filter is needed is not decided.
+- The coach has still not spot-checked the AI judge's verdicts in full (from F2), and the original 20 exercises still await review (from F1).
+
+**Learned.**
+- New: [Query understanding (reading limits from the question)](concepts.md#query-understanding-reading-limits-from-the-question), [Pre-filtering vs prompt rules vs post-filtering](concepts.md#pre-filtering-vs-prompt-rules-vs-post-filtering), [Optional filter in one query (NULL means no filter)](concepts.md#optional-filter-in-one-query-null-means-no-filter), [One change at a time (ablation)](concepts.md#one-change-at-a-time-ablation), [Run-to-run noise](concepts.md#run-to-run-noise)
+- Extended: [Metadata filtering](concepts.md#metadata-filtering) (built and measured), [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by) (in production SQL), [Hard constraints and negation](concepts.md#hard-constraints-and-negation), [Deterministic vs generated](concepts.md#deterministic-vs-generated) (bodyweight added in code), [Structured output (strict JSON schema)](concepts.md#structured-output-strict-json-schema), [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models), [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems), [Over-filtering trap question](concepts.md#over-filtering-trap-question), [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k), [Population mixing](concepts.md#population-mixing-context-bleed-across-populations), [Small-sample noise](concepts.md#small-sample-noise)
+
+**Decisions.**
+- New: [0026. Equipment pre-filter from LLM-read limits](decisions/0026-equipment-prefilter-from-llm-read-limits.md).
+- Updated: [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F3 + F4 done, first before/after numbers).
