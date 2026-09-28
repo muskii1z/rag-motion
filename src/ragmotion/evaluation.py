@@ -29,6 +29,7 @@ class EvalQuestion:
     expected_passages: list[dict] = field(default_factory=list)
     forbidden_passages: list[dict] = field(default_factory=list)
     expected_coverage: str | None = None
+    answer_rules: list[str] = field(default_factory=list)  # coach's labeling rules, graded by the AI judge
     reviewed: bool = False
     notes: str | None = None
 

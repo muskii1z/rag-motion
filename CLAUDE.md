@@ -41,8 +41,8 @@ Update the Status column as steps complete.
 | Step | What | Status |
 |---|---|---|
 | F1 | Expand exercise catalog (20 -> 42; Claude drafts, coach reviews) | done (22 new reviewed; original 20 still pending review) |
-| F2 | Strengthen the eval: update expected AND forbidden lists for the 42-exercise catalog; coach writes ~8-10 equipment/population questions; code checks for the four answer-level rules; new baseline | next |
-| F3 | Read limits (equipment, population, level) from the question | |
+| F2 | Strengthen the eval: update expected AND forbidden lists for the 42-exercise catalog; coach writes ~8-10 equipment/population questions; AI judge for the four answer-level rules; new baseline | done (40 questions; baseline 2026-09-28) |
+| F3 | Read limits (equipment, population, level) from the question | next |
 | F4 | Equipment filter (`equipment <@ owned`) | |
 | F5 | Population tags on chunks + filter | |
 | F6 | Re-run the eval and compare | |
@@ -62,8 +62,8 @@ Update the Status column as steps complete.
 - **LLM via OpenRouter** with the `openai` SDK (OpenAI-compatible API), key in `OPENROUTER_API_KEY`. Default model `google/gemini-2.5-flash-lite` (switched from Qwen in Step 10 for speed), set in `src/ragmotion/config.py` or overridden with `LLM_MODEL` in .env. Always set `max_tokens`. The `anthropic` package is installed but unused (decision 0003)
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; PDFs extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`); research articles read from Europe PMC JATS XML (`format = "jats-xml"`, no PDF step); notes are Markdown; then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
 - **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
-- **Evaluation**: `evals/eval_set.yaml` (v2: 31 questions after adding two research papers; expected answers drafted, coach review pending). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode]` (LangSmith experiment, code-based checks). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
-- **Tests**: `uv run pytest` (31 tests, offline; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
+- **Evaluation**: `evals/eval_set.yaml` (v3: 40 coach-reviewed questions; `answer_rules` graded by an AI judge, `src/ragmotion/judge.py`, model `anthropic/claude-sonnet-5.5`). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode]` (LangSmith experiment, code-based checks). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
+- **Tests**: `uv run pytest` (33 tests, offline; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules

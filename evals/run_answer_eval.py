@@ -1,4 +1,4 @@
-"""Step 15: evaluate full RAG answers as a LangSmith experiment, scored by code (no LLM judge).
+"""Step 15 / F2: evaluate full RAG answers as a LangSmith experiment.
 
 Run from the project folder:
     uv run python evals/run_answer_eval.py                 # semantic retrieval (the default pipeline)
@@ -10,7 +10,10 @@ Each question runs the whole pipeline once. Checks, per answer:
   used_expected_evidence  it cited at least one expected exercise or passage
   no_forbidden_citations  it cited no forbidden exercise (e.g. needs a bench the client lacks)
                           and no passage about the wrong population
-Cost: roughly $0.0005 per question with the default model.
+  rule_<name>             F2: the coach's labeling rules (label-level, label-secondary,
+                          label-bodyweight, group-by-muscle), graded by an AI judge
+                          (src/ragmotion/judge.py), only on questions tagged with answer_rules
+Cost: roughly $0.0005 per question for answers, plus ~$0.005 per judged question.
 """
 
 import argparse
@@ -20,6 +23,7 @@ from collections import defaultdict
 from langsmith import Client, evaluate
 
 from ragmotion.config import settings
+from ragmotion.judge import RULES, judge_answer
 from ragmotion.evaluation import EVAL_SET, load_eval_set, passage_matches
 from ragmotion.rag import answer_question
 from ragmotion.retrieval import ChunkHit
@@ -44,7 +48,7 @@ def ensure_dataset(client: Client) -> str:
             "id": q.id, "category": q.category, "expected_coverage": q.expected_coverage,
             "expected_exercises": q.expected_exercises, "forbidden_exercises": q.forbidden_exercises, "acceptable_exercises": q.acceptable_exercises,
             "expected_passages": q.expected_passages, "forbidden_passages": q.forbidden_passages,
-            "reviewed": q.reviewed,
+            "reviewed": q.reviewed, "answer_rules": q.answer_rules,
         } for q in questions],
     )
     return name
@@ -55,6 +59,7 @@ def make_target(mode: str):
         r = answer_question(inputs["question"], mode=mode)
         return {
             "answer": r.answer.answer,
+            "general_guidance": r.answer.general_guidance,
             "evidence_coverage": r.answer.evidence_coverage,
             "cited_ids": r.answer.cited_ids,
             "citation_problems": r.citation_problems,
@@ -95,7 +100,23 @@ def no_forbidden_citations(outputs: dict, reference_outputs: dict) -> dict:
     return {"key": "no_forbidden_citations", "score": int(not bad)}
 
 
-EVALUATORS = [citations_valid, coverage_correct, used_expected_evidence, no_forbidden_citations]
+def coach_rules(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
+    """AI judge: one call per question, one score per rule the coach attached (None if not tagged)."""
+    rules = reference_outputs.get("answer_rules") or []
+    scores = {r: (None, "") for r in RULES}
+    if rules:
+        result, _ = judge_answer(inputs["question"], outputs["answer"], outputs.get("general_guidance"), rules)
+        for v in result.verdicts:
+            if v.rule in rules:
+                scores[v.rule] = (None if v.verdict == "not_applicable" else int(v.verdict == "pass"),
+                                  f"{v.verdict}: {v.reason}")
+    return {"results": [{"key": f"rule_{r.replace('-', '_')}", "score": sc, "comment": why}
+                        for r, (sc, why) in scores.items()]}
+
+
+EVALUATORS = [citations_valid, coverage_correct, used_expected_evidence, no_forbidden_citations, coach_rules]
+CHECK_KEYS = ["citations_valid", "coverage_correct", "used_expected_evidence", "no_forbidden_citations",
+              *[f"rule_{r.replace('-', '_')}" for r in RULES]]
 
 
 def main() -> None:
@@ -119,10 +140,12 @@ def main() -> None:
 
     # ---- Local summary ----
     totals, by_cat, costs = defaultdict(list), defaultdict(lambda: defaultdict(list)), []
-    failures = []
+    failures, verdicts = [], []
     for row in results:
         ref = row["example"].outputs
         for er in row["evaluation_results"]["results"]:
+            if er.key.startswith("rule_") and er.comment:
+                verdicts.append((ref["id"], er.key, er.comment))
             if er.score is None:
                 continue
             totals[er.key].append(er.score)
@@ -130,12 +153,15 @@ def main() -> None:
             if er.score == 0:
                 failures.append((ref["id"], er.key, (row["run"].outputs or {}).get("evidence_coverage")))
     print("\nOverall (share of applicable questions that passed):")
-    for key in [e.__name__ for e in EVALUATORS]:
+    for key in CHECK_KEYS:
         vals = totals.get(key, [])
         print(f"  {key:<24} {sum(vals)}/{len(vals)}" + (f"  = {sum(vals)/len(vals):.2f}" if vals else ""))
     print("\nFailures (question, check, coverage the answer claimed):")
     for qid, key, cov in sorted(failures):
         print(f"  {qid:<30} {key:<24} {cov}")
+    print("\nAI judge verdicts (coach: do you agree?):")
+    for qid, key, comment in sorted(verdicts):
+        print(f"  {qid:<30} {key:<22} {comment}")
     print(f"\nExperiment: {results.experiment_name}  (smith.langchain.com -> Datasets & Experiments -> {name})")
 
 

@@ -63,3 +63,10 @@ def test_answer_key_only_uses_real_exercises_and_never_contradicts_itself():
             assert not unknown, f"{q.id}.{field_name} names exercises not in the catalog: {unknown}"
         assert not set(q.expected_exercises) & set(q.forbidden_exercises), f"{q.id}: expected and forbidden overlap"
         assert not set(q.acceptable_exercises) & set(q.forbidden_exercises), f"{q.id}: acceptable and forbidden overlap"
+
+
+def test_answer_rules_name_real_judge_rules():
+    from ragmotion.judge import RULES
+
+    for q in load_eval_set():
+        assert set(q.answer_rules) <= set(RULES), f"{q.id} has unknown answer_rules: {set(q.answer_rules) - set(RULES)}"
