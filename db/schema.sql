@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS exercise (
     -- Must be non-empty and only use known equipment names.
     equipment        text[] NOT NULL
         CHECK (cardinality(equipment) > 0)
-        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar']),
+        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor']),
 
     difficulty       text NOT NULL
         CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
@@ -73,7 +73,7 @@ ALTER TABLE exercise ADD CONSTRAINT exercise_movement_pattern_check
     CHECK (movement_pattern IN ('squat', 'hinge', 'lunge', 'push', 'pull', 'carry', 'core', 'jump', 'isolation', 'sprint'));
 ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;
 ALTER TABLE exercise ADD CONSTRAINT exercise_equipment_check1
-    CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar']);
+    CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor']);
 
 -- ---- Step 12: document chunks ----
 -- One row per passage cut from a source document or project note (see data/sources.toml).

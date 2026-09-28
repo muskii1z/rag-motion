@@ -398,7 +398,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "hammer-curl",
@@ -417,7 +417,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "band-biceps-curl",
@@ -435,7 +435,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-overhead-triceps-extension",
@@ -452,7 +452,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "bench-dip",
@@ -471,7 +471,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "barbell-back-squat",
@@ -492,7 +492,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "barbell-deadlift",
@@ -512,7 +512,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "power-clean",
@@ -532,7 +532,7 @@
     "difficulty": "advanced",
     "laterality": "bilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "depth-jump",
@@ -551,7 +551,7 @@
     "difficulty": "advanced",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "pistol-squat",
@@ -570,7 +570,7 @@
     "difficulty": "advanced",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "band-lateral-walk",
@@ -588,7 +588,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "kettlebell-deadlift",
@@ -607,12 +607,12 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "turkish-get-up",
     "name": "Turkish Get-Up",
-    "description": "A slow, multi-step movement from lying to standing while holding a kettlebell overhead. It builds shoulder stability, trunk control, and coordination through many positions in one lift.",
+    "description": "A slow, multi-step movement from lying to standing while holding a kettlebell overhead. It builds shoulder stability, trunk control, and coordination through many positions in one lift. It is technically demanding, so learn the steps without load first.",
     "instructions": "Lie down holding a kettlebell straight up in one hand. Roll to the elbow, then the hand, lift the hips, sweep the leg under to a kneeling position, and stand, keeping the arm locked overhead. Reverse the steps to return.",
     "primary_muscles": [
       "obliques",
@@ -623,10 +623,10 @@
     "equipment": [
       "kettlebell"
     ],
-    "difficulty": "advanced",
+    "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "barbell-bench-press",
@@ -647,7 +647,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "pull-up",
@@ -666,7 +666,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "barbell-bent-over-row",
@@ -686,7 +686,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "split-squat",
@@ -704,24 +704,24 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "nordic-hamstring-curl",
     "name": "Nordic Hamstring Curl",
-    "description": "A kneeling exercise lowering the body forward under control while the heels are held down by a partner or anchor. It trains the hamstrings eccentrically and is widely used in field and sprint sports.",
+    "description": "A kneeling exercise lowering the body forward under control while the heels are held down by a partner or an anchoring device. It trains the hamstrings eccentrically and is widely used in field and sprint sports.",
     "instructions": "Kneel with the ankles held down. Keeping the hips straight, lower the torso toward the floor as slowly as possible, catch yourself with the hands, and push back up to the start.",
     "primary_muscles": [
       "hamstrings"
     ],
     "movement_pattern": "isolation",
     "equipment": [
-      "bodyweight"
+      "anchor"
     ],
     "difficulty": "advanced",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "a-skip",
@@ -740,7 +740,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "bounding",
@@ -760,7 +760,7 @@
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "single-leg-hop",
@@ -779,7 +779,7 @@
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "front-plank",
@@ -798,6 +798,6 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "core",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   }
 ]
