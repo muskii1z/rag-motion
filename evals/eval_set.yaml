@@ -1,6 +1,6 @@
 # rag-motion evaluation set (Step 15)
 #
-# STATUS: expected answers DRAFTED BY CLAUDE, pending review by the coach (M. Saraswat).
+# STATUS: expected answers drafted by Claude, then REVIEWED BY THE COACH (M. Saraswat), all 31, on 2026-09-28.
 # v2 (after adding the Kons 2023 plyometrics and Haugen 2019 sprint papers): sprint is no longer a gap,
 # plyometric/explosive questions accept the new papers as evidence, and two research questions were added.
 # Scores are provisional until each question's `reviewed` is set to true.
@@ -273,7 +273,8 @@ questions:
   expected_exercises: [box-jump, broad-jump, lateral-bound]
   expected_passages: [{source: notes-nsca-youth-ltad}, {source: kons2023-plyo}, {source: haugen2019-sprint, heading: "Plyometric"}]
   expected_coverage: partial  # effects are covered; a sets/reps prescription for this athlete still isn't
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: partial is right. Effects are covered; a sets/reps/frequency prescription for this athlete needs program-design sources (planned before Phase 2)."
 
 - id: research-sprint-acceleration
   question: "What's the best way to train sprint acceleration?"
@@ -281,24 +282,28 @@ questions:
   expected_exercises: [broad-jump]
   expected_passages: [{source: haugen2019-sprint, heading: "Acceleration"}, {source: haugen2019-sprint, heading: "Resisted Sprinting"}, {source: haugen2019-sprint, heading: "Sprint Training"}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: ok as is."
 
 - id: research-plyo-effects
   question: "Does plyometric training actually improve sprint and jump performance?"
   category: research
   expected_passages: [{source: kons2023-plyo}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: ok as is."
 
 - id: research-sprint-recovery
   question: "How much rest should athletes take between maximal sprints?"
   category: research
   expected_passages: [{source: haugen2019-sprint}]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: ok as is."
 
 - id: gap-protein
   question: "How much protein should athletes eat per day?"
   category: coverage-gap
   expected_coverage: none  # no nutrition sources yet
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: keep as none until nutrition sources are added."
