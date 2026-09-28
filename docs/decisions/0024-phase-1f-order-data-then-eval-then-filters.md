@@ -30,3 +30,6 @@ F1 itself showed why keys must follow the data. On the same 31 reviewed question
 - The catalog needs to grow again after F2's baseline. Then update the affected keys deliberately and re-baseline, rather than comparing against a stale key.
 - The filters (F3–F5) turn out to need data the catalog doesn't carry (for example population suitability on exercises), which would send us back to data before measuring.
 - Phase 2 planning starts: pull program-design sources forward if the agent design needs them earlier.
+
+## Update (2026-09-28, F2 done)
+F2 finished in three commits (`7e93d25`, `19a868c`, `37d3803`): keys updated for 42 exercises, including forbidden lists; 9 coach-set limit questions (the eval now has 8 constraint and 4 population questions, up from 2 and 1); the four answer-level rules checked by an AI judge ([0025](0025-ai-judge-for-coach-labeling-rules.md)); and the "before" baseline recorded. Semantic exercise recall is 0.80 on 40 questions; forbidden-citation checks pass 8 of 13. The limit failures the filters must fix are now measured on 13 questions instead of 5. See the [F2 build-log entry](../build-log.md#phase-1f-f2-strengthen-the-eval-and-record-the-before-baseline). Next: F3, read limits from the question.
