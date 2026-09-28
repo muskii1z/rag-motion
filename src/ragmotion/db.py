@@ -4,6 +4,7 @@ import psycopg
 from pgvector.psycopg import register_vector
 
 from ragmotion.config import settings
+from ragmotion.errors import DatabaseUnavailable
 
 
 def get_connection() -> psycopg.Connection:
@@ -14,6 +15,11 @@ def get_connection() -> psycopg.Connection:
         with get_connection() as conn:
             conn.execute("SELECT 1")
     """
-    conn = psycopg.connect(settings.database_url)
+    try:
+        conn = psycopg.connect(settings.database_url, connect_timeout=5)
+    except psycopg.OperationalError as e:
+        raise DatabaseUnavailable(
+            "Can't reach the database. Is Docker running? Start it with: docker compose up -d --wait"
+        ) from e
     register_vector(conn)
     return conn

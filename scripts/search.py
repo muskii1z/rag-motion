@@ -29,4 +29,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:  # one clear line instead of a traceback
+        from ragmotion.errors import friendly_message
+        raise SystemExit(f"Error: {friendly_message(e)[1]}")

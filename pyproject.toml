@@ -34,3 +34,9 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+markers = ["integration: needs the running Postgres database (skipped automatically if it's down)"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]

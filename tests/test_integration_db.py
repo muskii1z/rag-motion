@@ -1,0 +1,32 @@
+"""Checks against the running database. No API calls, no cost. Skipped if Postgres is down."""
+
+import pytest
+
+from ragmotion.db import get_connection
+from ragmotion.retrieval import keyword_search_all
+
+pytestmark = pytest.mark.integration
+
+
+def test_every_exercise_and_chunk_is_embedded():
+    with get_connection() as conn:
+        missing_ex = conn.execute("SELECT count(*) FROM exercise WHERE embedding IS NULL").fetchone()[0]
+        missing_chunks = conn.execute("SELECT count(*) FROM document_chunk WHERE embedding IS NULL").fetchone()[0]
+    assert (missing_ex, missing_chunks) == (0, 0)
+
+
+def test_only_needs_what_i_own_equipment_query():
+    # The Step 5 query the Phase 1F filters will use: everything the exercise needs is owned.
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT slug FROM exercise WHERE equipment <@ ARRAY['dumbbell', 'bodyweight']"
+        ).fetchall()
+    slugs = {r[0] for r in rows}
+    assert "goblet-squat" in slugs
+    assert "dumbbell-step-up" not in slugs  # needs a box
+    assert "dumbbell-hip-thrust" not in slugs  # needs a bench
+
+
+def test_keyword_search_finds_biceps_rows():
+    exercises, _ = keyword_search_all("biceps", k_exercises=5, k_passages=1)
+    assert {"one-arm-dumbbell-row", "inverted-row"} <= {h.slug for h in exercises}

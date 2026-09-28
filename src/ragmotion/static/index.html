@@ -486,7 +486,7 @@ async function ask(question) {
     renderHistory();
   } catch (err) {
     pending.querySelector(".thinking").outerHTML =
-      `<article class="msg-bot glass"><span class="error">The answer failed: ${esc(err.message)}. Check that the server and database are running, then ask again.</span></article>`;
+      `<article class="msg-bot glass"><span class="error">${esc(err.message)}</span></article>`;
   } finally {
     $("send").disabled = false;
     $("q").focus();

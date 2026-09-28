@@ -42,7 +42,9 @@ def exercise_to_text(ex: Exercise) -> str:
     )
 
 
-def _summarize_vectors(vectors: list[list[float]]) -> dict:
+def _summarize_vectors(vectors: list[list[float]] | None) -> dict:
+    if vectors is None:  # the call failed; LangSmith records the error itself
+        return {}
     return {"count": len(vectors), "dimensions": len(vectors[0]) if vectors else 0}
 
 

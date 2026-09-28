@@ -77,6 +77,8 @@ LIMIT %(k)s
 
 def _as_trace_documents(result: tuple[list[ExerciseHit], list["ChunkHit"]]) -> dict:
     """LangSmith shows retriever outputs nicely when they look like documents."""
+    if result is None:  # the call failed; LangSmith records the error itself
+        return {}
     exercises, passages = result
     docs = [
         {"page_content": p.text, "type": "Document",

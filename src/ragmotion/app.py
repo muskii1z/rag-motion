@@ -9,6 +9,7 @@ Run from the project folder:
 Then open http://127.0.0.1:8010
 """
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -17,10 +18,12 @@ from pydantic import BaseModel, Field
 
 from ragmotion.config import settings
 from ragmotion.db import get_connection
+from ragmotion.errors import friendly_message
 from ragmotion.ingestion import load_sources
 from ragmotion.rag import answer_question
 
 STATIC_DIR = Path(__file__).parent / "static"
+log = logging.getLogger("ragmotion")
 
 app = FastAPI(title="rag-motion", description="Grounded answers from the exercise knowledge base.")
 
@@ -38,7 +41,12 @@ def index() -> FileResponse:
 @app.get("/api/info")
 def info() -> dict:
     """What the assistant knows and which models it uses, for the sidebar and header."""
-    with get_connection() as conn:
+    try:
+        conn_ctx = get_connection()
+    except Exception as e:
+        status, message = friendly_message(e)
+        raise HTTPException(status_code=status, detail=message) from e
+    with conn_ctx as conn:
         chunk_counts = dict(conn.execute(
             "SELECT source_id, count(*) FROM document_chunk WHERE embedding IS NOT NULL GROUP BY source_id"
         ).fetchall())
@@ -60,8 +68,10 @@ def info() -> dict:
 def ask(req: AskRequest) -> dict:
     try:
         r = answer_question(req.question.strip(), k_exercises=req.k, k_passages=req.k)
-    except Exception as e:  # show the reason in the page instead of a blank failure
-        raise HTTPException(status_code=502, detail=f"{type(e).__name__}: {e}") from e
+    except Exception as e:
+        log.exception("Failed to answer %r", req.question)  # full details for debugging
+        status, message = friendly_message(e)
+        raise HTTPException(status_code=status, detail=message) from e
 
     return {
         "question": r.question,

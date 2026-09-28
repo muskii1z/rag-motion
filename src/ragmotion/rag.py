@@ -130,7 +130,9 @@ def check_citations(answer: GroundedAnswer, retrieved_ids: set[str]) -> list[str
     return problems
 
 
-def _summarize_result(r: "RAGResult") -> dict:
+def _summarize_result(r: "RAGResult | None") -> dict:
+    if r is None:  # the call failed; LangSmith records the error itself
+        return {}
     return {
         "answer": r.answer.answer,
         "evidence_coverage": r.answer.evidence_coverage,
