@@ -108,7 +108,11 @@ Deterministic means the same input always gives the same, exactly correct output
 
 **In an interview (with evidence):** "My filter needs 'bodyweight' in every owned list. I don't ask the model to add it; one line of Python does. The model reads the language, the code applies the rules."
 
-*First seen: Step 6. Extended: Phase 1F F3 + F4.*
+*Phase 1F F7b update: deterministic presentation.* The same idea applies to how an answer looks. The coach wants exercises labeled as intermediate, bodyweight, or secondary-muscle. Those labels are facts already stored in the catalog (level, equipment, primary muscles). Asking the model to add them in its prose was unreliable and had side effects (F7b, reverted). Code could show them instead, for example level and bodyweight badges next to each cited exercise in the web page's sources, and it would be right every time. Not built yet; recorded as the idea for later in [0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md).
+
+**In an interview (F7b):** "If a label is a fact in my database, like an exercise's level or whether it needs equipment, I shouldn't ask the model to remember to write it. The page can print it next to the citation, deterministically."
+
+*First seen: Step 6. Extended: Phase 1F F3 + F4, F7b.*
 
 ### Output length cap (max_tokens)
 `max_tokens` is the most tokens the model may write in its reply. Always set it. In Step 6 the first call had none, and the host (GMICloud) defaulted to the model's whole context window (131,072 tokens) for the reply. With 170 input tokens that exceeded the model's limit, so the request failed with HTTP 400 (the server rejecting a bad request). Failed requests aren't charged. Set to 1000 now; a profile is about 200 tokens. It also caps cost, since output tokens are billed. If a reply hits the cap, `finish_reason` is `"length"`, and the code raises an error instead of using a cut-off answer.
@@ -171,7 +175,11 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 *Phase 1F F7a update: the other side, presentation belongs in the prompt.* The ceiling applies to hard limits that must never break. For presentation (group by muscle group, label bodyweight, secondary, and intermediate exercises), the prompt is the right tool: there is nothing to filter, and a bigger k didn't fix them. The answer prompt doesn't state these rules yet. See [Matching the fix to the failure](#matching-the-fix-to-the-failure-filters-k-prompt-instructions).
 
-*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a.*
+*Phase 1F F7b update: the ceiling applies to presentation too, on this model.* The coach's four presentation rules were added to the answer prompt in three versions, 3 runs each. None beat the no-rules prompt overall. This is about **instruction-following capacity**: how many separate instructions a model can keep in mind and apply at once. Small, cheap models have less of it, so each added rule is followed less reliably, and the rules can also change behavior they weren't about ([Prompt changes have side effects](#prompt-changes-have-side-effects-one-instruction-many-answers)). With `google/gemini-2.5-flash-lite`, the grouping rule padded focused answers and coverage claims got less accurate (111/120 → 104–107/120). The prompt was reverted ([0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md)).
+
+**In an interview (F7b):** "I thought formatting was the one job a prompt could do well. On my cheap model, adding four formatting rules made it pad answers and misjudge its own coverage, and none of three versions beat the plain prompt. So the ceiling isn't only for hard limits; every extra instruction costs something on a small model."
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a, F7b.*
 
 ### Saying what not to infer (default assumptions in extraction prompts)
 When a model fills in a form, it tends to fill gaps with a likely default. In F5, the limit reader tagged questions about "athletes" and "an intermediate lifter" as `adults`, even though the prompt said athletes → null. The fix was to spell out what does *not* count, with examples: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Then all 40 were right. This worked where the Step 13 answer rule didn't because it's a small, narrow job with one field, and the result was checked on every eval question.
@@ -179,6 +187,13 @@ When a model fills in a form, it tends to fill gaps with a likely default. In F5
 **In an interview:** "My question reader kept assuming 'athlete' meant adult, which would have quietly filtered out passages. Telling it what not to infer, with example words, fixed all four misses. I trust that because I re-checked all 40 questions, not because the prompt sounds firm."
 
 *First seen: Phase 1F, F5.*
+
+### Prompt changes have side effects (one instruction, many answers)
+The system prompt (the standing instructions sent with every question) is shared by every answer. So a rule written with one kind of question in mind also reaches all the others, and the model may apply it where it doesn't fit. In F7b, a rule to group exercises under muscle-group headings was meant for list questions like "a full-body routine for a beginner". It also changed focused questions: "an overhead pressing exercise" got bench press, push-up, triceps extension, and band pull-apart, as if the model needed several groups to fill. Narrowing the rule to list questions (v2) stopped it firing on the beginner list it was written for. Coverage claims also got less accurate in every version, though the rules never mentioned coverage. The habit: after any prompt change, check the questions the rule was *not* for, not only the ones it was for.
+
+**In an interview:** "I added a 'group by muscle group' rule for list questions, and it changed my focused answers: a question about one overhead press came back with bench press and triceps extensions under headings. A prompt is global, so I evaluate a prompt change on every question, not just the ones it targets."
+
+*First seen: Phase 1F, F7b.*
 
 ---
 
@@ -855,7 +870,11 @@ Different failures need different tools. **Hard limits** (equipment the person d
 
 **In an interview:** "I sort failures by type before fixing them. Hard constraints get a filter in code, breadth gets a bigger k, and formatting gets an instruction in the prompt. I learned that by trying a bigger k on a grouping problem: more exercises didn't make the answer grouped, because the model had never been told to group."
 
-*First seen: Phase 1F, F7a.*
+*Phase 1F F7b update: the prompt was tested and didn't pay off.* F7b put the presentation rules in the answer prompt, as this entry suggested. On the small answer model, none of three versions beat the plain prompt: the grouping rule padded focused answers and coverage claims got worse ([0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md)). So the map needs a fourth tool: **presentation of facts that are already data** (level, equipment) can be done in code, which is deterministic ([Deterministic vs generated](#deterministic-vs-generated)). The prompt is still the tool for presentation that needs judgment, like grouping, but on this model it wasn't reliable enough.
+
+**In an interview (F7b):** "My first map was: filters for limits, k for breadth, prompt for formatting. Then the formatting prompt made answers worse. Now I split formatting too: labels that are database facts get printed by code, and only the judgment part is left for the model."
+
+*First seen: Phase 1F, F7a. Extended: Phase 1F, F7b.*
 
 ---
 
@@ -1107,7 +1126,9 @@ With few test questions, one question changing moves the average a lot. Hit rate
 
 *Phase 1F F3 + F4 update:* after the filter, `citations_valid` went from 40/40 to 39/40. The failing question has no equipment limit, so its search was identical; re-running it 3 times gave 1 failure and 2 clean runs. A one-question change can be chance. See [Run-to-run noise](#run-to-run-noise).
 
-*First seen: Step 15. Extended: Eval walkthrough part 1, Phase 1F F3 + F4.*
+*Phase 1F F7b update: rules that rarely apply can't be measured.* Across 3 runs per prompt version, each of the judge's rule checks had only 0 to 4 applicable cases. With so few cases, "4/4 vs 0/1" for bodyweight labels proves nothing. What could be read were the consistent side effects on the larger checks: coverage claims (120 cases) and extra exercises (69 cases) got worse in every version. When the target metric is too small to show a gain, the broad metrics still show harm.
+
+*First seen: Step 15. Extended: Eval walkthrough part 1, Phase 1F F3 + F4, F7b.*
 
 ### Eval-driven development (baseline first)
 Build the evaluation before making improvements, record a baseline, change one thing, rerun, and keep the change only if it beats the baseline by more than noise. In Step 15 this shaped the plan: the eval came before adding more documents, so that adding the plyometrics review, the sprint review, and the Army field manual becomes a measured change, and any damage (for example, the extractor breaking on two-column papers) shows up as a drop. Phase 1F follows the same loop: metadata filters, hybrid weights, reranking, and query rewriting, one at a time.
@@ -1397,6 +1418,13 @@ A proxy metric measures something close to what you care about, because the real
 **In an interview:** "My 'no extra exercises' check is a proxy: it flags anything not in my answer key, and my key's 'acceptable' lists aren't exhaustive. So the script prints every extra and my coach reads them. I don't read 87% versus 78% as a precise number until that review is done."
 
 *First seen: Phase 1F, F7a.*
+
+### Negative results are results
+An experiment that finds "no improvement" is still worth recording. It stops an untested change from shipping because it sounded right, and it saves the next person from trying the same thing blind. In F7b, adding the coach's presentation rules to the answer prompt seemed an obvious win. Three versions, 3 runs each (about $0.90), showed none beat the plain prompt, so the prompt was reverted. The record keeps what was tried, the numbers, and what would make it worth trying again (code-based labels, a stronger model, more exercises per list question): see [0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md).
+
+**In an interview:** "One of my experiments shipped nothing. I tried three versions of formatting rules in the prompt and none beat the original, so I reverted and wrote down why. That cost under a dollar and stopped me shipping a change that made focused answers worse."
+
+*First seen: Phase 1F, F7b.*
 
 ## Testing
 

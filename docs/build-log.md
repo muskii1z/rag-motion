@@ -3688,3 +3688,87 @@ uv run pytest -q
 - New: [0029. Exercise k stays at 5 for every question (measured against 10 and 15; no adaptive k)](decisions/0029-exercise-k-stays-5-for-all-questions.md) (accepted).
 
 **Next.** Not recorded in the brief. Remaining F7+ items in CLAUDE.md: query rewriting for jargon, tuned hybrid, reranking; option (c) above is still open.
+
+## Phase 1F, F7b: Experiment with the coach's presentation rules in the answer prompt (reverted)
+**Date:** 2026-09-28 · **Commit:** not committed (no code changed in the end; the prompt was reverted, docs to be committed after this entry)
+
+**Goal.** See whether adding the coach's four presentation rules to the answer prompt (group by muscle group; label intermediate or advanced exercises for beginners; label bodyweight exercises when equipment is stated; label exercises that train the muscle only as a secondary muscle) makes answers follow the coach's style without side effects.
+
+**What we did.**
+- **The developer asked:** "Do the small fix first; does it box us in, or will it help get better and more accurate answers?" Answer: it doesn't box us in. It is a few sentences of instructions and can be removed. The filters (F3 to F5) already control *what* is suggested; these rules control *how* it is presented. The risks are rules firing where they don't fit, and longer answers. The eval would show which.
+- **Three versions** of a "Coach's presentation rules" block were added to `ANSWER_SYSTEM_PROMPT` (the system message, meaning the standing instructions sent before the question) in `src/ragmotion/rag.py`. Each version got 3 answer-eval runs: semantic search, filters on, k = 5 (5 exercises shown to the model), same LangSmith dataset `rag-motion-eval-23e1f7fa`. The comparison is the 3 k = 5 runs from F7a, which had no rules.
+  - **v1, all four rules.** Group under muscle-group headings when recommending 3 or more exercises, plus the three labeling rules.
+  - **v2, narrow grouping.** The grouping rule applies only "when the question asks for a list, routine or workout covering several muscle groups; for one kind of exercise, give only that kind, no headings, don't add other kinds to fill space". Plus the three labeling rules.
+  - **v3, labels only.** The three labeling rules, no grouping rule.
+- **Result: no version was clearly better than no rules.** The prompt was reverted to the original with `git checkout src/ragmotion/rag.py`. No code from this experiment was committed.
+
+**Commands.**
+```bash
+uv run python evals/run_answer_eval.py    # x3 per version (v1, v2, v3), 9 runs total
+# Full answers, semantic, filters on, k = 5, 40 questions each.
+# Compared with the 3 k = 5 runs from F7a (no rules). Cost of the 9 runs: about $0.90.
+
+git checkout src/ragmotion/rag.py
+# Threw away the uncommitted prompt edits: back to the original answer prompt.
+```
+The exact flags used for each run were not given in the brief. k = 5 and filters on are the defaults.
+
+**What we saw.**
+
+*1. Totals over 3 runs per version.*
+
+| Check | No rules (F7a) | v1 all four | v2 narrow grouping | v3 labels only |
+|---|---|---|---|---|
+| Citations valid | 120/120 | 120/120 | 116/120 | 120/120 |
+| Coverage claim correct | 111/120 | 107/120 | 104/120 | 105/120 |
+| Used expected evidence | 115/117 | 117/117 | 115/117 | 114/117 |
+| No forbidden advice | 39/39 | 39/39 | 39/39 | 39/39 |
+| Exercise completeness (mean) | 0.80 | 0.83 | 0.80 | 0.81 |
+| No extra exercises | 60/69 (87%) | 56/69 (81%) | 57/69 (83%) | 56/69 (81%) |
+| Judge: label-bodyweight | 0/1 | 4/4 | 2/2 | 0/0 |
+| Judge: label-level | 3/3 | 2/3 | 3/3 | 3/3 |
+| Judge: label-secondary | 2/3 | 1/1 | 0/2 | 2/3 |
+| Judge: group-by-muscle | 0/3 | 0/3 | 0/3 | 0/3 |
+
+("Coverage claim correct" checks the model's `full` / `partial` / `none` claim against the key. "No extra exercises" is the F7a `only_keyed_exercises` check. The judge rows count only answers where the rule applied; see [not_applicable verdicts](concepts.md#not_applicable-verdicts-rules-with-a-trigger).)
+
+*2. v1, all four rules.*
+- The answers did use muscle-group headings, and bodyweight exercises were labeled (4/4).
+- **But the grouping rule made the model pad focused answers.** "Overhead pressing exercise" got bench press, push-up, triceps extension, and band pull-apart. "Anti-rotation core exercise" got dead bug, front plank, and Turkish get-up; the coach had already said dead bug is not anti-rotation. `research-sprint-acceleration` got depth jump and single-leg hop.
+- The beginner-adult answer was grouped under headings but still failed "covers all major muscle groups": only 5 exercises were available, with no core or arms among them.
+- Coverage claims fell to 107/120, and "no extra exercises" to 81%.
+
+*3. v2, narrow grouping.*
+- The beginner-adult answer stopped grouping at all: the narrowed condition didn't trigger for it.
+- Extras stayed on `ex-overhead` (2 of 3 runs).
+- Citations slipped to 116/120, and coverage to 104/120.
+
+*4. v3, labels only.*
+- Extras on `ex-anti-rotation` in all 3 runs (dead bug and others).
+- Coverage 105/120.
+- The labeling cases rarely triggered, so there was no measurable gain.
+
+*5. Reading the numbers.*
+- The judge-rule samples are tiny: 0 to 4 applicable cases per rule. So a gain on any single rule can't be shown. The side effects on focused questions and on coverage claims were consistent across versions.
+- **Key lesson:** with this small, cheap answer model (`google/gemini-2.5-flash-lite`), each extra instruction is followed unreliably and can change unrelated behavior, such as padding focused answers and shifting coverage claims. Prompt rules have a ceiling; measure every prompt change.
+- **Idea for later (not built):** the labels are facts already in the catalog (level, equipment, primary muscles). Code could show them reliably, for example level and bodyweight badges next to cited exercises in the web page's sources, with no prompt change. A stronger answer model is another option. Grouping a full beginner list needs more than 5 exercises, which the developer declined in F7a ([0029](decisions/0029-exercise-k-stays-5-for-all-questions.md)).
+
+**Problems and fixes.** None technical. The experiment itself was reverted because it didn't help.
+
+**Open questions.**
+- The developer has not yet confirmed the revert; it was recommended to them. Decision [0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md) is recorded as proposed until they do.
+- The exact wording of the v1 and v3 rule blocks is not recorded (only v2's grouping wording is quoted above). The prompt text is gone from the working tree after the revert.
+- LangSmith experiment names for the 9 runs were not recorded.
+- Whether the code-based labels idea becomes a step is not decided.
+
+**Developer questions.**
+- "Do the small fix first; does it box us in, or will it help get better and more accurate answers?" It doesn't box us in: a few sentences, removable. Filters decide what is suggested; these rules decide how it's presented. The risks were rules firing where they don't fit and longer answers, and the eval would show it. The eval showed the first risk: the grouping rule padded focused answers.
+
+**Learned.**
+- New: [Prompt changes have side effects](concepts.md#prompt-changes-have-side-effects-one-instruction-many-answers), [Negative results are results](concepts.md#negative-results-are-results)
+- Extended: [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) (instruction-following capacity of small models), [Deterministic vs generated](concepts.md#deterministic-vs-generated) (deterministic presentation), [Matching the fix to the failure](concepts.md#matching-the-fix-to-the-failure-filters-k-prompt-instructions), [Small-sample noise](concepts.md#small-sample-noise)
+
+**Decisions.**
+- New: [0030. Answer prompt stays without the coach's presentation rules (three versions measured, reverted)](decisions/0030-answer-prompt-stays-without-presentation-rules.md) (proposed, pending developer confirmation).
+
+**Next.** Not recorded in the brief. Remaining F7+ items in CLAUDE.md: query rewriting for jargon, tuned hybrid, reranking. The code-based labels idea is open.

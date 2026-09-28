@@ -47,7 +47,8 @@ Update the Status column as steps complete.
 | F5 | Population tags on chunks + filter | done: rule-based tags (`populations_for`, `scripts/tag_populations.py`); no forbidden citations 12/13 -> 13/13 |
 | F6 | Re-run the eval and compare; README update | done: no forbidden advice 69% -> 100% (3 runs each); coverage keys for 3 equipment questions set to partial by coach |
 | F7a | Test 5 vs 10 exercises per question | done: developer kept 5 (lists +12% complete, but more unasked-for extras on focused questions) |
-| F7+ | Optional: coach's presentation rules in the answer prompt; query rewriting, reranking | not started |
+| F7b | Coach's presentation rules in the answer prompt (3 versions, 3 runs each) | tried and reverted: no version beat the plain prompt; side effects on focused answers (decision 0030, proposed). Later idea: show level/bodyweight labels in code |
+| F7+ | Query rewriting, reranking | not started |
 | Pre-Phase 2 | Program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18-19) | |
 
 **Where we are (2026-09-28):** Phase 1F filters done and measured (no forbidden advice 69% -> 100%, 3 runs each). Exercises per question stay at 5 (F7a, decision 0029). Open choice for the developer: (1) optional: add the coach's presentation rules (group by muscle group; label intermediate, bodyweight, secondary) to the answer prompt and re-measure; or (2) program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19), then Phase 2.
