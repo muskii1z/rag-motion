@@ -38,3 +38,11 @@ Use an AI judge for the four labeling rules, and keep every exact-fact check in 
 - A rule turns out to be checkable exactly by code (for example once answers use a fixed structure), which would make it free and deterministic.
 - Judge cost matters (many more questions, or repeated runs): try a cheaper model from a different family and compare its verdicts with Sonnet's on the same answers.
 - The answering model changes to a Claude model: the judge would then share its family, and should change.
+
+## Update (2026-09-28, Phase 1F F6): retry on rate limits; README claim updated
+- **The judge hit a rate limit.** Six answer evals ran in parallel, and OpenRouter returned HTTP 429 (`RateLimitError`): "new accounts are limited to 20 requests per minute for this model". Most judge verdicts in those runs were lost; the code checks were unaffected. The problem showed up as missing scores, not low ones.
+- **Fix in code:** `judge_answer()` catches `openai.RateLimitError` and retries after 10, 20, 40, then 60 seconds, then raises. Chosen over lowering eval concurrency (how many evals may run at once) globally. Also: don't run many evals in parallel on this account. A sequential re-run (`answers-semantic-filtered-ac5b7163`) had 0 evaluator errors.
+- **Verdicts from that run:** `label-level` pass on `constraint-one-kettlebell`; `group-by-muscle` fail on `pop-beginner-adult` (five exercises in one sentence, missing core, glutes/hamstrings, and arms; the top-5 ceiling).
+- **Lost:** the judge's rules have no 3-run before/after comparison ([0028](0028-before-after-averaged-over-three-runs.md)).
+- **README:** the design row "Code-based eval checks, not an LLM judge" was replaced by "Code checks for facts; an AI judge only for the coach's labeling rules", which matches this decision.
+- **Revisit when (added):** the account's rate limit rises, or the judge moves to a provider with a higher limit; then parallel runs are safe again.

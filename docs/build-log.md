@@ -3485,3 +3485,106 @@ The last forbidden item from F4 (`pop-beginner-adult` retrieving older-adult and
 - Updated: [0019](decisions/0019-structure-aware-chunking-150-450-labels-no-overlap.md) (planned population tags now built), [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F5 done), [0026](decisions/0026-equipment-prefilter-from-llm-read-limits.md) (`QuestionLimits` extended, not a second call).
 
 **Next.** F6: write up the full before/after comparison, update the README, and record the coach's coverage-key decisions.
+
+## Phase 1F, F6: Re-run the eval, compare before and after the filters, update the README
+**Date:** 2026-09-28 · **Commit:** `286cce2` docs: F6 before/after comparison and README update (includes the eval key change, the judge retry, the README, and CLAUDE.md)
+
+**Goal.** Produce a trustworthy before/after comparison of the equipment and age-group filters on the same 40-question eval, and show it in the README.
+
+**What we did.**
+- **The coach settled three coverage keys.** `expected_coverage` is the eval field that says what an honest answer should claim about its evidence: `full`, `partial`, or `none`. For `constraint-bands-only`, `constraint-one-kettlebell`, and `constraint-pullup-bar-only` (full-body workout questions with limited equipment), the coach changed it from `full` to `partial`. The coach's reason, stored as a YAML comment on each key: "only a few exercises fit this equipment, so a full workout isn't possible from our catalog." The eval file changed, so its hash changed, so LangSmith got a new dataset: `rag-motion-eval-23e1f7fa`. See [Coverage label drift](concepts.md#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression) (extended).
+- **One run showed a single run can't be trusted.** A filtered run right after the key change had bands-only and one-kettlebell claiming `full`. The run before (F5) they had claimed `partial`. Same system, same question, opposite claim. So the plan changed: compare the average of 3 runs per version, not one run each. See [0028](decisions/0028-before-after-averaged-over-three-runs.md).
+- **Ran 6 answer evals:** 3 with `--no-filters` (the "before") and 3 with filters (the "after"), all 6 at the same time (in parallel). All six were graded against the same final keys.
+- **Found the AI judge's scores nearly empty** in those 6 runs. The judge (the second model that grades the coach's four labeling rules; see [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md)) was hitting a rate limit. The code checks were fine, because they don't call the judge. See Problems.
+- **Fixed the judge with wait-and-retry.** `judge_answer()` in `src/ragmotion/judge.py` now catches `openai.RateLimitError` and tries again after waiting 10, 20, 40, then 60 seconds. If the fifth try also fails, it gives up and raises the error. See [Rate limits and retry with backoff](concepts.md#rate-limits-http-429-and-retry-with-backoff).
+- **Re-ran one filtered eval, one at a time (sequentially),** after the fix: 0 evaluator errors. Experiment `answers-semantic-filtered-ac5b7163`.
+- **Updated the README** (the project's front page on GitHub):
+  - Status line: filters done; answers that broke a limit went from 4 in 13 to 0 in 13.
+  - A new "Respects limits" bullet.
+  - The pipeline diagram gained a "Read limits (equipment · age group, small LLM call)" box; the database box says "42 exercises · 200 passages, filtered in SQL"; the retrieval box says "top 5 usable exercises + top 5 passages for that group".
+  - Key design choices: three new rows (limits enforced by filters, not prompt rules; age-group tags on passages from the source's structure; code checks for facts and an AI judge only for the coach's labeling rules). The last one replaced the old row "Code-based eval checks, not an LLM judge", which was no longer true.
+  - Knowledge base: catalog now 42 exercises (22 coach-reviewed).
+  - Evaluation section rewritten: 40 questions, the trap question, a retrieval table with a "questions with a forbidden item" column and the filtered default row, the before/after answer table averaged over 3 runs, a description of the judge, what the numbers say, and two lessons (stale keys after the catalog grew; single runs are noisy).
+  - Test count 37; answer eval cost about 10 cents; the `--no-filters` command.
+  - Limitations: removed "doesn't respect limits"; added "limits are read from the current question only; the level is read but not used as a filter"; catalog 42 with the original 20 awaiting review.
+- **CLAUDE.md:** F6 marked done; F7+ next.
+
+**Commands.**
+```bash
+uv run pytest -q
+# 37 passed.
+
+uv run python evals/run_answer_eval.py
+# Single filtered run right after the key change: citations 39/40, coverage 35/40,
+# expected evidence 39/39, no forbidden citations 13/13. One citation miss on
+# ex-explosive-speed (noise). Bands-only and one-kettlebell claimed "full" this time.
+
+uv run python evals/run_answer_eval.py --no-filters   # x3, in parallel with the next three
+# Experiments answers-semantic-bfb70035, -bb82b648, -bf8a7a2f ("before").
+
+uv run python evals/run_answer_eval.py                # x3
+# Experiments answers-semantic-filtered-ff75447b, -df4717be, -f4ea8417 ("after").
+# Judge scores nearly empty in all six: OpenRouter 429 rate-limit errors.
+
+uv run python evals/run_answer_eval.py                # x1, after the retry fix, run alone
+# Experiment answers-semantic-filtered-ac5b7163: 0 evaluator errors. Citations 40/40,
+# coverage 38/40, expected evidence 38/39, no forbidden citations 13/13.
+```
+The retrieval eval was not re-run in F6. Its numbers come from the F5 results file, `evals/results/retrieval-20260928-144918.json` (retrieval doesn't use the coverage keys, so the key change doesn't affect it).
+
+**What we saw.**
+
+*1. Answers, before and after, same 40 questions, final keys, 3 runs each.*
+
+| Check | No filters (runs 1, 2, 3) | Total | With filters (runs 1, 2, 3) | Total |
+|---|---|---|---|---|
+| No forbidden advice (13 questions) | 9, 9, 9 | 27/39 = **69%** | 13, 13, 13 | 39/39 = **100%** |
+| Citations valid (40) | 40, 40, 38 | 118/120 = 98% | 40, 38, 40 | 118/120 = 98% |
+| Used expected evidence (39) | 39, 38, 38 | 115/117 = 98% | 38, 38, 39 | 115/117 = 98% |
+| Coverage claim correct (40) | 37, 35, 34 | 106/120 = 88% | 37, 36, 36 | 109/120 = 91% |
+
+- **The one real difference is also the most consistent one.** Without filters, exactly 4 of the 13 limit questions failed on every run. With filters, none failed on any run. Everything else is the same within noise (the runs overlap).
+- These numbers are not comparable with the F2 baseline (coverage 36/40), because three coverage keys changed since then. The before and after here were graded by the same key.
+
+*2. Retrieval, top 5, same 40 questions (from F5's results file).*
+
+| Search mode | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
+|---|---|---|---|---|
+| Keyword | 0.59 | 0.66 | 0.50 | 15% |
+| Hybrid | 0.75 | 0.93 | 0.84 | 23% |
+| Semantic | 0.80 | 0.97 | 0.79 | 17% |
+| Semantic + filters (default) | 0.83 | 0.97 | 0.86 | 0% |
+
+(Recall: share of the expected items found in the top 5. MRR, mean reciprocal rank: how high the first right passage ranks, 1.0 = always first.)
+
+*3. AI judge verdicts, from the sequential run (`ac5b7163`).*
+- `constraint-one-kettlebell`, `label-level`: **pass** (the swing and Turkish get-up were labeled intermediate).
+- `pop-beginner-adult`, `group-by-muscle`: **fail**. Five exercises in one sentence, not grouped, missing core, glutes/hamstrings, and arms. This is the top-5 ceiling: 5 exercises can't cover every muscle group. Planned for F7 (larger k).
+
+*4. What still fails with filters on.*
+- `ex-band-pull` and `ex-overhead` coverage claims, recurring across runs. Possibly keys to revisit with the coach.
+- `pop-beginner-adult` group-by-muscle (top-5 ceiling, F7).
+- An occasional single citation or expected-evidence miss that moves from run to run (noise).
+
+**Problems and fixes.**
+- **Coverage claims flip between runs.** Bands-only and one-kettlebell claimed `partial` in F5 and `full` in the next run, with nothing changed. A single run could make the filters look better or worse by chance. Fix: average 3 runs per version for the headline comparison. See [Run-to-run noise](concepts.md#run-to-run-noise) (extended) and [0028](decisions/0028-before-after-averaged-over-three-runs.md).
+- **The AI judge hit a rate limit.** OpenRouter returned HTTP 429 (the "too many requests" status code): `RateLimitError`, "new accounts are limited to 20 requests per minute for this model" (`anthropic/claude-sonnet-5.5`). Six evals in parallel sent more judge calls than that. The judge's scores came back nearly empty, while the code checks were unaffected. The trap: a failed evaluator doesn't show up as a low score, it shows up as a missing one, so the sample silently shrinks. Fix: wait-and-retry in `judge_answer()` (10, 20, 40, 60 s), and don't run many evals in parallel. The sequential re-run had 0 evaluator errors. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
+
+**Open questions.**
+- The judge's rule verdicts for the 3 no-filter and 3 filtered runs were mostly lost to the rate limit, so the labeling rules have no 3-run before/after comparison. Only the one sequential run's verdicts are recorded, and the brief names only two of them (the others were not recorded here).
+- Was the retry actually triggered during the sequential re-run, or did running alone avoid the limit? Not recorded. There is also no record of a unit test for the retry.
+- Coach review of the `ex-band-pull` and `ex-overhead` coverage keys (optional, suggested because they fail across runs).
+- Carried over: the coach's full spot-check of the AI judge (F2), review of the original 20 exercises (F1), the goblet squat equipment question (F3 + F4), and a level filter (read but not used).
+
+**Developer questions.**
+- The coach was asked: should equipment-limited "full workout" questions be keyed `partial` or `full`? Answer: **partial**.
+
+**Learned.**
+- New: [Rate limits (HTTP 429) and retry with backoff](concepts.md#rate-limits-http-429-and-retry-with-backoff), [Evaluator errors shrink the sample (check errors, not just scores)](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores), [Averaging repeated runs (consistent vs one-off differences)](concepts.md#averaging-repeated-runs-consistent-vs-one-off-differences)
+- Extended: [Run-to-run noise](concepts.md#run-to-run-noise), [Coverage label drift](concepts.md#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression) (resolved by the coach), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change), [Source-anchored vs judgment-based keys](concepts.md#source-anchored-vs-judgment-based-keys), [LLM-as-judge](concepts.md#llm-as-judge-ai-judge), [Typed API errors](concepts.md#typed-api-errors), [Data, then test, then fix](concepts.md#data-then-test-then-fix), [README as the project's front page](concepts.md#readme-as-the-projects-front-page)
+
+**Decisions.**
+- New: [0028. Before/after comparisons use the average of 3 runs per version](decisions/0028-before-after-averaged-over-three-runs.md).
+- Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (coverage keys changed by the coach, new dataset, final comparison), [0024](decisions/0024-phase-1f-order-data-then-eval-then-filters.md) (F6 done, the plan's outcome), [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md) (retry on rate limits; README design claim updated).
+
+**Next.** F7+: a larger k for "list everything" questions, query rewriting for jargon, tuned hybrid, reranking. Optional: coach review of the `ex-band-pull` and `ex-overhead` coverage keys.

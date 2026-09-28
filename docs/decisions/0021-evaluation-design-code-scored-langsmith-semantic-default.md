@@ -127,3 +127,11 @@ See the [build log](../build-log.md#eval-walkthrough-part-1-the-answer-key-gradi
 - **Not code-only any more.** The four answer-level rules are graded by an AI judge (`coach_rules` evaluator), only on the 13 questions tagged with `answer_rules`. Exact-fact checks stay in code. Reasoning in [0025](0025-ai-judge-for-coach-labeling-rules.md).
 - **F2 baseline** (`evals/results/retrieval-20260928-140007.json`; experiment `answers-semantic-0b42f62a`): semantic exercise recall 0.80, hit 1.00, MRR 0.96; passage recall 0.97, MRR 0.79; forbidden 0.17. Keyword 0.59 / 0.66 (exercise / passage recall); hybrid 0.75 / 0.93, passage MRR 0.86. Answers: citations 40/40, coverage 36/40, expected evidence 38/39, no forbidden citations 8/13. **Semantic stays the default.**
 - This is the frozen "before" for the filters. F6 re-runs the same 40 questions.
+
+## Update (2026-09-28, Phase 1F F6): coverage keys set by the coach; final before/after
+- **Three keys changed:** `constraint-bands-only`, `constraint-one-kettlebell`, `constraint-pullup-bar-only` now expect `partial`, not `full`. Coach's reason, stored as a YAML comment on each: "only a few exercises fit this equipment, so a full workout isn't possible from our catalog." New dataset `rag-motion-eval-23e1f7fa`.
+- **Comparison method:** 3 runs per version, same key ([0028](0028-before-after-averaged-over-three-runs.md)). No filters (`answers-semantic-bfb70035`, `-bb82b648`, `-bf8a7a2f`) vs filters (`answers-semantic-filtered-ff75447b`, `-df4717be`, `-f4ea8417`).
+- **Result:** no forbidden advice 27/39 (69%) → 39/39 (100%); citations 118/120 both; expected evidence 115/117 both; coverage 106/120 (88%) → 109/120 (91%).
+- **Retrieval** (F5 file `retrieval-20260928-144918.json`): semantic + filters is now the default row: exercise recall 0.83, passage recall 0.97, passage MRR 0.86, 0% of questions with a forbidden item.
+- **Evaluator errors:** the AI judge lost most verdicts to a rate limit when 6 evals ran in parallel; fixed with retry ([0025 update](0025-ai-judge-for-coach-labeling-rules.md)).
+- **Still failing:** `ex-band-pull` and `ex-overhead` coverage claims across runs (keys may need the coach); `pop-beginner-adult` group-by-muscle (top-5 ceiling).

@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 1F, F5 (population tags on passages from document-structure rules; population read by the same limits call; keep-general passage filter; forbidden rate 0.00 and forbidden citations 13/13 on the frozen 40-question eval; coverage 33/40 pending the coach's key decisions).
+Last updated: Phase 1F, F6 (coach set three equipment-only coverage keys to `partial`; final before/after on the same 40 questions and key, 3 runs each: no forbidden advice 69% → 100%, citations, expected evidence and coverage unchanged within noise; AI judge retries on rate limits; README updated).
 
 ---
 
@@ -60,6 +60,16 @@ Note: the last sentence describes the design. Embeddings are created in Step 8 a
 > In Phase 1 I built a retrieval-augmented assistant for coaches. It searches 20 exercises I wrote and about 200 passages from openly licensed sources (the U.S. Physical Activity Guidelines, my own notes drafted from NSCA position statements, and two CC BY research papers), stored in Postgres with pgvector. A question is embedded, the top five exercises and top five passages go to an LLM through OpenRouter with a strict output schema, and Python checks every citation against what was actually retrieved. Every request is traced in LangSmith. To know whether it works, I wrote a 31-question eval and reviewed every answer key myself as a coach. On that eval it finds the right exercises about 9 times in 10 and the right passages 97 times in 100, every citation pointed to retrieved evidence, and it was honest about gaps on 29 of 31. Its weakness is respecting a person's limits: it suggested bench exercises to someone with only dumbbells, and older-adult advice to a beginner. That's a filtering problem, not a search problem, so the next phase strengthens the eval first, then adds metadata filters and measures them against the same baseline. Before touching search code, I added 31 fast tests, including the real citation bugs I hit, plain error messages, and a README that lets a fresh clone rebuild the whole system.
 
 Numbers behind it: [reviewed baseline](build-log.md#lesson-3-the-reviewed-baseline) (semantic exercise recall 0.91, passage recall 0.97; answers: citations 31/31, coverage 29/31, expected evidence 30/30, forbidden 2/5); [Step 16](build-log.md#step-16-tests-error-handling-readme-phase-1-complete) (31 tests, about 0.3 s); [0023](decisions/0023-phase-1-completion-tests-and-errors-before-retrieval-changes.md) (why tests before filters).
+
+---
+
+## Phase 1F (filters) in one paragraph
+
+**DRAFT by the scribe, for the developer to adapt into their own words. Not yet approved.** Every fact is from the build log entries F1 to F6; the phrasing is a suggestion.
+
+> After Phase 1, my eval showed one clear weakness: answers broke the person's limits, like bench exercises for someone with only dumbbells, or older-adult numbers for a beginner. I fixed it in a set order. First I doubled the exercise catalog to 42, then rebuilt the eval for it, with 13 questions that test limits, one trap question with no limits, and an AI judge for my coach's labeling rules. Only then did I build the fix: a small LLM call reads the equipment and age group from the question, and the database search filters on them, so the model never sees what the person can't use. Each filter went in on its own and was measured on the same test. Single runs turned out to be noisy, so the final comparison is three runs per version on the same answer key: without filters, 4 of 13 limit questions broke a limit on every run; with filters, none did, and citations, evidence use, and coverage stayed the same.
+
+Numbers behind it: [F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme) (69% → 100% no forbidden advice; citations 98% both; expected evidence 98% both; coverage 88% → 91%); [F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises) and [F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter) (each filter measured separately); [0028](decisions/0028-before-after-averaged-over-three-runs.md) (why 3 runs).
 
 ---
 
@@ -287,6 +297,9 @@ Evidence so far:
   - Same 40 questions, F4 → F5: forbidden rate **0.03 → 0.00**, passage MRR 0.79 → 0.86, passage recall 0.97 unchanged. Answers without forbidden citations **12/13 → 13/13**.
   - Point to make: "Two filters, each measured on its own: equipment took forbidden results from 17% to 3% of questions, population took them to zero. Similarity search can't know that a passage about 70-year-olds is wrong for a 30-year-old beginner; a tag and a WHERE clause can."
 
+- **[Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): the final before/after for both filters, on answers.** Same 40 questions, same key, 3 runs each: answers with no forbidden advice 27/39 (69%) → 39/39 (100%). Without filters 4 of 13 limit questions failed on every run. Retrieval with filters (the new default): exercise recall 0.83, passage recall 0.97, passage MRR 0.86, 0% of questions with a forbidden item (semantic alone: 0.80 / 0.97 / 0.79 / 17%).
+  - Point to make: "Similarity search had no way to know what the person owns. Moving that limit into the database query took forbidden advice from 4 in 13 questions to zero, on every one of three runs, without costing anything elsewhere."
+
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
@@ -463,6 +476,15 @@ Evidence so far:
   - **Where the pieces fit (developer's question):** the eval is the measuring tape, filters are the fix (SQL, not prompts), and the AI judge is one of the measuring tools. See [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge) (extended).
   - Point to make: "My last change fixed every forbidden result but dropped coverage by three questions. I read each miss before calling it a regression: the model was saying 'partial' when it could only see three usable exercises, which may be more honest than my key."
 
+- **[Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): the final comparison, made trustworthy.** Commit `286cce2`. Decision: [0028](decisions/0028-before-after-averaged-over-three-runs.md).
+  - **The coach fixed three keys first.** Bands only, one kettlebell, pull-up bar only: coverage `full` → `partial` ("only a few exercises fit this equipment, so a full workout isn't possible from our catalog"). The F5 "coverage drop" was the key, not the filters. See [Coverage label drift](concepts.md#coverage-label-drift-a-metric-drop-that-may-not-be-a-regression) (extended).
+  - **Same ruler on both sides.** Because the key changed, the "before" was re-run with `--no-filters` on the new key instead of reusing F2's numbers. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change) (extended).
+  - **One run wasn't enough.** Right after the key change, bands-only and one-kettlebell claimed `full`; in F5 they'd claimed `partial`. So each version ran 3 times. See [Averaging repeated runs](concepts.md#averaging-repeated-runs-consistent-vs-one-off-differences).
+  - **Result (3 runs each):** no forbidden advice 9, 9, 9 of 13 → 13, 13, 13 (69% → 100%); citations 98% → 98%; expected evidence 98% → 98%; coverage 88% → 91% (runs 37, 35, 34 vs 37, 36, 36: overlapping, so unchanged).
+  - **A silent evaluator failure.** Six runs in parallel pushed the AI judge over OpenRouter's 20-requests-per-minute limit, and its scores came back nearly empty while the code checks looked normal. Fixed with retry; a sequential run had 0 evaluator errors. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
+  - **Still failing:** `ex-band-pull` and `ex-overhead` coverage claims across runs (keys may need the coach); the beginner-adult list isn't grouped by muscle (top-5 ceiling, F7).
+  - Point to make: "My headline number is an average of three runs per version on the same answer key: forbidden advice went from 4 in 13 questions on every run to zero on every run. The other scores moved a point or two between identical runs, so I report them as unchanged, not as wins."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -485,6 +507,8 @@ Evidence so far:
 - [Eval walkthrough, part 1](build-log.md#lesson-3-the-reviewed-baseline): on the coach-reviewed key, citations were valid 31/31 and coverage was right on 29/31 (band pull overclaimed `full`, overhead underclaimed `partial`). The protein negative test was confirmed as `none` by the coach.
 - [Step 16](build-log.md#step-16-tests-error-handling-readme-phase-1-complete): **the two real invented-citation failures are now regression tests.** `exercise-push-up` (Step 13) and `haugen219-sprint-17` (after Step 15) must be flagged by the citation checker, or the tests fail. See [Regression tests from real failures](concepts.md#regression-tests-from-real-failures).
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **the "real citations, wrong population" failure is fixed structurally.** Population tags on passages and a filter at retrieval: no wrong-group passage reached any of the 40 eval questions, and 13/13 limit questions were answered without a forbidden citation. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations) (extended).
+
+- [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **measured over 3 runs.** With filters, 0 of 13 limit questions cited forbidden material on any of 3 runs (without: 4 of 13 on every run), and 98% of citations pointed to retrieved evidence in both versions. The honest limit is unchanged: citation checks prove the source was retrieved, not that each sentence matches it.
 
 ## Agents
 
@@ -530,6 +554,8 @@ Evidence so far:
 - [Phase 1F, F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises): two open coaching calls for the coach, surfaced by the filtered run: should "bands only, full-body workout" be `full` or `partial` coverage with only 4 band exercises, and is the pull-up-bar key (`full`) right? Also: the catalog lists goblet squat as dumbbell only, so the filter drops it for a kettlebell-only person, although the coach said it counts. The filter enforces the catalog, so the coach's data decisions directly change what users see.
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **more coverage keys for the coach.** With both filters on, the model claimed `partial` for bands only, one kettlebell, pull-up bar only, and a 10-year-old starting out (keys `full`), and `full` for pregnancy strength (key `partial`). Whether those claims are honest is a coaching call; the bands-only question is still waiting for an answer. The metric can't be read until the coach settles the keys.
 
+- [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **the coach settled the coverage keys.** Asked whether equipment-limited "full workout" questions should be `partial` or `full`, the coach said `partial`: "only a few exercises fit this equipment, so a full workout isn't possible from our catalog." The reason is stored next to each key. Point to make: "The model was right and my key was wrong, and only a coach could decide that. The eval has a human in the loop too."
+
 ## Observability
 
 ### How do you debug an agent that made a bad decision?
@@ -563,6 +589,8 @@ Evidence so far:
 - Still true: no agent exists yet (Phase 2). The same approach (a trace per request, a run per step) is what would be used to debug an agent's decisions.
 - [Phase 1F, F2](build-log.md#phase-1f-f2-strengthen-the-eval-and-record-the-before-baseline): the judge is traced as its own step (`judge_coach_rules`) and its verdicts appear as one LangSmith score per rule in the experiment (`answers-semantic-0b42f62a`), next to the four code-based scores. The eval script also prints each verdict with its reason, so a failed rule can be read without opening the dashboard.
 - [Phase 1F, F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises): the limit reader is traced as its own step (`extract_limits`), trace metadata records `use_filters`, and the trace output includes the limits read. So a missing or wrong filter can be traced to the exact reading ("which phrase did it treat as a limit?", via `limit_phrase`). Timings now include a `limits` entry.
+
+- [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **watching the evaluators, not just the app.** When 6 evals ran in parallel, the AI judge's scores came back nearly empty (HTTP 429 rate-limit errors), while the code checks looked normal. It showed up as missing scores, not low ones. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
 
 ## Production
 
@@ -638,6 +666,9 @@ Evidence so far:
 - Actual deployment not yet done. Still missing for a deployment beyond localhost: authentication and rate limits ([0015](decisions/0015-local-web-ui-fastapi-static-html.md)).
 - [Phase 1F, F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises): **the price of a filter.** One extra small LLM call per question: about $0.00003 and a few hundred milliseconds, recorded per request (`limits_usage`, `limits` timing). 35 offline tests, including an integration test of the filtered SQL that reuses a stored vector, so it needs no API call.
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **no extra call for the second filter.** The population is read by the same `extract_limits` call. Tags were back-filled by an idempotent script, with no re-embedding. 37 offline tests, including an integration test that reuses a stored passage vector to check the population filter keeps adult and general passages and drops the rest.
+
+- [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **rate limits met in practice.** OpenRouter limits new accounts to 20 requests per minute on the judge model; six parallel evals went over it. `judge_answer()` now retries with increasing waits (10, 20, 40, 60 s), then raises so a real outage still surfaces. In the project's code only the judge retries; on the answer path a rate limit is still turned into a friendly error message by `errors.py` (checked in the repo while writing these docs). See [Rate limits (HTTP 429) and retry with backoff](concepts.md#rate-limits-http-429-and-retry-with-backoff).
+  - Point to make: "At scale I'd expect rate limits everywhere. I've already hit one: I added retry with backoff and a hard stop, and I learned to check for missing scores, not just bad ones."
 
 ## Security
 
@@ -878,3 +909,6 @@ Evidence so far:
 - **How to tag passages by population** ([0027](decisions/0027-population-tags-from-structure-keep-general-filter.md), [F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter)): rules from the document's chapters, an LLM per passage, or by hand. Chose rules: the Guidelines are already organised by population, so tags are free, deterministic, and testable. Given up: every new source needs its own rule, and research papers are tagged general even if a study used one group.
 - **What to do with untagged passages** ([0027](decisions/0027-population-tags-from-structure-keep-general-filter.md)): keep only matching tags, or keep general passages too. Chose keep-general, because 132 of 200 passages apply to everyone. Given up: some less specific material still competes for the top 5.
 - **Filter passages only, not exercises** ([F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter)): whether an exercise suits an age group is a level or coaching question; no level filter yet, so beginner questions pass only because the retrieved exercises happen to be acceptable.
+- **One run vs averaged runs** ([0028](decisions/0028-before-after-averaged-over-three-runs.md), [F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme)): single runs are cheap but coverage claims flipped between identical runs. Chose 3 runs per version for the headline comparison (about $0.60 in total). Given up: 3x the cost and time, and 3 runs still can't separate a one-question difference from noise.
+  - Point to make: "I paid about 40 cents extra so the number in my README comes from three runs that agree, not one run that might have been lucky."
+- **Retry in the judge vs limiting parallel runs** ([0025 update](decisions/0025-ai-judge-for-coach-labeling-rules.md), [F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme)): chose wait-and-retry inside `judge_answer()` rather than a global cap on how many evals run at once. Given up: runs that hit the limit get slower, and parallel runs should still be avoided on this account.

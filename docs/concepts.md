@@ -1243,14 +1243,18 @@ Scores can move with no change to the system, just because the ruler changed. Du
 
 **In an interview:** "While I reviewed my answer key, the scores moved even though I hadn't touched the system. That taught me to version the key and compare only runs graded by the same version."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F6 update: a key change in the middle of a before/after.* The coach changed three coverage keys after F5. That made the F2 "before" numbers (coverage 36/40) incomparable. The fix was to re-run the "before" (`--no-filters`) on the new key, so before and after were graded by the same ruler. The new file hash gave a new LangSmith dataset, `rag-motion-eval-23e1f7fa`. The frozen-test rule bends here, on purpose: the key was fixed for a stated reason, and then both sides were re-measured.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6.*
 
 ### Source-anchored vs judgment-based keys
 Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
 
 **In an interview:** "For guideline questions the source is the authority, so I check the key against the exact sentence. For exercise-choice questions the key is a coaching judgment, so I make the call, write the reason, and apply it consistently."
 
-*First seen: Eval walkthrough, part 1.*
+*Phase 1F F6 update:* coverage keys turned out to be judgment-based too. "Is a bands-only full-body answer complete?" depends on what the catalog can offer, and the coach decided `partial`, with the reason written next to the key as a YAML comment.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6.*
 
 ---
 
@@ -1263,14 +1267,18 @@ An ordering rule for improving a system that is measured by an eval. First chang
 
 *Phase 1F F5 update: the loop, in the developer's words.* Eval measures → find a weakness → build a fix → the same eval measures again. F5 was one turn of that loop: F4 left one forbidden failure (wrong-population passages), F5 built the population filter, and the same 40 questions showed it gone.
 
-*First seen: Phase 1F, F1. Extended: Phase 1F, F2, F5.*
+*Phase 1F F6 update: the loop, closed.* Same 40 questions, same final key, 3 runs each: answers with no forbidden advice 69% → 100%; citations, expected evidence, and coverage unchanged or slightly better. The order held: data (F1), test (F2), fixes (F3–F5), measurement (F6).
+
+*First seen: Phase 1F, F1. Extended: Phase 1F, F2, F5, F6.*
 
 ### LLM-as-judge (AI judge)
 A second model reads an answer and grades it against narrow yes/no rules. It is useful for judgments that need reading comprehension: was the intermediate exercise labeled as intermediate? Is the list grouped by muscle group? It is a poor fit for exact facts (is this citation real? was a forbidden exercise cited?), which code checks for free and without error. In F2 the judge is `anthropic/claude-sonnet-5.5`, called once per tagged question through OpenRouter. It returns [structured output](#pydantic-model-and-literal-types): for each rule a verdict (`pass`, `fail`, `not_applicable`) and a one-sentence reason naming the exercises. Cost: about half a cent per judged question. A planted mistake (a beginner glute answer naming the Bulgarian split squat with no level label) was caught with the right reason before the judge was trusted on real answers.
 
 **In an interview:** "Code checks my facts; an AI judge checks the coach's labeling rules, like 'label an intermediate exercise when you suggest it to a beginner'. The judge is a stronger model from a different family, sees my catalog, and has to give a reason for every verdict, so my coach can check it."
 
-*First seen: Phase 1F, F2.*
+*Phase 1F F6 update: the judge is a network dependency too.* When 6 evals ran in parallel, the judge hit OpenRouter's rate limit and most of its verdicts were lost, while the code checks ran normally. `judge_answer()` now waits and retries. The sequential run's verdicts: `label-level` pass on one kettlebell (swing and Turkish get-up labeled intermediate); `group-by-muscle` fail on the beginner adult (five exercises in one sentence, missing core, glutes/hamstrings, and arms). See [Rate limits (HTTP 429) and retry with backoff](#rate-limits-http-429-and-retry-with-backoff).
+
+*First seen: Phase 1F, F2. Extended: Phase 1F, F6.*
 
 ### Judge safeguards
 An AI judge can be wrong, so it gets guardrails:
@@ -1319,14 +1327,34 @@ The same question can get a different LLM answer on different runs, because answ
 
 *Phase 1F F5 update: two more cases.* The F4 `citations_valid` failure did not repeat (40/40 again). And `pop-youth-start` failed `used_expected_evidence` in the F5 run, but a manual re-run read the population as youth, retrieved the youth notes (`notes-nsca-youth-ltad-2`), cited them, and claimed full coverage. Retrieval was right; the answer model varied.
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+*Phase 1F F6 update: the whole comparison is now averaged.* Right after the coach changed three coverage keys, one run had bands-only and one-kettlebell claiming `full`; in F5 they had claimed `partial`. Same system, opposite claim. So the final before/after used 3 runs per version, and the runs themselves show the spread: coverage 37, 35, 34 without filters and 37, 36, 36 with them; citations 40, 40, 38 and 40, 38, 40. See [Averaging repeated runs](#averaging-repeated-runs-consistent-vs-one-off-differences).
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6.*
 
 ### Coverage label drift (a metric drop that may not be a regression)
 A score can fall because the answer key is debatable, not because the answers got worse. In F5, filters changed what the model sees: for "bands only, full-body workout" it now sees only the few band and bodyweight exercises and says coverage is `partial`, while the key says `full`. `coverage_correct` fell from 36/40 to 33/40 while forbidden citations improved to 13/13. Before calling that a regression, check each miss: is the key right, is the label honest given the evidence, or is it run-to-run noise? Here that needs the coach.
 
 **In an interview:** "After adding filters, my coverage score dropped three points. Reading the misses, the model mostly said 'partial' for questions where it now only sees three or four usable exercises, which is arguably more honest than my key. A metric is only as right as its answer key, so the coach decides those before I call it a regression."
 
-*First seen: Phase 1F, F5.*
+*Phase 1F F6 update: the coach decided.* For bands only, one kettlebell, and pull-up bar only, the key changed from `full` to `partial`: "only a few exercises fit this equipment, so a full workout isn't possible from our catalog." So the model's `partial` was the honest claim and the key was wrong. Whether an answer is complete depends on what the catalog can offer, which makes the coverage key a coaching judgment, not a fact. With the new keys, coverage is 88% without filters and 91% with them (3 runs each), so the F5 "drop" was the key, not the filters. Two keys still fail across runs (`ex-band-pull`, `ex-overhead`) and may be next for the coach.
+
+**In an interview (F6):** "My coverage score dropped after adding filters. The coach looked at the misses and agreed with the model: with only bands, you can't build a full workout from our catalog, so 'partial' is the honest answer. We fixed the key, and on the corrected key the filters don't hurt coverage at all."
+
+*First seen: Phase 1F, F5. Extended: Phase 1F, F6.*
+
+### Averaging repeated runs (consistent vs one-off differences)
+An LLM pipeline can score differently on identical runs, because the answering model samples its words (temperature 0.2 here). So one run per version can make a change look better or worse by chance. The fix is to run each version several times and compare totals, and to trust a difference that shows up on every run over one that shows up once. In F6, each version ran 3 times on the same 40 questions. Forbidden advice: 4 failures on every run without filters, 0 on every run with them. That is a real effect. Coverage: 37, 35, 34 vs 37, 36, 36. The runs overlap, so that difference is noise. The cost was about $0.60 for the 6 runs.
+
+**In an interview:** "I don't compare single runs any more. I ran each version three times: without filters, exactly 4 of 13 limit questions failed every time; with filters, none failed ever. That's a result. The other scores moved a point or two between identical runs, so I call those unchanged."
+
+*First seen: Phase 1F, F6.*
+
+### Evaluator errors shrink the sample (check errors, not just scores)
+When an evaluator crashes on a question, it usually records no score, not a zero. The totals then quietly count fewer questions (in the extreme, 0 of 0), and a pass rate can still look fine. In F6, six evals ran in parallel, the AI judge hit a rate limit, and its scores came back nearly empty while the code checks looked normal. It was found by noticing the missing scores, not a low one. The habit: check how many questions each evaluator actually scored, and its error count, before reading its pass rate. After the fix, the sequential run had 0 evaluator errors.
+
+**In an interview:** "A crashed evaluator doesn't give you a bad score, it gives you no score, so the sample silently shrinks. When I ran six evals in parallel, my AI judge hit a rate limit and most verdicts were missing. Now I check each evaluator's error count before I look at its pass rate."
+
+*First seen: Phase 1F, F6.*
 
 ## Testing
 
@@ -2068,7 +2096,9 @@ When an API call fails, the `openai` library raises a different error type for e
 
 *Step 16 update: one shared translator.* The same error types are now mapped in one place, `friendly_message()` in `src/ragmotion/errors.py`, used by the web app and the CLI scripts alike. A database that can't be reached raises a new `DatabaseUnavailable` error. See [Friendly error messages](#friendly-error-messages).
 
-*First seen: Step 6. Extended: Step 16.*
+*Phase 1F F6 update:* `RateLimitError` is now handled by retrying, not just reported, in the AI judge. See [Rate limits (HTTP 429) and retry with backoff](#rate-limits-http-429-and-retry-with-backoff).
+
+*First seen: Step 6. Extended: Step 16, Phase 1F F6.*
 
 ### Latency: where the time goes
 Latency is how long a request takes, from asking to getting the answer back. Step 9 searches took 180 to 380 ms each (milliseconds; 1,000 ms is one second). Almost all of that is the embedding call: the question travels over the internet to OpenRouter and Voyage and back. The database part, ranking 20 vectors on this machine, takes milliseconds. So speeding up the database would barely help; the network call dominates. `scripts/search.py` reports only the total time.
@@ -2091,6 +2121,13 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 **In an interview:** "Two of 31 eval answers came back as truncated JSON. My validation refused them, which is right, but it didn't retry. Now it retries once on a validation error, and all 31 score. One retry, not a loop, so a real problem still surfaces."
 
 *First seen: after Step 15.*
+
+### Rate limits (HTTP 429) and retry with backoff
+Providers cap how many requests you may send per minute (a rate limit). Going over it gets an HTTP 429 reply ("too many requests"); the `openai` library raises it as `RateLimitError`. In F6, OpenRouter limited new accounts to 20 requests per minute on the judge model (`anthropic/claude-sonnet-5.5`), and six evals running in parallel went over it. The standard fix is retry with backoff: wait, try again, and wait longer after each failure, so the bursts spread out. `judge_answer()` in `src/ragmotion/judge.py` waits 10, 20, 40, then 60 seconds, and raises the error if the fifth try also fails, so a real outage still surfaces instead of looping. The retry went into the judge call rather than lowering how many evals may run at once. Also learned: don't run many evals in parallel on a new account.
+
+**In an interview:** "My AI judge hit OpenRouter's 20-requests-per-minute limit when I ran six evals in parallel. I added retry with increasing waits, 10 up to 60 seconds, and it gives up after that so a real outage still shows. The bigger lesson was that the failure was silent: the judge's scores were just missing."
+
+*First seen: Phase 1F, F6.*
 
 ### Friendly error messages
 When something fails, the user should get one plain sentence that says what's wrong and how to fix it, not a traceback (Python's multi-line report of where the error happened). `friendly_message(exc)` in `src/ragmotion/errors.py` does this translation for the web app and the CLI scripts. Examples: "Can't reach the database. Is Docker running? Start it with: docker compose up -d --wait"; "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in .env." Three rules: (1) name the fix, not just the problem; (2) keep the full details, but in the server log, where the developer can read them; (3) never show internals to the user for errors we didn't anticipate. Unknown errors say only "Unexpected error (Type). Details are in the server log." Internal details (file paths, queries, library messages) can confuse users and help attackers. Verified in Step 16 by simulation: `DATABASE_URL` pointed at an unused port, and a fake key, each produced the right one-line message. Docker was never stopped.
@@ -2217,7 +2254,9 @@ The README is the first file anyone sees on GitHub, so it is the project's front
 
 **In an interview:** "My README leads with what the system does and how well, including where it fails: citations are reliable, but it doesn't yet respect equipment and age limits, and here's the measured plan to fix that."
 
-*First seen: Step 16.*
+*Phase 1F F6 update: the README kept honest as the system changed.* A README goes stale like an answer key. After the filters, three claims were no longer true: "doesn't respect limits" (removed from Limitations), "no LLM judge" (replaced by "code checks for facts, an AI judge only for the coach's labeling rules"), and "20 exercises". The Evaluation section now shows the before/after table averaged over 3 runs, and names what still fails (breadth: 5 exercises can't list everything) and two process lessons (stale keys after the catalog grew; single runs are noisy). New limitations were added: limits are read from the current question only, and the level is read but not filtered.
+
+*First seen: Step 16. Extended: Phase 1F, F6.*
 
 ---
 
