@@ -32,11 +32,13 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 13 | Embed chunks, search exercises + documents together, answers cite both | done |
 | 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | done |
 | 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | done (baseline; expected answers pending coach review) |
-| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | next |
+| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | done: **Phase 1 complete** |
 
 Update the Status column as steps complete.
 
-**After Step 16: Phase 1F, better RAG.** Add metadata filtering, hybrid search (keyword + semantic, run separately and merged), reranking, and query rewriting (an LLM rewrites the question before search, using a glossary of exercise abbreviations like RDL, BSS, SL RDL, KB) one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
+**Next: Phase 1F, better RAG (eval first).** 1) Extend the eval: ~8–10 coach-written equipment/population questions and code checks for the coach's four answer-level rules (label intermediate, label secondary muscles, label bodyweight options, group by muscle group); run for a new baseline. 2) Build filters: extract equipment/population from the question, filter exercises with `equipment <@ owned`, tag chunks by population and filter them. 3) Re-run and compare. Then: larger k for 'list everything' questions, query rewriting, tuned hybrid, reranking. Before Phase 2: program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19).
+
+**Original Phase 1F note:** Add metadata filtering, hybrid search (keyword + semantic, run separately and merged), reranking, and query rewriting (an LLM rewrites the question before search, using a glossary of exercise abbreviations like RDL, BSS, SL RDL, KB) one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
 
 ## Stack decisions (see docs/decisions/ for the reasoning)
 
@@ -48,6 +50,7 @@ Update the Status column as steps complete.
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; PDFs extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`); research articles read from Europe PMC JATS XML (`format = "jats-xml"`, no PDF step); notes are Markdown; then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
 - **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
 - **Evaluation**: `evals/eval_set.yaml` (v2: 31 questions after adding two research papers; expected answers drafted, coach review pending). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode]` (LangSmith experiment, code-based checks). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
+- **Tests**: `uv run pytest` (31 tests, offline; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules
