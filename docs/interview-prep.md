@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: after Step 15 (trace cleanup, two research papers, eval set v2).
+Last updated: Eval walkthrough, part 1 (coach review of the answer key, reviewed baseline).
 
 ---
 
@@ -31,6 +31,25 @@ The developer explains what has been built in their own words, gets corrections,
 > I used uv to set up the Python project and its dependencies, and pushed it to a private GitHub repo with secrets git-ignored. I run PostgreSQL in Docker, with a volume so the data persists. I created an exercise table with regular columns for things like equipment and difficulty, plus a vector column from the pgvector extension. Each exercise's description gets turned into a 1,024-number embedding, so exercises with similar meanings sit close together, and I can search by meaning and filter by the regular columns in the same query.
 
 Note: the last sentence describes the design. Embeddings are created in Step 8 and search is built in Step 9; neither exists yet. (As of Step 5 the table holds 20 seeded exercises, all with empty embeddings.)
+
+### Teach-back 2: evaluation, during the eval walkthrough (2026-09-25 to 2026-09-28)
+
+**The developer's explanation** (their words):
+"A bunch of test questions to see how accurate or inaccurate we are; the first time you run it, it's a baseline; if we change anything, the way it responds to the same baseline questions determines whether we got worse, better, or stayed the same."
+
+**What was right.** The core idea: a fixed set of questions, a first run as the baseline, and later runs compared against it. See [Baseline and benchmark](concepts.md#baseline-and-benchmark).
+
+**What was refined.**
+1. **Keep the questions fixed to compare.** Changing the questions or the key changes the ruler, which creates a new version and a new baseline. During the review, scores moved with no system change at all. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+2. **The answer key must be right, or the scores are meaningless.** The same search scored recall 0.80 or 1.00 on one question depending on the key. See [Answer key](concepts.md#answer-key-an-eval-as-a-practical-exam).
+3. **Look at individual questions, not just totals.** The averages hide which questions fail and why.
+4. **Small differences are noise.** With 31 questions, one question is about 3%. See [Small-sample noise](concepts.md#small-sample-noise).
+- Also clarified: `reviewed: false` is a label (the coach hasn't checked that key yet) and doesn't change grading. `expected_coverage` is a field on every question; `coverage-gap` is a category of 2 deliberately unanswerable questions.
+- The developer's later insight, during the review: "when we bring in new material, that's where evals are useful, because we can test against the same standard of questions." Refinement: if the new material changes what's correct, update those keys deliberately; that version becomes the new baseline.
+
+**Suggested interview version** (drafted by the scribe from the points above; not yet approved by the developer):
+
+> My eval is a fixed set of 31 test questions with an answer key. The first run is the baseline; after any change I re-run the same questions and compare, question by question, to see whether we got better, worse, or stayed the same. The key has to be right, so I reviewed every expected answer myself as a coach. And I only compare runs graded with the same version of the key, because changing the key moves the scores even when the system hasn't changed.
 
 ---
 
@@ -289,6 +308,9 @@ Evidence so far:
 
 ### How do you know your RAG system works?
 
+**Interview-ready summary of the reviewed baseline (Eval walkthrough, 2026-09-28):**
+> An LLM drafted my 31-question answer key, and then I reviewed every question myself as a coach, without looking at the system's output. I found real errors: the draft expected an intermediate exercise for a "beginner" question while leaving out another equally intermediate one, missed a beginner exercise, missed the page with the key sentence for kids, and forbade only 4 of the 15 equipment exercises for a "no equipment" question. I added an "acceptable if labeled" tier for coaching grey zones, and wrote down four rules about how answers should be worded that code doesn't check yet. On the reviewed key, semantic search gets 0.91 exercise recall and 0.97 passage recall; citations are valid 31 of 31 times; and the failures are the equipment and population questions, which need filters, plus one overclaim and one underclaim of coverage.
+
 **Interview-ready summary of the baseline (Step 15):**
 > I built a 29-question eval set from real coaching questions and past failures, with expected and forbidden exercises and passages, and I score retrieval and full answers separately, with code rather than an LLM judge. Semantic search clearly beat keyword search on my data, 0.89 against 0.66 exercise recall and 1.00 against 0.75 passage recall, and a standard equal-weight hybrid came out slightly worse than semantic alone, so semantic stays the default. On full answers, citations were valid 29 out of 29 times, but the model overclaimed coverage on 3 questions and cited forbidden material on 3 of the 5 questions that test for it, and every search mode failed the equipment and population questions, which tells me those are filtering problems, so metadata filters come next. The expected answers are still pending my review as a coach, and with 29 questions I treat differences under about five points as noise.
 
@@ -365,6 +387,15 @@ Evidence so far:
   - **System failures vs eval errors.** The first v2 run had two crashes (cut-off JSON, now retried) and two "failures" on correct dose answers whose expected page lists were too narrow (widened to 62–63 and 108–110). Read the answer before deciding which side to fix. See [System failures vs eval-expectation errors](concepts.md#system-failures-vs-eval-expectation-errors).
   - **Remaining failures:** overclaiming `full` (band pulling, biceps, plyometrics programming), one underclaim (overhead), and the unchanged constraint and population failures that need Phase 1F filters.
   - Point to make: "When I added two papers my scores dropped, and the honest first question was whether the system or my test was wrong. Some of each. I versioned the eval, kept the old results, fixed the real bug (a missing retry), and now I report both the old 29 questions and the new 31."
+- **[Eval walkthrough, part 1](build-log.md#eval-walkthrough-part-1-the-answer-key-grading-by-hand-and-the-coachs-full-review): a domain expert reviewed the LLM-drafted answer key, and the baseline was re-run on it.** Commits `b19481e` to `a66c382`. The strongest evaluation story so far.
+  - **The developer did it by hand first.** Ran one search, graded it against the key (recall 4/4, MRR 1.0, precision 4/5), and got the same numbers as `score_retrieval()`. See [Recall vs precision](concepts.md#recall-vs-precision).
+  - **Errors found in the draft:** an inconsistency (BSS expected for "beginner", the equally intermediate single-leg RDL not); a missed exercise (step-up, found by filtering the full catalog); a missing page (kids, p. 7); "no equipment" forbidding 4 of 15 equipment exercises; "dumbbells only" ignoring bodyweight options. Seven questions' lists changed. See [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key).
+  - **Bias control:** the coach saw the key and the catalog or source sentences, never the system's results. See [Write the answer key before seeing results](concepts.md#write-the-answer-key-before-seeing-results).
+  - **Design additions:** an `acceptable_exercises` tier ([Expected, acceptable, and forbidden items](concepts.md#expected-acceptable-and-forbidden-items)) and four answer-level rules not yet coded ([Answer-level rules vs retrieval keys](concepts.md#answer-level-rules-vs-retrieval-keys)).
+  - **The ruler moved:** semantic exercise recall 0.89 → 0.90 → 0.91 → 0.90 → 0.91 and hybrid passage recall 0.89 → 0.95 during the review, with no system change. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+  - **Reviewed baseline:** semantic exercise recall 0.91, hit 1.00, MRR 0.97; passage recall 0.97, MRR 0.78; forbidden 0.10. Constraint category recall 0.51, the lowest. Answers: citations 31/31, coverage 29/31, expected evidence 30/30, no forbidden citations 2/5. See [Lesson 3](build-log.md#lesson-3-the-reviewed-baseline) and the [0021 update](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
+  - **Honesty point:** Claude once reported a question as reviewed before saving it; it was caught before the exam run. Worth telling: even the tooling's "done" gets checked.
+  - Point to make: "An LLM drafted my answer key and I reviewed all 31 questions as a coach, blind to the system's output. I found real errors, added an 'acceptable if labeled' tier for coaching grey zones, and re-baselined. The scores moved during the review without any code change, which is the clearest proof I've seen that an eval is only as good as its key."
 
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
@@ -385,6 +416,7 @@ Evidence so far:
   - Harder case: partial gaps. On biceps, band pulling, and plyometrics programming the model still claimed `full` (eval v2).
   - [After Step 15](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2): the citation checker caught a typo'd id, `haugen219-sprint-17`, in a sprint answer. Final v2 run: 31/31 valid. Research papers' own `[12]`-style markers are stripped so they can't be copied as fake citations.
   - Point to make: "My eval has questions the system should refuse. For protein intake it said 'not in the evidence' instead of quoting a number from memory, and that's scored as a pass."
+- [Eval walkthrough, part 1](build-log.md#lesson-3-the-reviewed-baseline): on the coach-reviewed key, citations were valid 31/31 and coverage was right on 29/31 (band pull overclaimed `full`, overhead underclaimed `partial`). The protein negative test was confirmed as `none` by the coach.
 
 ## Agents
 
@@ -422,6 +454,8 @@ Evidence so far:
 - [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers): **the coach is also the judge of the eval.** The 29 expected answers were drafted by Claude and marked `reviewed: false`, with a header saying they await the coach's review. Until then the scores measure agreement with a draft. Already one case needs the expert: for "no equipment", is "partial" coverage the honest answer when retrieval missed two jumps? And code evaluators can't judge whether advice is right. See [Eval set](concepts.md#eval-set-test-questions-with-expected-answers) and [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md).
   - Point to make: "Even my test answers go through a human. An AI drafted them to get started, and they're flagged as provisional until I've reviewed them as a coach."
 - [After Step 15](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2): **the drafted expectations were wrong in both directions.** Two dose page lists were too narrow (correct answers cited other pages saying the same thing), and two gap questions became answerable once papers were added. They were fixed against the source text, and all 31 remain `reviewed: false` for the coach. See [System failures vs eval-expectation errors](concepts.md#system-failures-vs-eval-expectation-errors).
+- [Eval walkthrough, part 1](build-log.md#the-coachs-full-review-all-31-questions): **the coach defines correctness.** The developer reviewed all 31 expected answers as a coach and changed seven. Judgment calls only a coach could make: the dead bug is anti-extension, not anti-rotation; the push-up is a horizontal press; the hip thrust and glute bridge count as hinges; rows count for biceps or grip only if labeled as secondary work; a beginner adult should get exercises grouped by muscle group, not five picks. For guideline questions the coach checked the key against the verbatim sentences instead ([Source-anchored vs judgment-based keys](concepts.md#source-anchored-vs-judgment-based-keys)). The coach also wrote four answer-level rules that code doesn't check yet.
+  - Point to make: "The human in the loop starts before the product: I, as the coach, decide what a correct answer is. The AI drafted the answer key; I reviewed every question and changed seven."
 - No approval step is built yet (Phase 2).
 
 ## Observability
@@ -732,4 +766,6 @@ Evidence so far:
   - Point to make: "Hybrid is the textbook answer, but my numbers said equal-weight hybrid was slightly worse than semantic alone. I kept semantic and put weighted hybrid on the experiment list, instead of adopting the textbook answer."
 - **Code evaluators vs LLM judges** ([Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge)): code checks are deterministic, free, and independent of the model being tested. Given up: judging quality of prose or advice, which needs the coach or a judge model validated against the coach's grades. At 100,000 users, sampled human review plus cheap code checks on every answer would be the starting point (not built).
 - **Versioned eval datasets** ([LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments)): a new dataset per version of the question file keeps every old result comparable, at the cost of many datasets to clean up later.
+- **Top-k vs complete answers** ([Eval walkthrough, part 1](build-log.md#lesson-3-the-reviewed-baseline), [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k)): search returns the top 5, which keeps the prompt small, but some questions want everything that fits. After the coach's review, "I only have a pair of dumbbells" expects 7 exercises, so the best possible recall is 5/7 = 0.71; the actual was 3/7, because two forbidden exercises took slots. The key was not trimmed to fit k. The gap stays visible as a finding; what to change (k, filters, or something else) is not decided.
+  - Point to make: "A small k keeps the prompt cheap and focused, but my coach-reviewed eval showed it can't hold a complete answer to 'what can I do with only dumbbells'. I kept the honest key and let the eval show the limit."
 - **Model choice is still open on eval numbers.** Step 10 said the eval would decide between Gemini (fast, overclaims) and Qwen (slow, more honest). Step 15 ran Gemini only: overclaiming measured at 3 of 29. Running the same experiment with another model is now one setting change; not done yet.

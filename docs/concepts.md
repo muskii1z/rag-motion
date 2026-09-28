@@ -459,7 +459,9 @@ Top-k retrieval means "return the k best-ranked results", where k is a number yo
 
 **In an interview:** "Top-k returns k results no matter what. So k is a recall knob, not a relevance guarantee, and the step after retrieval has to be ready to ignore some of what it gets."
 
-*First seen: Step 9.*
+*Eval walkthrough update: k caps recall.* When a question expects more items than k, perfect recall is impossible. The coach-reviewed "dumbbells only" question expects 7 exercises, so top 5 can score at most 5/7 = 0.71. See [Recall ceiling from top-k](#recall-ceiling-from-top-k).
+
+*First seen: Step 9. Extended: Eval walkthrough part 1.*
 
 ### Hard constraints and negation
 A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner only". Negation is a rule phrased as "not" or "no". Embeddings are bad at both. They place texts by overall meaning, so "exercises that need no equipment" lands near texts about equipment and simple exercises, and cannot check that an exercise's equipment list is empty. In Step 9 that question returned Inverted Row (barbell) and Pallof Press (band) and missed two bodyweight jumps. The fix is a [metadata filter](#metadata-filtering) on the column that stores the fact: `equipment <@ ARRAY['bodyweight']`.
@@ -472,7 +474,9 @@ A hard constraint is a yes/no rule, such as "needs no equipment" or "beginner on
 
 *Step 15 update: measured across all search modes.* The eval's two constraint questions had the lowest exercise recall of any category (semantic 0.68, keyword 0.38, hybrid 0.68), and every mode retrieved forbidden exercises for at least one of them. In the semantic answer run, both constraint questions failed the forbidden-citation check. See [Filtering problems vs search problems](#filtering-problems-vs-search-problems).
 
-*First seen: Step 9. Extended: Steps 10 and 15.*
+*Eval walkthrough update: still the weakest category on the coach-reviewed key.* Constraint exercise recall (semantic) is 0.51. "No equipment" now forbids all 15 exercises that need equipment and still retrieved two of them; "dumbbells only" retrieved the step-up and hip thrust. Both constraint questions still cite forbidden exercises in the answer exam.
+
+*First seen: Step 9. Extended: Steps 10 and 15, Eval walkthrough part 1.*
 
 ### One query vector, two tables (combined search)
 Step 13 made a second corpus (collection of texts) searchable: the 147 document and notes chunks, embedded with the same model (voyage-4-lite) and the same document mode as the exercises. Because both tables' vectors live in the same meaning space, one question needs only one embedding. `search_all(question, k_exercises, k_passages)` in `retrieval.py` embeds the question once, in query mode, then runs two SQL searches with that same vector: top 5 exercises and top 5 passages. Each list is ranked separately and handed to the LLM as two kinds of evidence. Separate lists matter because the two tables answer different things (exercises say which moves; passages say how much and why), and a single merged top 5 could be all one kind. It only works because both tables used the same embedding model; a different model's vectors couldn't be compared ([Embedding model lock-in](#embedding-model-lock-in)).
@@ -943,7 +947,9 @@ An eval set (also called a golden set) is a fixed list of test questions, each w
 
 *After Step 15 update: v2, 31 questions.* After two research papers were added, the set became v2: sprint acceleration moved from a gap to answerable (renamed `research-sprint-acceleration`, `full`), explosive speed now expects the papers and `full`, plyometrics programming accepts the papers and stays `partial`, and two research questions were added (plyometric effects → Kons; rest between maximal sprints → Haugen). Categories: exercise-selection 10, jargon 3, constraint 2, dose 7, population 1, notes 3, coverage-gap 2, research 3. Two dose page lists were widened (62–63; 108–110). Still `reviewed: false` throughout. See [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
 
-*First seen: Step 15. Extended: after Step 15 (v2).*
+*Eval walkthrough update: reviewed by the coach, 31/31 (2026-09-28).* The developer reviewed every question as a coach ([Domain-expert review of an answer key](#domain-expert-review-of-an-answer-key)). Seven questions' expected, forbidden, or page lists changed; a new field, `acceptable_exercises`, was added ([Expected, acceptable, and forbidden items](#expected-acceptable-and-forbidden-items)); each question now has a `notes` line giving the coach's reason; four [answer-level rules](#answer-level-rules-vs-retrieval-keys) are recorded but not coded. Clarified along the way: `reviewed` is a label and doesn't change grading.
+
+*First seen: Step 15. Extended: after Step 15 (v2), Eval walkthrough part 1 (coach review).*
 
 ### Retrieval metrics (recall, hit rate, MRR)
 Three standard ways to score a ranked list, where k is how many results you look at (5 here).
@@ -957,7 +963,9 @@ Recall asks "did we find them all?"; MRR asks "did we put a right one first?". I
 
 *After Step 15 update: MRR is sensitive to corpus size.* Adding 53 passages from two papers dropped semantic passage MRR on the same 29 questions from 0.70 to 0.65, with recall unchanged at 1.00: the right passages were still found, but more good candidates competed for first place. On eval v2: semantic exercise recall 0.89, passage recall 0.97, passage MRR 0.78; hybrid 0.84 / 0.89 / 0.80; keyword 0.66 / 0.69 / 0.55.
 
-*First seen: Step 15. Extended: after Step 15.*
+*Eval walkthrough update: graded by hand, then the reviewed baseline.* The developer graded one question themselves ("Beginner glute exercises using dumbbells"): recall 4/4, hit 1, MRR 1/1, and `score_retrieval()` gave the same numbers. Recall ignores wrong extras ([Recall vs precision](#recall-vs-precision)). On the coach-reviewed key: semantic exercise recall 0.91, hit 1.00, MRR 0.97; passage recall 0.97, hit 1.00, MRR 0.78. Hybrid 0.85 / 1.00 / 0.86 and 0.95 / 1.00 / 0.87; keyword 0.66 / 0.76 / 0.65 and 0.69 / 0.75 / 0.56.
+
+*First seen: Step 15. Extended: after Step 15, Eval walkthrough part 1.*
 
 ### Forbidden rate
 The share of questions where retrieval returned at least one item that must not be used: an exercise needing equipment the client lacks, or a passage written for a different population. Recall rewards finding the right things; this penalizes surfacing wrong ones. That matters because the model tends to use what it is given. In Step 15 it was 0.10 for semantic and keyword and 0.14 for hybrid, over all 29 questions, and the same constraint and population questions failed in every mode. At the answer level the matching check is `no_forbidden_citations`: did the answer actually cite a forbidden item? (2 of 5 applicable questions passed.)
@@ -993,14 +1001,18 @@ In LangSmith, a **dataset** is a stored list of examples: inputs plus reference 
 
 *After Step 15 update: v2 datasets.* Editing the eval set created new datasets as designed: `rag-motion-eval-88b0b148` (first v2) and `rag-motion-eval-5e040651` (final v2, after widening two page lists). Experiments on the old set continued too (`answers-semantic-165701c5` on `rag-motion-eval-116f4e9c`). Experiment traces live in experiment projects, not the Tracing project ([Tracing project vs experiments](#tracing-project-vs-experiments-where-to-look-in-langsmith)).
 
-*First seen: Step 15. Extended: after Step 15.*
+*Eval walkthrough update: the reviewed dataset.* The coach-reviewed key became dataset `rag-motion-eval-a2d30357`; the reviewed baseline is experiment `answers-semantic-9f0524fd`. The dataset's reference outputs now also carry `acceptable_exercises`, ready for future answer-level checks.
+
+*First seen: Step 15. Extended: after Step 15, Eval walkthrough part 1.*
 
 ### Small-sample noise
 With few test questions, one question changing moves the average a lot. Hit rate over the 18 exercise questions moves by about 0.056 (1/18) if a single question flips from hit to miss. So Step 15 adopted a rule: treat differences under about 0.05 as noise. Keyword's 0.66 exercise recall against semantic's 0.89 is a real gap; semantic 0.89 against hybrid 0.84 sits right at the edge. Answers also vary from run to run, and each question ran once per experiment, so answer-level differences of one or two questions (such as 29/29 vs 27/29 valid citations) need repeat runs before they mean much.
 
+*Eval walkthrough update:* with 31 questions, one question is about 3% of the total. During the coach's review, exercise recall wandered between 0.89 and 0.91 with no system change at all. And biceps and plyometric programming passed the coverage check in the reviewed run after failing it in the v2 run, with unchanged expectations.
+
 **In an interview:** "With 29 questions I treat anything under about five points as noise. One question flipping moves a small average a lot. So I'd say semantic clearly beats keyword on my data, but I wouldn't claim it clearly beats hybrid yet."
 
-*First seen: Step 15.*
+*First seen: Step 15. Extended: Eval walkthrough part 1.*
 
 ### Eval-driven development (baseline first)
 Build the evaluation before making improvements, record a baseline, change one thing, rerun, and keep the change only if it beats the baseline by more than noise. In Step 15 this shaped the plan: the eval came before adding more documents, so that adding the plyometrics review, the sprint review, and the Army field manual becomes a measured change, and any damage (for example, the extractor breaking on two-column papers) shows up as a drop. Phase 1F follows the same loop: metadata filters, hybrid weights, reranking, and query rewriting, one at a time.
@@ -1044,7 +1056,9 @@ Semantic passage MRR also fell (0.70 → 0.65), for a real reason: 53 new passag
 
 **In an interview:** "When I added two research papers my scores dropped, but the system hadn't gotten worse: the eval still expected the old answers. I versioned the eval set, kept the old results attached to the old version, and reported both, so the change is visible instead of silently rebaselined."
 
-*First seen: after Step 15.*
+*Eval walkthrough update: the developer's own version.* "When we bring in new material, that's where evals are useful, because we can test against the same standard of questions." Claude's nuance: when new material changes what's correct, update those specific keys deliberately; that version becomes the new baseline. See [When the answer key changes, the scores change](#when-the-answer-key-changes-the-scores-change).
+
+*First seen: after Step 15. Extended: Eval walkthrough part 1.*
 
 ### System failures vs eval-expectation errors
 When a score drops, either the system did something wrong or the eval expected the wrong thing. The only way to tell is to read the actual answer and evidence. From the eval v2 round:
@@ -1056,6 +1070,96 @@ The risk runs both ways. Blaming the eval can hide real failures, and loosening 
 **In an interview:** "Before fixing a failed eval case I read the answer. Sometimes it's the system, like truncated JSON or a typo'd citation. Sometimes it's my test, like a page list that missed another page saying the same thing. I fix the eval only when the source text backs it, and a coach still reviews the expectations."
 
 *First seen: after Step 15.*
+
+### Answer key (an eval as a practical exam)
+An eval works like a practical exam for a new assistant coach: a fixed set of questions plus an **answer key** that says what a good answer contains. In rag-motion the answer key is everything in `evals/eval_set.yaml` besides the question: expected, acceptable, and forbidden items, and the expected coverage. There are two exams. The **search exam** (retrieval eval) checks what search brings back; it uses no LLM and is free. The **answer exam** (answer eval) has the LLM write full answers, which code then checks; about 2 cents a run. The scores are only as good as the key: in the eval walkthrough, the same unchanged search scored recall 0.80 or 1.00 on one question, depending on which version of the key graded it.
+
+**In an interview:** "I think of my eval as a practical exam with an answer key. The system is the candidate, and the key is written and reviewed by a coach, not by the system. A score is only as trustworthy as the key behind it."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Baseline and benchmark
+A **baseline** is the first set of scores, the "before" number. A **benchmark** is using the same fixed questions as a ruler to compare versions of the system: change one thing, re-run, compare, keep or undo. It only works if the questions and key stay the same between the runs you compare; changing them creates a new version, and so a new baseline. Look at individual questions, not just totals, and treat small differences as noise: with 31 questions, one question is about 3%. rag-motion's reviewed baseline (2026-09-28) is the first run against a coach-approved key: semantic exercise recall 0.91, passage recall 0.97. See [the build log](build-log.md#lesson-3-the-reviewed-baseline).
+
+The developer's own summary: "a bunch of test questions to see how accurate or inaccurate we are; the first time you run it, it's a baseline; if we change anything, the way it responds to the same baseline questions determines whether we got worse, better, or stayed the same."
+
+**In an interview:** "My baseline is the first run against a key I reviewed as a coach. After that, every change is a benchmark run on the same 31 questions. If the key itself has to change, that's a new version and a new baseline, not a comparison across versions."
+
+*First seen: Eval walkthrough, part 1 (the loop was first used in Step 15; see [Eval-driven development](#eval-driven-development-baseline-first)).*
+
+### Write the answer key before seeing results
+If you write or adjust the expected answers after looking at what the system returned, you drift toward grading the system on its own terms: "it returned this, so this must be right." The key should say what a coach would want, decided independently. In the coach's review of all 31 questions, Claude showed each question's key plus the matching catalog exercises (or, for document questions, the exact source sentences), but never the system's results.
+
+**In an interview:** "I reviewed my answer key without looking at the system's output, so I couldn't unconsciously grade toward it."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Recall vs precision
+**Recall:** the share of expected items that came back. **Precision:** the share of returned items that were right. Worked by hand in the walkthrough: the key for "Beginner glute exercises using dumbbells" had 4 exercises; the top 5 contained all 4 plus the step-up. Recall 4/4 = 1.0, precision 4/5 = 0.8. Recall ignores wrong extras. rag-motion's eval doesn't measure precision. It penalizes only the extras that must not be used, through the [forbidden rate](#forbidden-rate); a harmless extra costs nothing.
+
+**In an interview:** "Recall asks 'did we find everything we needed?', precision asks 'was everything we returned useful?'. I measure recall plus a forbidden rate, so harmful extras count against the system and harmless ones don't."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Expected, acceptable, and forbidden items
+The answer key has three tiers for exercises:
+- **Expected:** should be retrieved. Scored by recall and MRR.
+- **Acceptable** (`acceptable_exercises`, added during the coach's review): fine to mention *if* the answer labels it, for example as secondary-muscle work or as intermediate for a beginner. Neither required nor penalized.
+- **Forbidden:** must not be retrieved or cited, for example equipment the client doesn't own. Scored by the [forbidden rate](#forbidden-rate) and `no_forbidden_citations`.
+
+The middle tier exists because some choices are neither right nor wrong. For "beginner glutes with dumbbells", the Bulgarian split squat isn't a beginner exercise, so it shouldn't be required, but a coach could still offer it if it's labeled intermediate. Examples: rows for grip (secondary grip work), the single-leg RDL for "beginner RDL", and all 14 beginner exercises for the beginner-adult question, none of them required. The field is stored in `EvalQuestion` and passed into the LangSmith dataset. No scorer uses it yet; it is groundwork for [answer-level rules](#answer-level-rules-vs-retrieval-keys).
+
+**In an interview:** "My answer key isn't just right or wrong. It has expected, forbidden, and an 'acceptable if labeled' tier, because coaching has grey zones: an intermediate exercise can be fine for a beginner if the answer says so."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Answer-level rules vs retrieval keys
+Two layers of correctness. The **retrieval key** says what search should find (expected, acceptable, forbidden). **Answer-level rules** say how the written answer should present it. The coach recorded four during the review, as notes in `eval_set.yaml`:
+1. An intermediate exercise suggested to a beginner must be labeled intermediate.
+2. Rows offered for biceps (or grip) must say that muscle is trained secondarily.
+3. For "dumbbells only", bodyweight exercises must be labeled as needing no equipment.
+4. For the beginner adult, list beginner exercises grouped by muscle group, covering all major muscle groups.
+
+None is checked by code yet. They are candidates for new answer checks (Lesson 4 of the walkthrough). The search exam can't see them, because they are about wording, not retrieval.
+
+**In an interview:** "I separate what search should find from how the answer should say it. Some of my rules, like 'label an intermediate exercise for a beginner', can only be checked on the final answer, so they're a separate layer of the eval."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Recall ceiling from top-k
+If a question expects more items than the search returns (k), perfect recall is impossible: the best possible score is k divided by the number expected. After the coach's review, "I only have a pair of dumbbells. Good lower-body exercises?" expects 7 exercises, so with top 5 the ceiling is 5/7 = 0.71. The actual semantic result was 3/7 = 0.43, lower still, because two forbidden exercises took two of the five slots. This is a real finding about k, not an eval bug: "list everything" questions need more room than top 5. How to address it is not decided. See [Top-k retrieval](#top-k-retrieval).
+
+**In an interview:** "My coach-reviewed key expects seven exercises for one question, but search returns five, so the best possible recall is 0.71. The eval exposed that my k is too small for 'list everything' questions."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Domain-expert review of an answer key
+An AI-drafted answer key is a starting point, not a truth. In the walkthrough the developer, as the coach, reviewed all 31 questions in batches of 5. Method for catalog questions: read the question's exact words; filter the **full** catalog by them (level, equipment, muscles); decide the edge cases and write the reason in the question's `notes`. For document questions: check the key against the verbatim source sentences. What the review found in Claude's draft:
+- an inconsistency: the BSS was expected for "beginner" while the equally intermediate single-leg RDL was not;
+- a missed exercise (step-up);
+- a missing page (kids, p. 7);
+- too-narrow forbidden lists (4 of 15 equipment exercises for "no equipment");
+- bodyweight options ignored for "dumbbells only".
+
+Seven questions' lists changed; four gained acceptable lists; the rest were confirmed with a reason. Rules were applied across questions for consistency (the secondary-muscle rule for both biceps and grip).
+
+**In an interview:** "An LLM drafted my eval's answer key, and I reviewed every question as a coach, without seeing the system's output. I found real errors: an inconsistency about beginner exercises, a missed exercise, a missing page, forbidden lists that were far too short. Then I re-ran the baseline on the reviewed key."
+
+*First seen: Eval walkthrough, part 1.*
+
+### When the answer key changes, the scores change
+Scores can move with no change to the system, just because the ruler changed. During the review, semantic exercise recall went 0.89 → 0.90 → 0.91 → 0.90 → 0.91 across re-runs, and hybrid passage recall rose from 0.89 to 0.95 when one question's key was revised. A better key can even change which search mode looks best. So compare only runs graded against the same version of the key. When the key must change (new material changes what's correct, or an expert finds an error), change specific keys deliberately, write down why, and treat that version as the new baseline. The LangSmith dataset name includes a hash of the file, so the reviewed key automatically became a new dataset (`rag-motion-eval-a2d30357`). See also [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
+
+**In an interview:** "While I reviewed my answer key, the scores moved even though I hadn't touched the system. That taught me to version the key and compare only runs graded by the same version."
+
+*First seen: Eval walkthrough, part 1.*
+
+### Source-anchored vs judgment-based keys
+Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
+
+**In an interview:** "For guideline questions the source is the authority, so I check the key against the exact sentence. For exercise-choice questions the key is a coaching judgment, so I make the call, write the reason, and apply it consistently."
+
+*First seen: Eval walkthrough, part 1.*
 
 ---
 
@@ -1492,7 +1596,9 @@ Two ways to filter on a list column like `equipment`. `'dumbbell' = ANY(equipmen
 
 **In an interview:** "'Uses dumbbells' and 'only needs what I own' are different filters. ANY returned a hip thrust that also needs a bench; contained-by answers the client's actual question. That distinction will matter for metadata filtering and for program building."
 
-*First seen: Step 5.*
+*Eval walkthrough update: the same distinction in the answer key.* "Beginner glute exercises **using** dumbbells" expects the hip thrust (dumbbell plus a bench), while "I **only** have a pair of dumbbells" forbids it. In the walkthrough exercise, the developer correctly explained why; it is the same distinction as `= ANY` vs `<@`. The coach's dumbbells-only key also expects the three bodyweight lower-body exercises, since they need nothing the client lacks: the same logic as `<@ ARRAY['dumbbell','bodyweight']`.
+
+*First seen: Step 5. Extended: Eval walkthrough part 1.*
 
 ### Migration: adding a column (ALTER TABLE)
 A migration is a change to the structure of a database that already holds data. Step 8 needed a new column, `embedding_model`, on the existing `exercise` table. Adding it inside `CREATE TABLE IF NOT EXISTS` was not enough: that statement skips the whole thing when the table already exists, so an existing database would never get the column. So `db/schema.sql` now has it in two places: inside `CREATE TABLE`, for fresh setups, and as `ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;`, for databases that already have the table. `IF NOT EXISTS` keeps the file safe to re-run. Applying it printed "relation exists" (the create was skipped) and then `ALTER TABLE` (the column was added). This is a migration in its simplest form; a migration tool (for example Alembic, planned in [0005](decisions/0005-database-access-psycopg-raw-sql.md)) numbers and tracks such changes once there are many.

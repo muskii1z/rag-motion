@@ -79,3 +79,40 @@ See the [build log](../build-log.md#after-step-15-trace-cleanup-two-research-pap
 - **Semantic stays the default.** Hybrid now has slightly better passage MRR (0.80 vs 0.78) but lower recall; within noise on 31 questions, and no hybrid answer run on v2.
 - **Lesson added to the method:** when the corpus changes, update the expected answers too, version the set, and report the old questions alongside the new ones. When a score drops, check whether the system or the expectation is wrong before fixing either.
 - **Still true:** all expectations are `reviewed: false`; one run per question; constraint and population failures need Phase 1F filters.
+
+## Update 2026-09-28 (Eval walkthrough, part 1): coach review, acceptable tier, answer-level rules, reviewed baseline
+See the [build log](../build-log.md#eval-walkthrough-part-1-the-answer-key-grading-by-hand-and-the-coachs-full-review).
+
+- **The "Revisit when: the coach finishes reviewing" signal has fired.** The developer, as the coach, reviewed all 31 questions in batches of 5 (commits `b19481e` through `a66c382`). For each question they saw the key plus the matching catalog exercises, or the verbatim source sentences for document questions, but never the system's results. The file header now says the key was drafted by Claude, then reviewed by the coach, all 31, on 2026-09-28.
+- **What changed in the key.** Seven questions' expected, forbidden, or page lists changed:
+  - `ex-glutes-dumbbells`: BSS removed (the question says beginner), step-up added after a full-catalog check;
+  - `ex-upper-back`: farmer carry added;
+  - `jargon-rdl`: only the dumbbell RDL expected;
+  - `constraint-no-equipment`: all 15 equipment exercises forbidden (the draft forbade 4);
+  - `constraint-dumbbells-only`: bodyweight exercises expected; box jump and kettlebell swing forbidden;
+  - `dose-kids`: p. 7 added;
+  - `pop-beginner-adult`: no required exercises; all 14 beginner exercises acceptable; pages widened to 62–63.
+
+  The rest were confirmed, each with a `notes` line giving the reason.
+- **New field: `acceptable_exercises`.** Fine to mention if the answer labels it (secondary muscle, or intermediate for a beginner); neither required nor penalized. Added to `EvalQuestion` and passed into the LangSmith dataset. No scorer uses it yet. The key now has three tiers: expected, acceptable, forbidden. This was kept inside this record rather than given its own, because it extends the eval design here and no alternative designs were recorded.
+- **Four answer-level rules, recorded but not yet coded:**
+  1. an intermediate exercise suggested to a beginner is labeled intermediate;
+  2. rows offered for biceps or grip say that muscle is trained secondarily;
+  3. for "dumbbells only", bodyweight exercises are labeled as needing no equipment;
+  4. for the beginner adult, exercises are listed by muscle group, covering all major muscle groups.
+
+  They are candidates for new answer checks.
+- **Reviewed baseline** (k=5, `structure-v1(min=150,max=450)`, voyage-4-lite; `evals/results/retrieval-20260928-124738.json`):
+
+  | Mode | Exercise recall | Exercise hit | Exercise MRR | Passage recall | Passage hit | Passage MRR | Forbidden |
+  |---|---|---|---|---|---|---|---|
+  | semantic | 0.91 | 1.00 | 0.97 | 0.97 | 1.00 | 0.78 | 0.10 |
+  | keyword | 0.66 | 0.76 | 0.65 | 0.69 | 0.75 | 0.56 | 0.06 |
+  | hybrid | 0.85 | 1.00 | 0.86 | 0.95 | 1.00 | 0.87 | 0.13 |
+
+  Answers (dataset `rag-motion-eval-a2d30357`, experiment `answers-semantic-9f0524fd`): `citations_valid` 31/31, `coverage_correct` 29/31, `used_expected_evidence` 30/30, `no_forbidden_citations` 2/5. Failures: both constraint questions and the beginner adult (forbidden items cited), band pull (overclaimed `full`), overhead (underclaimed `partial`).
+- **Scores moved with no system change** while the key was being reviewed (semantic exercise recall 0.89 → 0.90 → 0.91 → 0.90 → 0.91; hybrid passage recall 0.89 → 0.95). Rule added to the method: compare only runs graded by the same version of the key. When a key must change, change it deliberately with a written reason, and re-baseline.
+- **Semantic stays the default.** Hybrid now has better passage MRR (0.87 vs 0.78) but lower exercise recall and MRR; no hybrid answer run on the reviewed key.
+- **New tradeoff surfaced: top-k vs complete answers.** A reviewed question expects 7 exercises, so top 5 caps recall at 0.71. The key was not trimmed to fit k; the gap is left visible as a finding. What to do about k is not decided.
+- **Revisit when (added):** the answer-level rules get checks (the walkthrough's Lesson 4); new sources change what's correct (for example program-design papers before Phase 2), and then the affected keys are updated deliberately and re-baselined.
+- **Still true:** one run per question; constraint and population failures need Phase 1F filters.

@@ -2579,3 +2579,251 @@ Not recorded as commands: the Europe PMC lookups and downloads, the in-file lice
 **Decisions.**
 - New: [0022. Research papers via Europe PMC JATS XML, not PDFs](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md)
 - Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (eval v2, results, retry), [0017](decisions/0017-knowledge-source-licensing-policy.md) (two CC BY papers, group A, license verified in the files), [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md) (trace cleanup, retention), [0018](decisions/0018-pdf-extraction-pymupdf-layout-cleaning.md) (research papers bypass PDF extraction)
+
+## Eval walkthrough, part 1: the answer key, grading by hand, and the coach's full review
+**Dates:** 2026-09-25 to 2026-09-28 · **Commits:** `b19481e`, `8af650a`, `7a9ea4a`, `71d59e9`, `641c470`, `ddcdf47`, `12952de`, `a66c382` (each is listed where it happened below; this docs update is committed and pushed right after)
+
+**Goal.** Have the developer do evaluation by hand, one lesson at a time, so they understand what the eval measures, and replace Claude's drafted answer key with one the coach has reviewed.
+
+This was a learning session led by the developer. They acted as the coach: every change to the answer key below is their decision.
+
+### Before we started
+- **The developer asked where things stand.** Claude corrected a misunderstanding: the 31-question eval was already built and run. Phase 1 Steps 0–15 are done; only Step 16 is left.
+- **Claude's explanation: an eval is a practical exam for a new assistant coach.**
+  - 31 questions with an answer key (what a good answer contains).
+  - Two exams. The **search exam** (the retrieval eval) checks what search brings back; no LLM, free. The **answer exam** (the answer eval) has the LLM write full answers and checks them; about 2 cents a run.
+  - Each exam produces scores.
+  - The loop: change one thing → re-run → compare → keep or undo.
+- **The developer's request:** they had let Claude do it all, and now wanted to see and do the process themselves, step by step, to really understand evaluation and benchmarking (using fixed questions as a ruler to compare versions of the system).
+- **Walkthrough plan, 6 lessons, one per turn:**
+  1. The questions and the answer key.
+  2. Grade one question by hand.
+  3. Run the search exam.
+  4. The answer exam (the four checks, then LangSmith).
+  5. Use it as a benchmark (change one thing, compare).
+  6. Write your own question.
+
+  Lessons 1–3 are done; Lesson 3 became the [reviewed baseline](#lesson-3-the-reviewed-baseline). Lessons 4–6 remain.
+
+### Lesson 1: the questions and the answer key
+- **The file** is `evals/eval_set.yaml`. YAML is a plain-text format for structured data: `key: value` lines and indentation, readable by people and by Python.
+- **Viewing tip:** `open -e evals/eval_set.yaml` opens it in TextEdit. Read only: TextEdit's "smart quotes" (it swaps straight quotes for curly ones) can break YAML, and no code editor is installed yet.
+- **8 categories, grouped into three kinds** ([Three kinds of eval questions](concepts.md#three-kinds-of-eval-questions-find-admit-a-gap-avoid)):
+
+  | Kind | Categories (number of questions) |
+  |---|---|
+  | Should find it | exercise-selection 10, jargon 3, dose 7, notes 3, research 3 |
+  | Should admit a gap | coverage-gap 2 |
+  | Should avoid something | constraint 2, population 1 |
+
+- **Fields, explained on two questions.**
+  - `constraint-dumbbells-only`: `question`, `expected_exercises`, `forbidden_exercises`, `expected_coverage`, `reviewed`.
+  - `dose-adult-aerobic`: expected passages are matched by source plus pages or heading, not by chunk ids, so the key survives re-chunking ([Eval matchers that survive re-chunking](concepts.md#eval-matchers-that-survive-re-chunking)).
+- **Principle:** write the answer key before seeing results, or you grade toward the system. See [Write the answer key before seeing results](concepts.md#write-the-answer-key-before-seeing-results).
+- **The developer's summary (correct):** "a bunch of test questions to see how accurate or inaccurate we are; the first time you run it, it's a baseline; if we change anything, the way it responds to the same baseline questions determines whether we got worse, better, or stayed the same." Saved as [Teach-back 2](interview-prep.md#teach-back-2-evaluation-during-the-eval-walkthrough-2026-09-25-to-2026-09-28).
+- **Clarified:**
+  - `reviewed: false` means the coach hasn't checked that question's key yet. It is a label; it doesn't change grading.
+  - `expected_coverage` is a field on every question (`full`, `partial`, or `none`). `coverage-gap` is a category: 2 questions that are deliberately unanswerable, fully or in part.
+- **Refinements to the summary:**
+  - Keep the questions fixed to compare. Changing the ruler creates a new baseline (a new version).
+  - The key must be right, or the scores are meaningless.
+  - Look at individual questions, not just totals.
+  - Small differences are noise: with 31 questions, one question is about 3%.
+  - See [Baseline and benchmark](concepts.md#baseline-and-benchmark).
+- **Exercise: "using" vs "only".** Compare `ex-glutes-dumbbells` ("Beginner glute exercises **using** dumbbells") with `constraint-dumbbells-only` ("I **only** have a pair of dumbbells"). The developer correctly explained why the hip thrust and the Bulgarian split squat (BSS) are expected in one and forbidden in the other: "using" allows extra equipment such as a bench or box; "only" doesn't. It is the same distinction as Step 5's `= ANY` vs `<@` ([Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by)).
+- **The developer spotted an inconsistency.** They asked why the single-leg RDL wasn't expected for the glutes question. Claude checked and found its own draft inconsistent: the single-leg RDL (intermediate) was left out, but the BSS (also intermediate) was in.
+- **Decision 1 (coach): respect "beginner".** Remove the BSS from that key. Separately, an **answer-level rule**: if an intermediate exercise is suggested to a beginner, the answer must say it is intermediate. Commit `b19481e`.
+  - Claude explained the two layers: what search should find (the key) vs how the answer should be written (answer-level rules). The rules are not checked by code yet; they are candidates for new checks in Lesson 4. See [Answer-level rules vs retrieval keys](concepts.md#answer-level-rules-vs-retrieval-keys).
+  - A measurement detail: search returns the top 5, so a question that expects more than 5 items can never score perfect recall. See [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k).
+
+### Lesson 2: grade one question by hand
+- **The developer ran the search themselves** and marked each result against the 4-item key (hip thrust, goblet squat, dumbbell RDL, reverse lunge):
+
+  | Rank | Exercise | Similarity | In the key? |
+  |---|---|---|---|
+  | 1 | Dumbbell Hip Thrust | 0.723 | ✓ |
+  | 2 | Goblet Squat | 0.700 | ✓ |
+  | 3 | Dumbbell RDL | 0.692 | ✓ |
+  | 4 | Dumbbell Reverse Lunge | 0.690 | ✓ |
+  | 5 | Dumbbell Step-Up | 0.685 | ✗ (not in the key at the time) |
+
+- **Their grades:** recall 4/4 = 1.0; hit 1 (at least one right item came back); MRR 1/1 = 1.0 (the first right item was at rank 1). Precision would be 4/5 = 0.8, but our eval doesn't measure precision: recall ignores wrong extras. See [Recall vs precision](concepts.md#recall-vs-precision).
+- **The code agreed.** `score_retrieval()` in `src/ragmotion/evaluation.py` gave identical numbers. Claude showed the 4 lines that compute them.
+- **Insight:** before the coach's fix in Lesson 1, the same unchanged system scored recall 0.80 on this question (the BSS was expected and not found). Scores are only as good as the answer key.
+- **Developer question:** do the results come only from the 20 exercises, or from the ingested documents too? Answer: exercises come only from the 20-exercise catalog; passages come from the 200 document passages. They are graded separately, and `search.py` shows only exercises.
+- **Developer insight: "I should've checked all the exercises."** Claude listed the full catalog (slug, level, movement pattern, equipment, muscles). Filtering by beginner + dumbbell + glutes gave 6 candidates.
+- **Decision 2 (coach): add `dumbbell-step-up`.** Beginner, dumbbell plus a box (like the hip thrust's bench), glutes. The farmer carry lists glutes but isn't a glute exercise, so it's not expected. Commit `8af650a`. The same search now grades recall 1.00, MRR 1.00, precision 5/5.
+- **Method learned for reviewing a key:** read the question's exact words; filter the FULL catalog by them; decide the edge cases and write down why. See [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key).
+
+### The coach's full review (all 31 questions)
+The developer chose to review in batches of 5. For each question Claude showed the key plus the catalog exercises that matched the question's words, or, for document questions, the exact source sentences. Claude never showed the system's results, to avoid biasing the review.
+
+| Batch | Commit | Reviewed so far | Questions |
+|---|---|---|---|
+| 1 | `7a9ea4a` | 6 of 31 | band pull, unilateral lower, explosive speed, biceps, hinge (plus the glutes question from Lessons 1–2) |
+| 2 | `71d59e9` | 11 | anti-rotation, grip, overhead, upper back, beginner RDL |
+| 3 | `641c470` | 16 | BSS, KB, no equipment, dumbbells only, adult aerobic |
+| 4 | `ddcdf47` | 21 | adult strength days, intensity, kids, older adults, pregnancy |
+| 5 | `12952de` | 26 | safety, beginner adult, three NSCA-notes questions |
+| 6 | `a66c382` | 31 | plyometric programming, three research questions, protein |
+
+**Batch 1.**
+- `ex-band-pull` (only the band pull-apart; coverage `partial`): ok.
+- `ex-unilateral-lower` (5 exercises): ok.
+- `ex-explosive-speed` (3 jumps + kettlebell swing; `full` with the sprint and plyometric papers): ok.
+- `ex-biceps`: **Decision 3 (coach), an answer-level rule.** Rows are acceptable only if the answer says the biceps are trained as a secondary muscle.
+- `ex-hinge`: the coach keeps the hip thrust and glute bridge as hinges.
+
+**Batch 2: a new field, `acceptable_exercises`.** Exercises that are fine to mention if the answer labels them (secondary muscle, or intermediate for a beginner). Neither required nor penalized. Added to `EvalQuestion` in `evaluation.py` and passed into the LangSmith dataset for future answer-level checks. No scorer uses it yet. See [Expected, acceptable, and forbidden items](concepts.md#expected-acceptable-and-forbidden-items).
+- `ex-anti-rotation`: Pallof press only. "The dead bug is anti-extension, not anti-rotation."
+- `ex-grip`: the farmer carry is expected. Rows, the RDL, and the swing are acceptable as secondary grip work (consistent with the biceps rule).
+- `ex-overhead`: the overhead press only; the push-up is a horizontal press.
+- `ex-upper-back`: added the farmer carry (upper trapezius) to the three pulls.
+- `jargon-rdl` ("beginner RDL"): only the dumbbell RDL is expected; the single-leg RDL is acceptable if labeled intermediate. (Claude's draft had expected both.)
+- For consistency, the glutes question also got the BSS and single-leg RDL as acceptable.
+
+**Batch 3.**
+- `jargon-bss`: only the BSS. "They asked for one exercise; hard line between suggesting and giving what was asked."
+- `jargon-kb`: ok.
+- `constraint-no-equipment`: forbid ALL 15 exercises that need equipment. (The draft forbade 4.)
+- `constraint-dumbbells-only`: expect the 4 dumbbell exercises AND the 3 bodyweight ones (glute bridge, broad jump, lateral bound). Answer-level rule: the bodyweight ones are labeled as needing no equipment. Box jump and kettlebell swing added to forbidden. Note: 7 expected items vs a top-5 search caps recall at 5/7 = 0.71, a real finding about k (the number of results returned).
+- `dose-adult-aerobic`: ok. Key fact: 150–300 min/week moderate or 75–150 vigorous (or a mix).
+
+**Batch 4 (dose questions).** Claude pulled the verbatim sentences from the Physical Activity Guidelines.
+- Adult strength days: 2 or more days a week, all major muscle groups (p. 56).
+- Intensity: the talk test, "can talk, but not sing" (p. 58); moderate is 3.0–5.9 METs (p. 108). A MET is a multiple of resting energy use.
+- Kids: 60 minutes or more daily. The summary sentence is on p. 7, which the key lacked, so **page 7 was added**.
+- Older adults: multicomponent activity including balance (p. 9).
+- Pregnancy: 150 minutes of moderate activity a week (p. 9).
+- **Developer:** "these are all good because you're citing the sources; they're directly from the book." For questions anchored in a source, the text is the authority. See [Source-anchored vs judgment-based keys](concepts.md#source-anchored-vs-judgment-based-keys).
+
+**Batch 5.**
+- `dose-safety`: ok.
+- NSCA-notes questions: ok, each checked against the notes: older adults 70–85% of 1RM; youth start at about 6–7 years; weightlifting pulls come before the full lifts, and technique sets the pace.
+- `pop-beginner-adult`: **Decision (coach): don't pick 5 exercises.** The answer should list beginner exercises grouped by muscle group, covering all major muscle groups, matching the Guidelines' "all major muscle groups". Encoded as: expected dose passages; all 14 beginner exercises acceptable, none required; the population forbiddens kept. The list-by-muscle-group rule is recorded as an answer-level rule. (The repo diff also shows the expected pages widened from 8, 56, 60, 61 to 8, 56, 60–63, matching `dose-adult-strength-days`.)
+
+**Batch 6.**
+- `gap-plyo-program` stays `partial`: effects are covered, but not a sets/reps/frequency prescription for this athlete.
+- **Developer question: where will program-design knowledge (reps, frequency) come from?** Claude mapped what exists (the Guidelines, the NSCA notes, Haugen 2019) vs what is missing (general strength program design; plyometric programming). Candidates:
+  - Schoenfeld 2021, repetition continuum (CC BY);
+  - Pelland 2024, volume and frequency (a preprint, CC BY);
+  - Ramirez-Campillo 2023, youth plyometrics (CC BY);
+  - the developer's own notes on NSCA *Essentials* chapters 18–19.
+
+  Timing: right before Phase 2, because the programming agent will need it.
+- The research questions and protein (`none`): ok.
+- **Developer insight:** "when we bring in new material, that's where evals are useful, because we can test against the same standard of questions." Claude added the nuance: when new material changes what's correct, update those specific keys deliberately; that version becomes the new baseline. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+
+**Honesty note.** Claude told the developer question 26 was marked reviewed before it had actually saved the change. This was caught and corrected before the exam run.
+
+**Result.** 31 of 31 reviewed. The file header now says the key was drafted by Claude, then reviewed by the coach, all 31, on 2026-09-28. Seven questions had their expected, forbidden, or page lists changed (glutes, upper back, beginner RDL, no equipment, dumbbells only, kids, beginner adult); four gained acceptable lists (glutes, grip, beginner RDL, beginner adult); the rest were confirmed, with a note saying why.
+
+**Scores moved during the review with NO change to the system.** The retrieval eval was re-run after most batches (no run was saved after batch 4):
+
+| Run | Saved file | Semantic exercise recall | Hybrid passage recall |
+|---|---|---|---|
+| v2, before the review | `retrieval-20260925-203046.json` | 0.89 | 0.89 |
+| after batch 1 | `retrieval-20260928-122312.json` | 0.90 | 0.89 |
+| after batch 2 | `retrieval-20260928-123043.json` | 0.91 | 0.89 |
+| after batch 3 | `retrieval-20260928-123816.json` | 0.90 | 0.89 |
+| after batch 5 | `retrieval-20260928-124239.json` | 0.91 | 0.95 |
+| after batch 6 | `retrieval-20260928-124738.json` | 0.91 | 0.95 |
+
+- Hybrid passage recall jumped after batch 5. In the saved results, one question changed: `pop-beginner-adult`, whose hybrid passage recall went from 0 to 1.0 once its key was revised (5 required exercises dropped, pages widened to 62–63). A better key can change which search mode looks best.
+- Semantic exercise MRR rose from 0.94 to 0.97 in the same run, because the beginner-adult question no longer scores exercises.
+
+### Lesson 3: the reviewed baseline
+The first run against a coach-approved key. Search exam: 31 questions, top 5, chunker `structure-v1(min=150,max=450)`, embedding model voyage-4-lite (from `evals/results/retrieval-20260928-124738.json`).
+
+| Mode | Exercise recall | Exercise hit | Exercise MRR | Passage recall | Passage hit | Passage MRR | Forbidden |
+|---|---|---|---|---|---|---|---|
+| semantic | **0.91** | **1.00** | **0.97** | **0.97** | **1.00** | 0.78 | 0.10 |
+| keyword | 0.66 | 0.76 | 0.65 | 0.69 | 0.75 | 0.56 | **0.06** |
+| hybrid | 0.85 | **1.00** | 0.86 | 0.95 | **1.00** | **0.87** | 0.13 |
+
+By category, semantic:
+
+| Category | Exercise recall | Passage recall |
+|---|---|---|
+| exercise-selection | 0.95 | 0.50 |
+| jargon | 1.00 | - |
+| constraint | **0.51** (lowest) | - |
+| dose | - | 1.00 |
+| population | - | 1.00 |
+| notes | - | 1.00 |
+| coverage-gap | 1.00 | 1.00 |
+| research | 1.00 | 1.00 |
+
+From the saved JSON (semantic):
+- Misses: explosive speed (kettlebell swing), upper back (farmer carry), no equipment (broad jump, lateral bound; recall 0.60), dumbbells only (broad jump, glute bridge, lateral bound, single-leg RDL; recall 3/7 = 0.43).
+- Dumbbells only scored below its 0.71 ceiling because two forbidden exercises (step-up, hip thrust) took two of the five slots.
+- Forbidden items: no equipment (inverted row, Pallof press), dumbbells only (step-up, hip thrust), beginner adult (`pag2-77`, `notes-nsca-older-adults-1`, `notes-nsca-youth-ltad-1`).
+
+**Answer exam** (dataset `rag-motion-eval-a2d30357`, experiment `answers-semantic-9f0524fd`):
+
+| Check | v2, before the review (`answers-semantic-a9b4cded`) | Reviewed baseline |
+|---|---|---|
+| citations_valid | 31/31 | 31/31 |
+| coverage_correct | 27/31 | 29/31 |
+| used_expected_evidence | 30/30 | 30/30 |
+| no_forbidden_citations | 2/5 | 2/5 |
+
+Failures:
+- `constraint-dumbbells-only` and `constraint-no-equipment`: forbidden exercises cited.
+- `pop-beginner-adult`: forbidden population material cited.
+- `ex-band-pull`: overclaimed `full` (expected `partial`).
+- `ex-overhead`: underclaimed `partial` (expected `full`).
+
+Biceps and plyometric programming overclaimed in the v2 run but passed this time. Their expected coverage didn't change, and each question ran once, so this may be run-to-run variation; not investigated.
+
+**What the baseline says to work on:**
+1. Filters for equipment and population: 3 failures (Phase 1F). See [Filtering problems vs search problems](concepts.md#filtering-problems-vs-search-problems).
+2. k=5 is too small for "list everything" questions.
+3. Coverage honesty (model behavior).
+4. Four answer-level rules are recorded but not checked by code: intermediate labeling, secondary-muscle labeling, bodyweight labeling, list by muscle group. Lesson 4 material.
+
+**Commands.**
+```bash
+open -e evals/eval_set.yaml
+# Suggested way to view the eval set read-only in TextEdit.
+
+uv run python scripts/search.py "Beginner glute exercises using dumbbells"
+# Run by the developer: top 5 exercises with similarity scores (table in Lesson 2).
+
+uv run python evals/run_retrieval_eval.py
+# Search exam, 3 modes, no LLM. Re-run after batches 1, 2, 3, 5, and 6; each run saved a JSON file.
+
+uv run python evals/run_answer_eval.py
+# Answer exam, semantic: experiment answers-semantic-9f0524fd on dataset rag-motion-eval-a2d30357.
+```
+The two eval invocations are shown in the form documented in each script; the exact flags were not recorded. Not recorded as commands: listing the catalog, pulling the Guidelines sentences, and showing the scorer's code.
+
+**Problems and fixes.** All in the answer key, not the system:
+- Claude's draft was inconsistent on "beginner" (BSS in, single-leg RDL out) → the coach removed the BSS and made both acceptable-if-labeled.
+- The draft missed `dumbbell-step-up` → added after a full-catalog check.
+- The draft kids key lacked p. 7, where the summary sentence is → added.
+- The draft forbade only 4 exercises for "no equipment" and ignored bodyweight options for "dumbbells only" → fixed by the coach.
+- Claude reported question 26 as reviewed before saving it → caught and corrected before the exam run.
+
+**Open questions.**
+- Lessons 4–6 remain: the four checks and LangSmith, a benchmark comparison, and the developer writing their own question.
+- The four answer-level rules are notes in the YAML, not code. How to check them (code or a judge validated against the coach) is Lesson 4 material.
+- `acceptable_exercises` is stored and sent to LangSmith, but no scorer uses it yet.
+- Precision is not measured; only forbidden extras are penalized.
+- What to do about k for "list everything" questions (7 expected, top 5) was not decided.
+- One run per question: why biceps and plyometric programming passed coverage this time is unknown.
+- The cost of this answer run was not recorded.
+- Program-design sources: licenses were stated in conversation, not yet verified in the files per [0017](decisions/0017-knowledge-source-licensing-policy.md). Pelland 2024 is a preprint (not peer reviewed). Planned for before Phase 2.
+
+### Developer questions
+- **"Where do things stand?"** The eval was already built and run. Steps 0–15 are done; Step 16 is left.
+- **"Why isn't the single-leg RDL expected for beginner glutes?"** It shouldn't be (intermediate), but then the BSS shouldn't be either. Claude's draft was inconsistent; the coach fixed it.
+- **"Do results come only from the 20 exercises, or from the documents?"** Exercises from the catalog, passages from the documents, graded separately; `search.py` shows only exercises.
+- **"Where will program-design knowledge come from?"** Candidate sources are listed under batch 6, to be added before Phase 2.
+
+**Learned.**
+- New: [Answer key (an eval as a practical exam)](concepts.md#answer-key-an-eval-as-a-practical-exam), [Baseline and benchmark](concepts.md#baseline-and-benchmark), [Write the answer key before seeing results](concepts.md#write-the-answer-key-before-seeing-results), [Recall vs precision](concepts.md#recall-vs-precision), [Expected, acceptable, and forbidden items](concepts.md#expected-acceptable-and-forbidden-items), [Answer-level rules vs retrieval keys](concepts.md#answer-level-rules-vs-retrieval-keys), [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k), [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change), [Source-anchored vs judgment-based keys](concepts.md#source-anchored-vs-judgment-based-keys)
+- Extended: [Eval set](concepts.md#eval-set-test-questions-with-expected-answers) (reviewed, 31/31), [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr) (graded by hand; reviewed baseline), [Small-sample noise](concepts.md#small-sample-noise) (1 question ≈ 3%), [Top-k retrieval](concepts.md#top-k-retrieval) (recall ceiling), [Array operators: ANY vs contained-by](concepts.md#array-operators-any-vs-contained-by) ("using" vs "only" in the eval), [Hard constraints and negation](concepts.md#hard-constraints-and-negation) (constraint recall 0.51 on the reviewed key), [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments) (new dataset, acceptable field), [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows) (developer's insight)
+
+**Decisions.**
+- No new record. Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (coach review, `acceptable_exercises`, four answer-level rules, reviewed baseline).
