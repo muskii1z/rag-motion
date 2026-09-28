@@ -50,3 +50,20 @@ def test_equipment_filter_only_returns_usable_exercises():
         unfiltered = cur.execute(SEARCH_SQL, {**params, "owned": None}).fetchall()
     assert filtered and all(set(r["equipment"]) <= {"band", "bodyweight"} for r in filtered)
     assert len(unfiltered) == 42
+
+
+def test_population_filter_skips_other_groups_but_keeps_general_passages():
+    # F5: reuse a stored passage vector as the "question", so no API call is needed.
+    from psycopg.rows import dict_row
+
+    from ragmotion.config import settings
+    from ragmotion.retrieval import CHUNK_SEARCH_SQL
+
+    with get_connection() as conn:
+        q = conn.execute("SELECT embedding FROM document_chunk WHERE 'older-adults' = ANY(populations) LIMIT 1").fetchone()[0]
+        cur = conn.cursor(row_factory=dict_row)
+        rows = cur.execute(CHUNK_SEARCH_SQL, {"q": q, "model": settings.embedding_model, "k": 300, "population": "adults"}).fetchall()
+        tags = {r["passage_id"]: r for r in rows}
+        pops = conn.execute("SELECT source_id || '-' || chunk_index, populations FROM document_chunk").fetchall()
+    kept = {pid for pid, p in pops if not p or "adults" in p}
+    assert set(tags) == kept  # exactly the adult and general passages

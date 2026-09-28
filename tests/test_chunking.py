@@ -82,3 +82,18 @@ def test_note_label_does_not_repeat_the_title():
                     license_group="A", attribution="a", local_path="x", type="notes", format="markdown")
     chunk = chunking.Chunk("notes-x", 0, "Older Adults", ["Programming guidelines"], "Text.", None, None)
     assert embed_text_for(source, chunk).splitlines()[0] == "Notes: Older Adults > Programming guidelines"
+
+
+def test_population_tags_come_from_where_a_passage_sits():
+    from ragmotion.chunking import populations_for
+
+    assert populations_for("pag2", "Chapter 5. Active Older Adults", [], "") == ["older-adults"]
+    assert populations_for("pag2", "Chapter 3. Active Children and Adolescents", [], "") == ["youth"]
+    assert populations_for("pag2", "Chapter 6. Additional Considerations for Some Adults",
+                           ["Physical Activity in Women During Pregnancy and the Postpartum Period"], "") == ["pregnancy"]
+    assert populations_for("pag2", "Chapter 6. Additional Considerations for Some Adults",
+                           ["Raymond: A 42-Year-Old Man With Type 2 Diabetes"], "") == ["adults", "older-adults"]
+    assert populations_for("pag2", "Front matter and summary", [], "Key Guidelines for Adults ...") == ["adults"]
+    assert populations_for("pag2", "Chapter 7. Active and Safe", [], "") == []  # general: never filtered out
+    assert populations_for("notes-nsca-youth-ltad", "Youth", [], "") == ["youth"]
+    assert populations_for("kons2023-plyo", "Results", [], "") == []

@@ -62,13 +62,14 @@ def main() -> None:
                                       "retrieved_exercises": [h.slug for h in exercises],
                                       "retrieved_passages": [p.passage_id for p in passages]})
 
-        # F4: same semantic search, with the equipment filter from the question's limits.
+        # F4/F5: same semantic search, with the equipment and population filters from the question's limits.
         results["semantic+filter"] = []
         for q in questions:
-            owned = extract_limits(q.question)[0].owned_equipment()
-            exercises, passages = search_all(q.question, k_exercises=K, k_passages=K, owned=owned)
+            limits = extract_limits(q.question)[0]
+            owned, population = limits.owned_equipment(), limits.population
+            exercises, passages = search_all(q.question, k_exercises=K, k_passages=K, owned=owned, population=population)
             score = score_retrieval(q, exercises, passages)
-            results["semantic+filter"].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned,
+            results["semantic+filter"].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned, "population": population,
                                                "retrieved_exercises": [h.slug for h in exercises],
                                                "retrieved_passages": [p.passage_id for p in passages]})
 

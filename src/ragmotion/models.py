@@ -15,6 +15,7 @@ Equipment = Literal["bodyweight", "dumbbell", "band", "kettlebell", "barbell", "
 Difficulty = Literal["beginner", "intermediate", "advanced"]
 Laterality = Literal["bilateral", "unilateral"]
 BodyRegion = Literal["lower", "upper", "core", "full"]
+Population = Literal["adults", "older-adults", "youth", "pregnancy"]  # mirrors document_chunk.populations
 
 
 class Exercise(BaseModel):
@@ -91,8 +92,8 @@ class GroundedAnswer(BaseModel):
 class QuestionLimits(BaseModel):
     """Limits stated in the coach's question, read by the LLM before search (Phase 1F, F3).
 
-    Equipment only for now. Level and population get their own filters later, one change at a
-    time, so the eval shows what each filter does.
+    Equipment (F4) and population (F5). Each filter was added separately so the eval shows
+    what each one does.
     """
 
     equipment_limited: bool = Field(
@@ -106,6 +107,11 @@ class QuestionLimits(BaseModel):
         "Empty if they have none, or if equipment_limited is false."
     )
     limit_phrase: str | None = Field(description="The exact words in the question that state the equipment limit, or null.")
+    population: Population | None = Field(
+        description="Who the question is about, if it says: 'adults' (including beginner adults), 'older-adults' "
+        "(about 65+, or 'older adults'), 'youth' (children, kids, adolescents, high school athletes), 'pregnancy'. "
+        "Null if no group is named or implied."
+    )
 
     def owned_equipment(self) -> list[str] | None:
         """What the equipment filter allows: the stated equipment plus bodyweight. None means no filter.

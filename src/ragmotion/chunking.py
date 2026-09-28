@@ -307,3 +307,41 @@ def embed_text_for(source: Source, chunk: Chunk) -> str:
     if chunk.headings:
         label += " > " + "; ".join(chunk.headings)
     return f"{label}\n\n{chunk.text}"
+
+
+# ---- Phase 1F, F5: population tags --------------------------------------------------------------
+#
+# Who a passage is about, from where it sits in its source (chapter, headings) rather than an LLM:
+# the Guidelines are organized by population, so the structure already says it. Rules, not guesses.
+# An empty list means "general": it applies to everyone and is never filtered out.
+
+POPULATIONS = ("adults", "older-adults", "youth", "pregnancy")
+
+# The Guidelines' summary lists every group's key guidelines, several per chunk.
+_SUMMARY_MARKERS = {
+    "youth": ("Key Guidelines for Preschool", "Key Guidelines for Children and Adolescents"),
+    "adults": ("Key Guidelines for Adults",),
+    "older-adults": ("Key Guidelines for Older Adults",),
+    "pregnancy": ("Key Guidelines for Women During Pregnancy",),
+}
+
+
+def populations_for(source_id: str, chapter: str, headings: list[str], text: str) -> list[str]:
+    if source_id == "notes-nsca-older-adults":
+        return ["older-adults"]
+    if source_id == "notes-nsca-youth-ltad":
+        return ["youth"]
+    if source_id != "pag2":
+        return []  # research articles and the weightlifting notes: athletes in general
+    if chapter.startswith("Chapter 3."):
+        return ["youth"]
+    if chapter.startswith("Chapter 4."):
+        return ["adults"]
+    if chapter.startswith("Chapter 5."):
+        return ["older-adults"]
+    if chapter.startswith("Chapter 6."):  # pregnancy, or chronic conditions and disabilities (adults of any age)
+        about = " ".join(headings) + " " + text[:300]
+        return ["pregnancy"] if re.search(r"[Pp]regnan|[Pp]ostpartum", about) else ["adults", "older-adults"]
+    if chapter == "Front matter and summary":
+        return [pop for pop, markers in _SUMMARY_MARKERS.items() if any(m in text for m in markers)]
+    return []

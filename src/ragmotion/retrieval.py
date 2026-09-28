@@ -72,6 +72,7 @@ SELECT source_id || '-' || chunk_index AS passage_id, source_id, source_type, so
        1 - (embedding <=> %(q)s) AS similarity
 FROM document_chunk
 WHERE embedding IS NOT NULL AND embedding_model = %(model)s
+  AND (%(population)s::text IS NULL OR cardinality(populations) = 0 OR %(population)s = ANY(populations))  -- F5
 ORDER BY embedding <=> %(q)s
 LIMIT %(k)s
 """
@@ -97,18 +98,19 @@ def _as_trace_documents(result: tuple[list[ExerciseHit], list["ChunkHit"]]) -> d
 
 @traceable(run_type="retriever", name="search_all", process_outputs=_as_trace_documents)
 def search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
-               owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+               owned: list[str] | None = None, population: str | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Embed the question once, then search exercises and document passages with the same vector.
 
     owned: equipment the person has (F4). If set, exercises needing anything else are skipped.
-    Passages aren't filtered by equipment.
+    population: who the question is about (F5). If set, passages about other groups are skipped;
+    general passages (no population tag) always stay.
     """
     q = Vector(embed_query(question))
     params = {"q": q, "model": settings.embedding_model}
     with get_connection() as conn:
         cur = conn.cursor(row_factory=dict_row)
         exercises = [ExerciseHit.model_validate(r) for r in cur.execute(SEARCH_SQL, {**params, "k": k_exercises, "owned": owned}).fetchall()]
-        passages = [ChunkHit.model_validate(r) for r in cur.execute(CHUNK_SEARCH_SQL, {**params, "k": k_passages}).fetchall()]
+        passages = [ChunkHit.model_validate(r) for r in cur.execute(CHUNK_SEARCH_SQL, {**params, "k": k_passages, "population": population}).fetchall()]
     return exercises, passages
 
 
@@ -146,6 +148,7 @@ SELECT source_id || '-' || chunk_index AS passage_id, source_id, source_type, so
        ts_rank_cd(to_tsvector('english', embed_text), {OR_QUERY_SQL}) AS similarity
 FROM document_chunk
 WHERE to_tsvector('english', embed_text) @@ {OR_QUERY_SQL}
+  AND (%(population)s::text IS NULL OR cardinality(populations) = 0 OR %(population)s = ANY(populations))  -- F5
 ORDER BY similarity DESC
 LIMIT %(k)s
 """
@@ -154,7 +157,7 @@ RRF_K = 60
 
 
 def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
-                       owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+                       owned: list[str] | None = None, population: str | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Full-text keyword search over both tables. `similarity` holds the text-rank score."""
     params = {"qtext": question}
     with get_connection() as conn:
@@ -162,7 +165,7 @@ def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
         if not cur.execute("SELECT numnode(" + OR_QUERY_SQL + ") > 0 AS ok", params).fetchone()["ok"]:
             return [], []  # the question was only stop words
         exercises = [ExerciseHit.model_validate(r) for r in cur.execute(KEYWORD_EXERCISE_SQL, {**params, "k": k_exercises, "owned": owned}).fetchall()]
-        passages = [ChunkHit.model_validate(r) for r in cur.execute(KEYWORD_CHUNK_SQL, {**params, "k": k_passages}).fetchall()]
+        passages = [ChunkHit.model_validate(r) for r in cur.execute(KEYWORD_CHUNK_SQL, {**params, "k": k_passages, "population": population}).fetchall()]
     return exercises, passages
 
 
@@ -178,10 +181,10 @@ def _rrf(rankings: list[list], key) -> list:
 
 
 def hybrid_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20,
-                      owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+                      owned: list[str] | None = None, population: str | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Semantic + keyword, each retrieving `pool` candidates, merged with RRF. `similarity` holds the RRF score."""
-    sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool, owned=owned)
-    kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool, owned=owned)
+    sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool, owned=owned, population=population)
+    kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool, owned=owned, population=population)
     exercises = _rrf([sem_ex, kw_ex], key=lambda h: h.slug)[:k_exercises]
     passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id)[:k_passages]
     return exercises, passages

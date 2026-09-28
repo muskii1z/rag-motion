@@ -112,3 +112,10 @@ CREATE TABLE IF NOT EXISTS document_chunk (
     created_at     timestamptz NOT NULL DEFAULT now(),
     UNIQUE (source_id, chunker, chunk_index)
 );
+
+-- Phase 1F, F5: who each passage is about, so questions about one group skip another group's numbers.
+-- Empty = general (applies to everyone, never filtered out). Set by chunking.populations_for().
+ALTER TABLE document_chunk ADD COLUMN IF NOT EXISTS populations text[] NOT NULL DEFAULT '{}';
+ALTER TABLE document_chunk DROP CONSTRAINT IF EXISTS document_chunk_populations_check;
+ALTER TABLE document_chunk ADD CONSTRAINT document_chunk_populations_check
+    CHECK (populations <@ ARRAY['adults', 'older-adults', 'youth', 'pregnancy']);

@@ -12,18 +12,18 @@ those rows are cleared too, and get recomputed in Step 13).
 import argparse
 import statistics
 
-from ragmotion.chunking import chunk_source, chunker_label, embed_text_for
+from ragmotion.chunking import chunk_source, chunker_label, embed_text_for, populations_for
 from ragmotion.db import get_connection
 from ragmotion.ingestion import load_sources
 
 INSERT_SQL = """
 INSERT INTO document_chunk (
     source_id, source_type, source_title, source_url, license, license_group,
-    chunk_index, chapter, headings, page_start, page_end, text, embed_text, word_count, chunker
+    chunk_index, chapter, headings, page_start, page_end, text, embed_text, word_count, chunker, populations
 ) VALUES (
     %(source_id)s, %(source_type)s, %(source_title)s, %(source_url)s, %(license)s, %(license_group)s,
     %(chunk_index)s, %(chapter)s, %(headings)s, %(page_start)s, %(page_end)s,
-    %(text)s, %(embed_text)s, %(word_count)s, %(chunker)s
+    %(text)s, %(embed_text)s, %(word_count)s, %(chunker)s, %(populations)s
 )
 """
 
@@ -53,6 +53,7 @@ def main() -> None:
                     "chunk_index": c.chunk_index, "chapter": c.chapter, "headings": c.headings,
                     "page_start": c.page_start, "page_end": c.page_end, "text": c.text,
                     "embed_text": embed_text_for(source, c), "word_count": c.word_count, "chunker": label,
+                    "populations": populations_for(source.id, c.chapter, c.headings, c.text),
                 })
 
             w = [c.word_count for c in chunks]

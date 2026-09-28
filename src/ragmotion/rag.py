@@ -1,7 +1,7 @@
 """Retrieval-augmented generation: search, then answer from what was found.
 
     question -> extract_limits() -> equipment the person has (F3)
-             -> search_all(owned=...) -> top usable exercises + top document passages (F4 filter)
+             -> search_all(owned=..., population=...) -> top usable exercises + top passages for that group (F4, F5)
              -> LLM (evidence + question) -> GroundedAnswer -> citation checks in code -> RAGResult
 
 The LLM only sees the retrieved evidence: exercises from the catalog (Step 10) and passages
@@ -154,7 +154,8 @@ def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mo
                     use_filters: bool = True) -> RAGResult:
     """mode: "semantic" (default), "keyword", or "hybrid" retrieval (see retrieval.SEARCH_MODES).
 
-    use_filters: read the question's equipment limits first and search only usable exercises (F3/F4).
+    use_filters: read the question's limits first; search only usable exercises (F4) and passages
+    about the asked-about group or everyone (F5).
     """
     run = get_current_run_tree()
     if run:  # settings go to trace metadata so the trace list previews the question itself
@@ -163,8 +164,9 @@ def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mo
     t_start = time.perf_counter()
     limits, limits_usage = extract_limits(question) if use_filters else (None, None)
     owned = limits.owned_equipment() if limits else None
+    population = limits.population if limits else None
     t0 = time.perf_counter()
-    exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages, owned=owned)
+    exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages, owned=owned, population=population)
     t1 = time.perf_counter()
 
     user_content = f"{format_evidence(exercises, passages)}\n\n<question>\n{question}\n</question>"
