@@ -24,9 +24,14 @@ questions:
 - id: ex-glutes-dumbbells
   question: "Beginner glute exercises using dumbbells"
   category: exercise-selection
-  expected_exercises: [dumbbell-hip-thrust, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, goblet-squat, bulgarian-split-squat]
+  expected_exercises: [dumbbell-hip-thrust, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, goblet-squat]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review (M. Saraswat): the question says "beginner", so only beginner exercises are expected.
+    Removed bulgarian-split-squat (intermediate); single-leg-romanian-deadlift stays out for the same reason.
+    Answer-level rule, not yet checked by code: if an answer suggests an intermediate exercise to a
+    beginner, it must say the exercise is intermediate.
 
 - id: ex-band-pull
   question: "Upper-body pulling exercises with resistance bands"
