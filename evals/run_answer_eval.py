@@ -42,7 +42,7 @@ def ensure_dataset(client: Client) -> str:
         inputs=[{"question": q.question} for q in questions],
         outputs=[{
             "id": q.id, "category": q.category, "expected_coverage": q.expected_coverage,
-            "expected_exercises": q.expected_exercises, "forbidden_exercises": q.forbidden_exercises,
+            "expected_exercises": q.expected_exercises, "forbidden_exercises": q.forbidden_exercises, "acceptable_exercises": q.acceptable_exercises,
             "expected_passages": q.expected_passages, "forbidden_passages": q.forbidden_passages,
             "reviewed": q.reviewed,
         } for q in questions],

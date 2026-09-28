@@ -25,6 +25,7 @@ class EvalQuestion:
     category: str
     expected_exercises: list[str] = field(default_factory=list)
     forbidden_exercises: list[str] = field(default_factory=list)
+    acceptable_exercises: list[str] = field(default_factory=list)  # fine if labeled; not scored
     expected_passages: list[dict] = field(default_factory=list)
     forbidden_passages: list[dict] = field(default_factory=list)
     expected_coverage: str | None = None

@@ -10,6 +10,8 @@
 #   category            exercise-selection | jargon | constraint | dose | population | notes | coverage-gap
 #   expected_exercises  catalog slugs that SHOULD be retrieved (order doesn't matter)
 #   forbidden_exercises slugs that must NOT be recommended (e.g. need equipment the client lacks)
+#   acceptable_exercises slugs that are fine to mention IF the answer labels them (secondary muscle,
+#                       intermediate for a beginner); neither required nor penalized in scoring
 #   expected_passages   matchers; a retrieved passage matches if `source` is equal AND (any of its pages
 #                       is in `pages`, OR a heading contains `heading`, OR its chapter starts with `chapter`).
 #                       A matcher with only `source` matches any passage from that source.
@@ -25,6 +27,7 @@ questions:
   question: "Beginner glute exercises using dumbbells"
   category: exercise-selection
   expected_exercises: [dumbbell-hip-thrust, dumbbell-romanian-deadlift, dumbbell-reverse-lunge, goblet-squat, dumbbell-step-up]
+  acceptable_exercises: [bulgarian-split-squat, single-leg-romanian-deadlift]  # only if labeled intermediate
   expected_coverage: full
   reviewed: true
   notes: >-
@@ -80,36 +83,47 @@ questions:
   category: exercise-selection
   expected_exercises: [pallof-press]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: Pallof press only. The dead bug is anti-extension, not anti-rotation."
 
 - id: ex-grip
   question: "Something to build grip strength"
   category: exercise-selection
   expected_exercises: [farmer-carry]
+  acceptable_exercises: [one-arm-dumbbell-row, inverted-row, dumbbell-romanian-deadlift, kettlebell-swing]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review: the farmer carry is the grip exercise. Rows, RDLs, and swings may be mentioned only if
+    the answer says grip is trained secondarily (same rule as ex-biceps).
 
 - id: ex-overhead
   question: "Overhead pressing exercise for the shoulders"
   category: exercise-selection
   expected_exercises: [dumbbell-overhead-press]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: overhead press only; the push-up is a horizontal press."
 
 - id: ex-upper-back
   question: "Exercises for the upper back and rear shoulders"
   category: exercise-selection
-  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row]
+  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row, farmer-carry]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: "Coach review: added the farmer carry (upper trapezius) to the three pulls."
 
 # ---- Coach jargon and abbreviations ----
 - id: jargon-rdl
   question: "beginner RDL"
   category: jargon
-  expected_exercises: [dumbbell-romanian-deadlift, single-leg-romanian-deadlift]
+  expected_exercises: [dumbbell-romanian-deadlift]
+  acceptable_exercises: [single-leg-romanian-deadlift]
   expected_coverage: full
-  reviewed: false
+  reviewed: true
+  notes: >-
+    Coach review: the question says beginner, so only the dumbbell RDL is expected. The single-leg RDL
+    may be shown only if the answer labels it intermediate.
 
 - id: jargon-bss
   question: "BSS for single-leg strength"
