@@ -1,6 +1,7 @@
 """Retrieval-augmented generation: search, then answer from what was found.
 
-    question -> search_all() -> top exercises + top document passages
+    question -> extract_limits() -> equipment the person has (F3)
+             -> search_all(owned=...) -> top usable exercises + top document passages (F4 filter)
              -> LLM (evidence + question) -> GroundedAnswer -> citation checks in code -> RAGResult
 
 The LLM only sees the retrieved evidence: exercises from the catalog (Step 10) and passages
@@ -16,8 +17,8 @@ from dataclasses import dataclass, field
 from langsmith import traceable
 from langsmith.run_helpers import get_current_run_tree
 
-from ragmotion.llm import LLMUsage, structured_completion
-from ragmotion.models import GroundedAnswer
+from ragmotion.llm import LLMUsage, extract_limits, structured_completion
+from ragmotion.models import GroundedAnswer, QuestionLimits
 from ragmotion.retrieval import SEARCH_MODES, ChunkHit, ExerciseHit
 
 ANSWER_SYSTEM_PROMPT = """\
@@ -77,6 +78,8 @@ class RAGResult:
     passages: list[ChunkHit]  # retrieved document/note passages, in rank order
     usage: LLMUsage
     citation_problems: list[str] = field(default_factory=list)
+    limits: QuestionLimits | None = None  # what F3 read from the question (None if filters were off)
+    limits_usage: LLMUsage | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -141,18 +144,27 @@ def _summarize_result(r: "RAGResult | None") -> dict:
         "cited_ids": r.answer.cited_ids,
         "citation_problems": r.citation_problems,
         "cost_usd": r.usage.cost_usd,
+        "limits": r.limits.model_dump() if r.limits else None,
     }
 
 
 @traceable(run_type="chain", name="answer_question", process_inputs=lambda inputs: {"question": inputs["question"]},
            process_outputs=_summarize_result)
-def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mode: str = "semantic") -> RAGResult:
-    """mode: "semantic" (default), "keyword", or "hybrid" retrieval (see retrieval.SEARCH_MODES)."""
+def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mode: str = "semantic",
+                    use_filters: bool = True) -> RAGResult:
+    """mode: "semantic" (default), "keyword", or "hybrid" retrieval (see retrieval.SEARCH_MODES).
+
+    use_filters: read the question's equipment limits first and search only usable exercises (F3/F4).
+    """
     run = get_current_run_tree()
     if run:  # settings go to trace metadata so the trace list previews the question itself
-        run.add_metadata({"retrieval_mode": mode, "k_exercises": k_exercises, "k_passages": k_passages})
+        run.add_metadata({"retrieval_mode": mode, "k_exercises": k_exercises, "k_passages": k_passages,
+                          "use_filters": use_filters})
+    t_start = time.perf_counter()
+    limits, limits_usage = extract_limits(question) if use_filters else (None, None)
+    owned = limits.owned_equipment() if limits else None
     t0 = time.perf_counter()
-    exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages)
+    exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages, owned=owned)
     t1 = time.perf_counter()
 
     user_content = f"{format_evidence(exercises, passages)}\n\n<question>\n{question}\n</question>"
@@ -173,5 +185,8 @@ def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mo
         passages=passages,
         usage=usage,
         citation_problems=check_citations(answer, retrieved_ids),
-        timings_ms={"retrieval": (t1 - t0) * 1000, "generation": (t2 - t1) * 1000, "total": (t2 - t0) * 1000},
+        limits=limits,
+        limits_usage=limits_usage,
+        timings_ms={"limits": (t0 - t_start) * 1000, "retrieval": (t1 - t0) * 1000,
+                    "generation": (t2 - t1) * 1000, "total": (t2 - t_start) * 1000},
     )

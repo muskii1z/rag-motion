@@ -54,9 +54,9 @@ def ensure_dataset(client: Client) -> str:
     return name
 
 
-def make_target(mode: str):
+def make_target(mode: str, use_filters: bool):
     def target(inputs: dict) -> dict:
-        r = answer_question(inputs["question"], mode=mode)
+        r = answer_question(inputs["question"], mode=mode, use_filters=use_filters)
         return {
             "answer": r.answer.answer,
             "general_guidance": r.answer.general_guidance,
@@ -122,18 +122,20 @@ CHECK_KEYS = ["citations_valid", "coverage_correct", "used_expected_evidence", "
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
+    parser.add_argument("--no-filters", action="store_true", help="skip the F4 equipment filter (the F2 baseline)")
     args = parser.parse_args()
+    use_filters = not args.no_filters
 
     client = Client()
     name = ensure_dataset(client)
-    print(f"Dataset: {name}  |  retrieval: {args.mode}  |  model: {settings.llm_model}")
+    print(f"Dataset: {name}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  model: {settings.llm_model}")
 
     results = evaluate(
-        make_target(args.mode),
+        make_target(args.mode, use_filters),
         data=name,
         evaluators=EVALUATORS,
-        experiment_prefix=f"answers-{args.mode}",
-        metadata={"retrieval_mode": args.mode, "llm_model": settings.llm_model,
+        experiment_prefix=f"answers-{args.mode}" + ("-filtered" if use_filters else ""),
+        metadata={"retrieval_mode": args.mode, "use_filters": use_filters, "llm_model": settings.llm_model,
                   "embedding_model": settings.embedding_model},
         max_concurrency=4,
     )

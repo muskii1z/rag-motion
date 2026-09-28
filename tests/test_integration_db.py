@@ -33,3 +33,20 @@ def test_keyword_search_finds_exercises_that_mention_biceps():
     slugs = {h.slug for h in exercises}
     assert "dumbbell-biceps-curl" in slugs
     assert all("biceps" in h.primary_muscles or "biceps" in h.name.lower() for h in exercises)
+
+
+def test_equipment_filter_only_returns_usable_exercises():
+    # F4: reuse a stored vector as the "question", so no API call is needed.
+    from psycopg.rows import dict_row
+
+    from ragmotion.config import settings
+    from ragmotion.retrieval import SEARCH_SQL
+
+    with get_connection() as conn:
+        q = conn.execute("SELECT embedding FROM exercise WHERE slug = 'goblet-squat'").fetchone()[0]
+        cur = conn.cursor(row_factory=dict_row)
+        params = {"q": q, "model": settings.embedding_model, "k": 50}
+        filtered = cur.execute(SEARCH_SQL, {**params, "owned": ["band", "bodyweight"]}).fetchall()
+        unfiltered = cur.execute(SEARCH_SQL, {**params, "owned": None}).fetchall()
+    assert filtered and all(set(r["equipment"]) <= {"band", "bodyweight"} for r in filtered)
+    assert len(unfiltered) == 42

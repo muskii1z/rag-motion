@@ -28,17 +28,19 @@ SELECT slug, name, description, instructions, primary_muscles, movement_pattern,
 FROM exercise
 WHERE embedding IS NOT NULL
   AND embedding_model = %(model)s      -- never compare vectors from different models
+  AND (%(owned)s::text[] IS NULL          -- F4 equipment filter: when the question limits equipment,
+       OR equipment <@ %(owned)s::text[])  -- keep only exercises needing nothing beyond what's owned
 ORDER BY embedding <=> %(q)s           -- smallest distance first = nearest neighbors
 LIMIT %(k)s
 """
 
 
-def search_exercises(question: str, k: int = 5) -> list[ExerciseHit]:
-    """Return the k exercises whose embeddings are closest to the question's."""
+def search_exercises(question: str, k: int = 5, owned: list[str] | None = None) -> list[ExerciseHit]:
+    """Return the k exercises whose embeddings are closest to the question's (only usable ones if `owned` is set)."""
     query_vector = Vector(embed_query(question))
     with get_connection() as conn:
         rows = conn.cursor(row_factory=dict_row).execute(
-            SEARCH_SQL, {"q": query_vector, "model": settings.embedding_model, "k": k}
+            SEARCH_SQL, {"q": query_vector, "model": settings.embedding_model, "k": k, "owned": owned}
         ).fetchall()
     return [ExerciseHit.model_validate(r) for r in rows]
 
@@ -94,13 +96,18 @@ def _as_trace_documents(result: tuple[list[ExerciseHit], list["ChunkHit"]]) -> d
 
 
 @traceable(run_type="retriever", name="search_all", process_outputs=_as_trace_documents)
-def search_all(question: str, k_exercises: int = 5, k_passages: int = 5) -> tuple[list[ExerciseHit], list[ChunkHit]]:
-    """Embed the question once, then search exercises and document passages with the same vector."""
+def search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
+               owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+    """Embed the question once, then search exercises and document passages with the same vector.
+
+    owned: equipment the person has (F4). If set, exercises needing anything else are skipped.
+    Passages aren't filtered by equipment.
+    """
     q = Vector(embed_query(question))
     params = {"q": q, "model": settings.embedding_model}
     with get_connection() as conn:
         cur = conn.cursor(row_factory=dict_row)
-        exercises = [ExerciseHit.model_validate(r) for r in cur.execute(SEARCH_SQL, {**params, "k": k_exercises}).fetchall()]
+        exercises = [ExerciseHit.model_validate(r) for r in cur.execute(SEARCH_SQL, {**params, "k": k_exercises, "owned": owned}).fetchall()]
         passages = [ChunkHit.model_validate(r) for r in cur.execute(CHUNK_SEARCH_SQL, {**params, "k": k_passages}).fetchall()]
     return exercises, passages
 
@@ -128,6 +135,7 @@ SELECT slug, name, description, instructions, primary_muscles, movement_pattern,
        ts_rank_cd(to_tsvector('english', {EXERCISE_TEXT_SQL}), {OR_QUERY_SQL}) AS similarity
 FROM exercise
 WHERE to_tsvector('english', {EXERCISE_TEXT_SQL}) @@ {OR_QUERY_SQL}
+  AND (%(owned)s::text[] IS NULL OR equipment <@ %(owned)s::text[])
 ORDER BY similarity DESC
 LIMIT %(k)s
 """
@@ -145,14 +153,15 @@ LIMIT %(k)s
 RRF_K = 60
 
 
-def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
+                       owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Full-text keyword search over both tables. `similarity` holds the text-rank score."""
     params = {"qtext": question}
     with get_connection() as conn:
         cur = conn.cursor(row_factory=dict_row)
         if not cur.execute("SELECT numnode(" + OR_QUERY_SQL + ") > 0 AS ok", params).fetchone()["ok"]:
             return [], []  # the question was only stop words
-        exercises = [ExerciseHit.model_validate(r) for r in cur.execute(KEYWORD_EXERCISE_SQL, {**params, "k": k_exercises}).fetchall()]
+        exercises = [ExerciseHit.model_validate(r) for r in cur.execute(KEYWORD_EXERCISE_SQL, {**params, "k": k_exercises, "owned": owned}).fetchall()]
         passages = [ChunkHit.model_validate(r) for r in cur.execute(KEYWORD_CHUNK_SQL, {**params, "k": k_passages}).fetchall()]
     return exercises, passages
 
@@ -168,10 +177,11 @@ def _rrf(rankings: list[list], key) -> list:
     return [items[k].model_copy(update={"similarity": scores[k]}) for k in ordered]
 
 
-def hybrid_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+def hybrid_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20,
+                      owned: list[str] | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
     """Semantic + keyword, each retrieving `pool` candidates, merged with RRF. `similarity` holds the RRF score."""
-    sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool)
-    kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool)
+    sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool, owned=owned)
+    kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool, owned=owned)
     exercises = _rrf([sem_ex, kw_ex], key=lambda h: h.slug)[:k_exercises]
     passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id)[:k_passages]
     return exercises, passages

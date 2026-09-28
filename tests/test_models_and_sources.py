@@ -39,3 +39,14 @@ def test_verify_file_rejects_a_changed_file(tmp_path):
     source.local_path = str(fake)  # absolute path wins over PROJECT_ROOT joining
     with pytest.raises(ValueError, match="does not match the manifest"):
         verify_file(source)
+
+
+def test_equipment_filter_always_allows_bodyweight_and_is_off_when_unlimited():
+    from ragmotion.models import QuestionLimits
+
+    bands = QuestionLimits(equipment_limited=True, equipment_owned=["band"], limit_phrase="only have bands")
+    assert bands.owned_equipment() == ["band", "bodyweight"]
+    nothing = QuestionLimits(equipment_limited=True, equipment_owned=[], limit_phrase="no equipment")
+    assert nothing.owned_equipment() == ["bodyweight"]
+    gym = QuestionLimits(equipment_limited=False, equipment_owned=[], limit_phrase="full gym")
+    assert gym.owned_equipment() is None

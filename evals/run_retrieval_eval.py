@@ -1,4 +1,7 @@
-"""Step 15: score keyword vs semantic vs hybrid retrieval on the eval set. No LLM calls.
+"""Step 15: score keyword vs semantic vs hybrid retrieval on the eval set.
+
+F4 adds "semantic+filter": the equipment limits are read from each question by the LLM
+(one small call per question, ~$0.001 per run), then semantic search skips unusable exercises.
 
 Run from the project folder:
     uv run python evals/run_retrieval_eval.py            # summary tables
@@ -20,7 +23,8 @@ from ragmotion.chunking import chunker_label
 from ragmotion.config import settings
 from ragmotion.evaluation import load_eval_set, score_retrieval
 from ragmotion.ingestion import PROJECT_ROOT
-from ragmotion.retrieval import SEARCH_MODES
+from ragmotion.llm import extract_limits
+from ragmotion.retrieval import SEARCH_MODES, search_all
 
 K = 5
 METRICS = ["exercise_recall", "exercise_hit", "exercise_mrr", "passage_recall", "passage_hit", "passage_mrr", "forbidden"]
@@ -58,10 +62,20 @@ def main() -> None:
                                       "retrieved_exercises": [h.slug for h in exercises],
                                       "retrieved_passages": [p.passage_id for p in passages]})
 
+        # F4: same semantic search, with the equipment filter from the question's limits.
+        results["semantic+filter"] = []
+        for q in questions:
+            owned = extract_limits(q.question)[0].owned_equipment()
+            exercises, passages = search_all(q.question, k_exercises=K, k_passages=K, owned=owned)
+            score = score_retrieval(q, exercises, passages)
+            results["semantic+filter"].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned,
+                                               "retrieved_exercises": [h.slug for h in exercises],
+                                               "retrieved_passages": [p.passage_id for p in passages]})
+
     # ---- Overall table ----
-    print(f"{'mode':<9} " + " ".join(f"{m:>15}" for m in METRICS))
+    print(f"{'mode':<16} " + " ".join(f"{m:>15}" for m in METRICS))
     for mode, rows in results.items():
-        print(f"{mode:<9} " + " ".join(f"{fmt(mean([r[m] for r in rows])):>15}" for m in METRICS))
+        print(f"{mode:<16} " + " ".join(f"{fmt(mean([r[m] for r in rows])):>15}" for m in METRICS))
     print("\n(recall/hit/MRR: higher is better. forbidden: share of questions where a forbidden item was retrieved, lower is better.)")
 
     # ---- By category: the main recall number for each ----

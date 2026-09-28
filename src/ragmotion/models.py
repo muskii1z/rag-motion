@@ -86,3 +86,32 @@ class GroundedAnswer(BaseModel):
         description="Optional, brief practical guidance from general training knowledge that is NOT in the evidence "
         "(e.g. typical sets, reps, rest, progression). No [slug] citations here. Null if nothing useful to add."
     )
+
+
+class QuestionLimits(BaseModel):
+    """Limits stated in the coach's question, read by the LLM before search (Phase 1F, F3).
+
+    Equipment only for now. Level and population get their own filters later, one change at a
+    time, so the eval shows what each filter does.
+    """
+
+    equipment_limited: bool = Field(
+        description="True only if the question says what equipment the person has, so anything else is unavailable: "
+        "'I only have bands', 'at home with no equipment', 'I have dumbbells and a bench', 'exercises that need no "
+        "equipment'. False if equipment isn't mentioned, or a full gym is available."
+    )
+    equipment_owned: list[Equipment] = Field(
+        description="The equipment the person has, mapped to allowed names: 'resistance bands' -> 'band', "
+        "'dumbbells' -> 'dumbbell', 'flat bench' -> 'bench', 'pull-up bar' -> 'pullup-bar'. "
+        "Empty if they have none, or if equipment_limited is false."
+    )
+    limit_phrase: str | None = Field(description="The exact words in the question that state the equipment limit, or null.")
+
+    def owned_equipment(self) -> list[str] | None:
+        """What the equipment filter allows: the stated equipment plus bodyweight. None means no filter.
+
+        Computed in code, not by the LLM: everyone can do bodyweight exercises, so it's always added.
+        """
+        if not self.equipment_limited:
+            return None
+        return sorted(set(self.equipment_owned) | {"bodyweight"})
