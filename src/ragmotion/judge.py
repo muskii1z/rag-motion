@@ -10,9 +10,11 @@ the rules the coach attached to that question in evals/eval_set.yaml (`answer_ru
 """
 
 import json
+import time
 from typing import Literal
 
 from langsmith import traceable
+from openai import RateLimitError
 from pydantic import BaseModel
 
 from ragmotion.ingestion import PROJECT_ROOT
@@ -92,5 +94,13 @@ def judge_answer(question: str, answer: str, general_guidance: str | None,
         f"<catalog>\n{catalog_table()}\n</catalog>\n\n"
         f"<rules>\n{rule_text}\n</rules>"
     )
-    return structured_completion(JUDGE_SYSTEM_PROMPT, user, JudgeResult,
-                                 max_tokens=1500, temperature=0, model=JUDGE_MODEL)
+    # New OpenRouter accounts get 20 requests/minute on this model (hit in F6 when 6 eval runs went
+    # in parallel), so wait and retry instead of losing the verdict.
+    for wait in (10, 20, 40, 60, None):
+        try:
+            return structured_completion(JUDGE_SYSTEM_PROMPT, user, JudgeResult,
+                                         max_tokens=1500, temperature=0, model=JUDGE_MODEL)
+        except RateLimitError:
+            if wait is None:
+                raise
+            time.sleep(wait)

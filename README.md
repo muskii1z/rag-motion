@@ -4,7 +4,7 @@ A retrieval-augmented assistant for strength coaches. Ask a training question in
 
 Built step by step as an AI-engineering portfolio project, with every decision and lesson documented in [`docs/`](docs/).
 
-**Status:** Phase 1 (production RAG fundamentals) complete. Next: metadata filters and retrieval improvements (Phase 1F), then a program-design agent (Phase 2).
+**Status:** Phase 1 (production RAG fundamentals) complete. Phase 1F: equipment and age-group filters done; answers that broke a limit went from 4 in 13 to 0 in 13 on the eval. Next: retrieval improvements for "list everything" questions, then a program-design agent (Phase 2).
 
 ---
 
@@ -12,16 +12,18 @@ Built step by step as an AI-engineering portfolio project, with every decision a
 
 - **Answers from evidence, not memory.** The model sees only retrieved passages and exercises, cites each one by id, and says plainly when the sources don't cover a question.
 - **Shows its work.** The web page color-codes citations (guidelines, research, notes, catalog) and opens the exact source passage on click. General training knowledge, when useful, is shown separately and labeled "not from your sources".
+- **Respects limits.** It reads the person's equipment and age group from the question and filters the search, so someone with only dumbbells never gets a bench exercise, and a beginner adult never gets older-adult numbers.
 - **Checks itself.** Python verifies that every citation points to retrieved evidence, catching invented or mistyped sources before the user trusts them.
-- **Is measured.** A 31-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
+- **Is measured.** A 40-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    Q[Coach's question] --> E[Embed question<br/>Voyage voyage-4-lite]
-    E --> S[(Postgres + pgvector<br/>20 exercises · 200 passages)]
-    S --> R[Top 5 exercises +<br/>top 5 passages]
+    Q[Coach's question] --> F[Read limits<br/>equipment · age group<br/>small LLM call]
+    F --> E[Embed question<br/>Voyage voyage-4-lite]
+    E --> S[(Postgres + pgvector<br/>42 exercises · 200 passages<br/>filtered in SQL)]
+    S --> R[Top 5 usable exercises +<br/>top 5 passages for that group]
     R --> L[LLM via OpenRouter<br/>Gemini 2.5 Flash-Lite<br/>structured output]
     L --> C[Citation checks<br/>in Python]
     C --> A[Answer + sources<br/>web page or CLI]
@@ -49,7 +51,9 @@ Key design choices (full reasoning in [`docs/decisions/`](docs/decisions/README.
 | Research papers as structured XML, not PDF | No two-column layout guessing; tables survive row by row |
 | Structured output + code-based citation checks | A valid shape doesn't guarantee valid content; code catches what the model gets wrong |
 | Evidence-only answers with separately labeled general guidance | The coach can always tell what's verified from what isn't |
-| Code-based eval checks, not an LLM judge | Deterministic, free, and never the model grading itself |
+| Limits enforced by filters in the database search, not prompt rules | With prompt rules alone, 5 of 13 constrained answers still broke a limit; the model can't suggest what it never sees |
+| Age-group tags on passages from the source's own structure | The guidelines are organized by population, so rules tag every passage for free, testably, with no model guessing |
+| Code checks for facts; an AI judge only for the coach's labeling rules | Facts (real citation? forbidden item?) stay deterministic. Rules that need reading ("is it labeled intermediate?") go to a stronger model from a different family, never the one that wrote the answer |
 
 ## Knowledge base
 
@@ -59,34 +63,37 @@ Key design choices (full reasoning in [`docs/decisions/`](docs/decisions/README.
 | Kons et al. 2023, *Effects of Plyometric Training on Physical Performance: An Umbrella Review* | Research article (XML) | CC BY 4.0 | 25 |
 | Haugen et al. 2019, *The Training and Development of Elite Sprint Performance* | Research article (XML) | CC BY 4.0 | 28 |
 | Notes on NSCA position statements: weightlifting, older adults, youth/LTAD | Original project notes | Project-owned; cite NSCA | 14 |
-| Exercise catalog | 20 original exercises | Project-owned | – |
+| Exercise catalog | 42 original exercises (22 coach-reviewed) | Project-owned | – |
 
 Sources are chosen under a written [licensing policy](docs/decisions/0017-knowledge-source-licensing-policy.md): copyrighted material (for example NSCA publications) is never ingested; it enters only as original notes that cite it. Downloaded files stay out of git; [`data/sources.toml`](data/sources.toml) records each source's URL, license, attribution, and file hash.
 
 ## Evaluation
 
-31 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach jargon, equipment constraints, guideline dosage, population-specific advice, research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **reviewed question by question by the coach**, who corrected several expectations.
+40 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach jargon, equipment limits (bands only, one kettlebell, no equipment, a full gym), guideline dosage, specific groups (beginner adults, older adults, kids, pregnancy), research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **set question by question by the coach**. One question is a trap: with a full gym nothing should be removed, so it catches a filter that's too strict.
 
-**Retrieval** (top 5, no LLM involved):
+**Retrieval** (top 5, same 40 questions):
 
-| Search mode | Exercise recall | Passage recall | Passage MRR |
-|---|---|---|---|
-| **Semantic (default)** | **0.91** | **0.97** | 0.78 |
-| Keyword (Postgres full-text) | 0.66 | 0.69 | 0.56 |
-| Hybrid (reciprocal rank fusion) | 0.85 | 0.95 | 0.87 |
+| Search mode | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
+|---|---|---|---|---|
+| Keyword (Postgres full-text) | 0.59 | 0.66 | 0.50 | 15% |
+| Hybrid (reciprocal rank fusion) | 0.75 | 0.93 | 0.84 | 23% |
+| Semantic | 0.80 | 0.97 | 0.79 | 17% |
+| **Semantic + equipment and age-group filters (default)** | **0.83** | **0.97** | **0.86** | **0%** |
 
-**Answers** (full pipeline, scored by code, tracked as LangSmith experiments):
+**Answers**, before and after the filters (full pipeline, scored in code, averaged over 3 runs each, tracked as LangSmith experiments):
 
-| Check | Result |
-|---|---|
-| Every citation points to retrieved evidence | 31 / 31 |
-| Used the expected evidence | 30 / 30 |
-| Honest coverage claim (full / partial / none) | 29 / 31 |
-| No forbidden advice (wrong equipment or population) | **2 / 5** |
+| Check | No filters | With filters |
+|---|---|---|
+| **No forbidden advice** (wrong equipment or age group) | **69%** (27 / 39) | **100%** (39 / 39) |
+| Every citation points to retrieved evidence | 98% | 98% |
+| Used the expected evidence | 98% | 98% |
+| Honest coverage claim (full / partial / none) | 88% | 91% |
 
-What the numbers say: citations are reliable and the system admits gaps (it correctly answers "not covered" to a nutrition question it has no sources for). Its clear weakness is **respecting constraints**: it can still suggest bench exercises to someone with only dumbbells, or older-adult numbers to a beginner adult. Prompt wording didn't fix this; the planned fix is metadata filters (equipment and population) applied before retrieval, measured against this same eval.
+The coach's labeling rules (label intermediate exercises for beginners, label bodyweight options and secondary muscles, group beginner exercises by muscle group) are graded by an AI judge: Claude Sonnet 5.5, a different model family from the one that writes answers. It reads the answer against the catalog's facts and gives a verdict with a one-sentence reason for the coach to check.
 
-Adding the two research papers is an example of the eval loop: sprint-acceleration questions went from "not covered" to specific, cited answers, with citation validity and evidence use unchanged.
+What the numbers say: before the filters, the system could still suggest bench exercises to someone with only dumbbells, or older-adult numbers to a beginner adult, even though the prompt told it not to. Moving the limit out of the prompt and into the search fixed that completely on this eval, without losing anything elsewhere. The trap question still passes, so nothing usable was filtered out. The remaining weakness is breadth: with only 5 exercises in view, it can't list "every beginner exercise by muscle group".
+
+Two lessons from the process: when the catalog grew from 20 to 42 exercises, recall "fell" only because the answer key was out of date, so the key was fixed before anything else was measured. And single runs are noisy (the coverage claim changes from run to run), so the before-and-after comparison uses averages.
 
 ## Run it locally
 
@@ -118,9 +125,10 @@ uv run python scripts/ask.py "How much strength training should a beginner adult
 Tests and evaluation:
 
 ```bash
-uv run pytest                                  # 31 tests, ~0.3 s, no API calls
+uv run pytest                                  # 37 tests, ~0.4 s, no API calls
 uv run python evals/run_retrieval_eval.py      # retrieval scores (free)
-uv run python evals/run_answer_eval.py         # answer scores (~2 cents, needs LangSmith key)
+uv run python evals/run_answer_eval.py         # answer scores + AI judge (~10 cents, needs LangSmith key)
+uv run python evals/run_answer_eval.py --no-filters   # the same, without the filters, for comparison
 ```
 
 ## Project layout
@@ -144,8 +152,8 @@ tests/           unit and integration tests
 
 ## Limitations
 
-- Answers don't yet respect equipment or population limits reliably (see Evaluation).
 - Top-5 retrieval is too small for "list everything" questions.
-- The catalog has 20 exercises; program-design sources (sets, reps, frequency) are still thin.
+- Limits are read from the current question only. The level (beginner, advanced) is read but not used as a filter yet.
+- The catalog has 42 exercises (the original 20 still await coach review); program-design sources (sets, reps, frequency) are still thin.
 - Each question is answered on its own; there is no conversation memory.
 - Not medical advice. Built for coaches working with generally healthy people; demo data is fictional.

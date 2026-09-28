@@ -45,8 +45,8 @@ Update the Status column as steps complete.
 | F3 | Read limits (equipment, population, level) from the question | done for equipment + population (`extract_limits`, `QuestionLimits`); level not filtered |
 | F4 | Equipment filter (`equipment <@ owned`) | done: no forbidden citations 8/13 -> 12/13 |
 | F5 | Population tags on chunks + filter | done: rule-based tags (`populations_for`, `scripts/tag_populations.py`); no forbidden citations 12/13 -> 13/13 |
-| F6 | Re-run the eval and compare; README update | next (numbers in hand) |
-| F7+ | Larger k for "list everything", query rewriting for jargon, tuned hybrid, reranking | |
+| F6 | Re-run the eval and compare; README update | done: no forbidden advice 69% -> 100% (3 runs each); coverage keys for 3 equipment questions set to partial by coach |
+| F7+ | Larger k for "list everything", query rewriting for jargon, tuned hybrid, reranking | next |
 | Pre-Phase 2 | Program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18-19) | |
 
 **Next: Phase 1F, better RAG (eval first).** 1) Extend the eval: ~8–10 coach-written equipment/population questions and code checks for the coach's four answer-level rules (label intermediate, label secondary muscles, label bodyweight options, group by muscle group); run for a new baseline. 2) Build filters: extract equipment/population from the question, filter exercises with `equipment <@ owned`, tag chunks by population and filter them. 3) Re-run and compare. Then: larger k for 'list everything' questions, query rewriting, tuned hybrid, reranking. Before Phase 2: program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19).

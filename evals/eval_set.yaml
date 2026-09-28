@@ -341,7 +341,7 @@ questions:
   expected_exercises: [band-pull-apart, pallof-press, band-biceps-curl, band-lateral-walk]
   acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
   forbidden_exercises: [barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, power-clean, pull-up, single-leg-romanian-deadlift, turkish-get-up]
-  expected_coverage: full
+  expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight]
   reviewed: true
   notes: >-
@@ -353,7 +353,7 @@ questions:
   expected_exercises: [kettlebell-swing, kettlebell-deadlift, turkish-get-up]
   acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, goblet-squat, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
   forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, hammer-curl, inverted-row, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, single-leg-romanian-deadlift]
-  expected_coverage: full
+  expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight, label-level]
   reviewed: true
   notes: >-
@@ -435,7 +435,7 @@ questions:
   expected_exercises: [pull-up]
   acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
   forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, single-leg-romanian-deadlift, turkish-get-up]
-  expected_coverage: full
+  expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight]
   reviewed: true
   notes: >-
