@@ -42,7 +42,10 @@ def fmt(v: float | None) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--details", action="store_true")
+    parser.add_argument("--k", type=int, default=5, help="results per search (F7 test)")
     args = parser.parse_args()
+    global K
+    K = args.k
 
     questions = load_eval_set()
     reviewed = sum(q.reviewed for q in questions)

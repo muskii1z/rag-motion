@@ -10,6 +10,9 @@ Each question runs the whole pipeline once. Checks, per answer:
   used_expected_evidence  it cited at least one expected exercise or passage
   no_forbidden_citations  it cited no forbidden exercise (e.g. needs a bench the client lacks)
                           and no passage about the wrong population
+  exercise_completeness   F7: share of the expected exercises the answer cited (lists: did it name them all?)
+  only_keyed_exercises    F7: every exercise the answer cited is expected or acceptable (did extras sneak in?)
+                          Rough: the acceptable lists aren't exhaustive, so read the printed extras.
   rule_<name>             F2: the coach's labeling rules (label-level, label-secondary,
                           label-bodyweight, group-by-muscle), graded by an AI judge
                           (src/ragmotion/judge.py), only on questions tagged with answer_rules
@@ -54,14 +57,15 @@ def ensure_dataset(client: Client) -> str:
     return name
 
 
-def make_target(mode: str, use_filters: bool):
+def make_target(mode: str, use_filters: bool, k_exercises: int):
     def target(inputs: dict) -> dict:
-        r = answer_question(inputs["question"], mode=mode, use_filters=use_filters)
+        r = answer_question(inputs["question"], mode=mode, use_filters=use_filters, k_exercises=k_exercises)
         return {
             "answer": r.answer.answer,
             "general_guidance": r.answer.general_guidance,
             "evidence_coverage": r.answer.evidence_coverage,
             "cited_ids": r.answer.cited_ids,
+            "retrieved_exercises": [h.slug for h in r.exercises],
             "citation_problems": r.citation_problems,
             "cited_passages": [p.model_dump() for p in r.passages if p.passage_id in r.cited],
         }
@@ -100,6 +104,24 @@ def no_forbidden_citations(outputs: dict, reference_outputs: dict) -> dict:
     return {"key": "no_forbidden_citations", "score": int(not bad)}
 
 
+def exercise_completeness(outputs: dict, reference_outputs: dict) -> dict:
+    expected = reference_outputs.get("expected_exercises") or []
+    if not expected:
+        return {"key": "exercise_completeness", "score": None}
+    named = set(outputs["cited_ids"]) & set(expected)
+    return {"key": "exercise_completeness", "score": len(named) / len(expected),
+            "comment": f"named {len(named)} of {len(expected)}"}
+
+
+def only_keyed_exercises(outputs: dict, reference_outputs: dict) -> dict:
+    expected = reference_outputs.get("expected_exercises") or []
+    if not expected:
+        return {"key": "only_keyed_exercises", "score": None}
+    allowed = set(expected) | set(reference_outputs.get("acceptable_exercises") or [])
+    extras = sorted(set(outputs["cited_ids"]) & set(outputs.get("retrieved_exercises") or []) - allowed)
+    return {"key": "only_keyed_exercises", "score": int(not extras), "comment": ", ".join(extras)}
+
+
 def coach_rules(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
     """AI judge: one call per question, one score per rule the coach attached (None if not tagged)."""
     rules = reference_outputs.get("answer_rules") or []
@@ -114,28 +136,31 @@ def coach_rules(inputs: dict, outputs: dict, reference_outputs: dict) -> dict:
                         for r, (sc, why) in scores.items()]}
 
 
-EVALUATORS = [citations_valid, coverage_correct, used_expected_evidence, no_forbidden_citations, coach_rules]
+EVALUATORS = [citations_valid, coverage_correct, used_expected_evidence, no_forbidden_citations,
+              exercise_completeness, only_keyed_exercises, coach_rules]
 CHECK_KEYS = ["citations_valid", "coverage_correct", "used_expected_evidence", "no_forbidden_citations",
+              "exercise_completeness", "only_keyed_exercises",
               *[f"rule_{r.replace('-', '_')}" for r in RULES]]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
+    parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
     parser.add_argument("--no-filters", action="store_true", help="skip the F4 equipment filter (the F2 baseline)")
     args = parser.parse_args()
     use_filters = not args.no_filters
 
     client = Client()
     name = ensure_dataset(client)
-    print(f"Dataset: {name}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  model: {settings.llm_model}")
+    print(f"Dataset: {name}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  k_exercises: {args.k_exercises}  |  model: {settings.llm_model}")
 
     results = evaluate(
-        make_target(args.mode, use_filters),
+        make_target(args.mode, use_filters, args.k_exercises),
         data=name,
         evaluators=EVALUATORS,
-        experiment_prefix=f"answers-{args.mode}" + ("-filtered" if use_filters else ""),
-        metadata={"retrieval_mode": args.mode, "use_filters": use_filters, "llm_model": settings.llm_model,
+        experiment_prefix=f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else ""),
+        metadata={"retrieval_mode": args.mode, "use_filters": use_filters, "k_exercises": args.k_exercises, "llm_model": settings.llm_model,
                   "embedding_model": settings.embedding_model},
         max_concurrency=4,
     )
@@ -153,12 +178,16 @@ def main() -> None:
             totals[er.key].append(er.score)
             by_cat[ref["category"]][er.key].append(er.score)
             if er.score == 0:
-                failures.append((ref["id"], er.key, (row["run"].outputs or {}).get("evidence_coverage")))
+                detail = er.comment if er.key == "only_keyed_exercises" else (row["run"].outputs or {}).get("evidence_coverage")
+                failures.append((ref["id"], er.key, detail))
     print("\nOverall (share of applicable questions that passed):")
     for key in CHECK_KEYS:
         vals = totals.get(key, [])
-        print(f"  {key:<24} {sum(vals)}/{len(vals)}" + (f"  = {sum(vals)/len(vals):.2f}" if vals else ""))
-    print("\nFailures (question, check, coverage the answer claimed):")
+        if vals and any(isinstance(v, float) and not v.is_integer() for v in vals):
+            print(f"  {key:<24} mean {sum(vals)/len(vals):.2f} over {len(vals)}")
+        else:
+            print(f"  {key:<24} {int(sum(vals))}/{len(vals)}" + (f"  = {sum(vals)/len(vals):.2f}" if vals else ""))
+    print("\nFailures (question, check, coverage claimed / extra exercises):")
     for qid, key, cov in sorted(failures):
         print(f"  {qid:<30} {key:<24} {cov}")
     print("\nAI judge verdicts (coach: do you agree?):")
