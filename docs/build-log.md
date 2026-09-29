@@ -2935,6 +2935,8 @@ The two error simulations are shown in outline: which script (`ask.py` or `searc
 
 **Phase 1 status: complete.** Steps 0–16 done. Next: Phase 1F, eval first.
 
+*Revisited 2026-09-29:* time limits on every OpenRouter call, clear messages for slow or down services, broken JSON twice, and bad questions, plus mocked web API tests. See [Step 16 (revisited)](#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures).
+
 ## Phase 1F begins; F1: exercise catalog expanded to 42
 **Date:** 2026-09-28 · **Commits:** `c9a4dd3` feat: expand exercise catalog to 42 (F1 draft, pending coach review) · `541048a` data: coach review of the 22 new exercises; add 'anchor' equipment (this docs update is committed and pushed right after)
 
@@ -3772,3 +3774,150 @@ The exact flags used for each run were not given in the brief. k = 5 and filters
 - New: [0030. Answer prompt stays without the coach's presentation rules (three versions measured, reverted)](decisions/0030-answer-prompt-stays-without-presentation-rules.md) (proposed, pending developer confirmation).
 
 **Next.** Not recorded in the brief. Remaining F7+ items in CLAUDE.md: query rewriting for jargon, tuned hybrid, reranking. The code-based labels idea is open.
+
+## Step 16 (revisited): Mocked web API tests and clean handling of outside-service failures
+**Date:** 2026-09-29 · **Commit:** `776be1c` feat: handle outside-service failures cleanly, with mocked web API tests (this docs update is committed separately)
+
+**Goal.** Make the app fail gracefully when something it depends on breaks, prove each case with fast, free automated tests that fake the outside services, and confirm with the evals that behavior didn't change.
+
+This is filed as a revisit of [Step 16](#step-16-tests-error-handling-readme-phase-1-complete), not a new step, because the developer's weekly agenda put it there: it finishes Step 16's "tests and error handling" for the web API.
+
+### Where this step sits (the developer's questions)
+- **"Where do we currently stand on Tuesday's agenda?"** A status check against the agenda:
+  - **Done already:** pytest, citation-checker tests, and eval-matcher tests (37 tests before this step).
+  - **Partial:** a search test (the filter tests existed; nothing checked the shape of what search returns).
+  - **Not started:** web API tests with mocking.
+  - **About half done:** failure handling. Database down and a bad key were handled (Step 16). Missing: time limits on outside calls, a clear message when the model sends broken JSON twice, and plain messages for empty or too-long questions.
+  - **Also noted, outside this step:**
+    - The "before" dumbbells clip needs a switch to turn the filters off. The bug behind it is already fixed.
+    - The resume bullets should use: 40/40 citations, 40 questions, forbidden recommendations 31% → 0% (8/13 → 13/13, 3 runs), recall 0.80 → 0.83.
+    - The query-rewriting resume bullet describes something not built yet.
+    - See Open questions for two number checks.
+- **"Explain the web API tests; is it basically handling slow models, broken JSON twice, empty or long questions?"** Close. Two halves:
+  - **Failure handling is the fix.** It changes the app so it behaves well when things break.
+  - **Web API tests are the proof.** They are automated checks that pretend to be the web page: they send a question to `POST /api/ask` (the endpoint, meaning the address the page sends questions to) and check the reply.
+  - **Mocking makes the tests possible.** The real Gemini, Voyage, and database calls are swapped for fakes that return fixed answers or pretend to fail. So the tests are free, fast, and give the same result every time. It is also the only way to make "Gemini is down" happen on demand. See [Mocking outside services](concepts.md#mocking-outside-services-fakes).
+
+**What we did.**
+- **Time limits on every OpenRouter call** (`src/ragmotion/config.py`, `src/ragmotion/llm.py`):
+  - New settings: `api_timeout_seconds = 25.0` and `api_max_retries = 1`.
+  - `get_client()` passes both to the OpenRouter client. The LLM and the embeddings share that client, so both get the limit.
+  - Before, nothing was set, so the `openai` library's defaults applied: 10 minutes per call and 2 retries.
+  - A timeout is the longest the app waits for a reply before giving up. See [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls) and [0031](decisions/0031-openrouter-timeout-25s-one-retry.md).
+- **A clear message after broken JSON twice** (`llm.py`):
+  - `structured_completion()` already retried once on malformed JSON (since [after Step 15](#after-step-15-trace-cleanup-two-research-papers-eval-set-v2)).
+  - When that retry also fails, it now raises `ModelOutputError`: "The AI sent back an unreadable answer 2 times in a row. Please ask again."
+  - Before, the raw pydantic `ValidationError` surfaced as "Unexpected error (ValidationError)".
+- **New error types and messages** (`src/ragmotion/errors.py`):
+  - New: `SearchServiceUnavailable` and `ModelOutputError`.
+  - A shared message: "The answer service is temporarily unavailable. Try again in a minute."
+  - `APITimeoutError` → 503, "The answer service took too long to respond. Try again in a minute." It is checked *before* `APIConnectionError`, because it is a child class of it. Checked the other way round, a timeout would get the connection message. See [Exception hierarchy order](concepts.md#exception-hierarchy-order-check-the-child-before-the-parent).
+  - `APIConnectionError` and `InternalServerError` (an HTTP 5xx reply, meaning OpenRouter or the model host failed) → 503, temporarily unavailable.
+- **The message names which service failed** (`src/ragmotion/embeddings.py`):
+  - Connection errors, timeouts, and 5xx replies from the embedding call become `SearchServiceUnavailable`.
+  - Message: "The search service (embeddings) isn't responding, so the question can't be searched. Try again in a minute."
+  - So the user can tell "search is down" from "the answer model is down".
+- **Plain messages for bad questions** (`src/ragmotion/app.py`):
+  - Question length is now checked inside the endpoint, instead of by Pydantic `Field` limits on the request model.
+  - Under 3 characters after trimming spaces → 400 "Please type a question."
+  - Over 500 → 400 "Questions can be up to 500 characters; this one has N. Please shorten it."
+  - Before: FastAPI's automatic 422 validation reply, a technical dump that the web page showed as "Unprocessable Entity". HTTP 400 means "bad request: the problem is in what was sent".
+  - `k` keeps its `Field` limits (1 to 10).
+  - The real error is still logged on the server. Failures inside `answer_question` are recorded on its LangSmith trace.
+  - See [0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md).
+- **Web API tests** (new `tests/test_api.py`, 12 tests: 10 test functions, one run with 3 inputs):
+  - They use FastAPI's `TestClient`, which calls the app directly the way a browser would, with no server running. See [Web API tests with TestClient](concepts.md#web-api-tests-with-testclient).
+  - Fixtures (reusable test setup) fake `extract_limits`, the search (`SEARCH_MODES["semantic"]`), and the answer call.
+
+  | Test | What is faked | Expected reply |
+  |---|---|---|
+  | Normal question | limits, search, answer | Answer with sources and cited flags. The **real** citation checker reports no problems |
+  | Empty, `"   "`, `"hi"` | limits, search, answer | 400 "Please type a question.", and no fake service is called |
+  | Very long question | limits, search, answer | 400 |
+  | Gemini too slow | answer call raises a timeout | 503, exact "took too long" message |
+  | Gemini down | answer call raises a 5xx | 503, temporarily unavailable |
+  | Broken JSON twice | only the single model call returns bad JSON | The **real** retry runs: 2 attempts, then 502 with the clear message |
+  | Voyage down | the embedding client is dead; **real** `search_all` and embedding code run | 503 naming the "search service" |
+  | Database down | the connection fails | 503 with the `docker compose` command |
+  | Unexpected error | a made-up exception | 500, no internals leaked |
+  | Time limit set | nothing | `get_client()` has the 25 s limit |
+
+  - Two tests fake as little as possible: only the network call. So the real logic above it (the JSON retry, the embedding error handling) is tested too. See [Mock at the lowest useful level](concepts.md#mock-at-the-lowest-useful-level).
+- **A search-shape test** (`tests/test_integration_db.py`, `test_search_returns_at_most_k_results_with_the_fields_answers_need`):
+  - It runs the real database and SQL.
+  - The question vector is a stored exercise vector, so no Voyage call is made.
+  - It checks: at most 5 exercises and 5 passages, the required fields are present, and results are sorted closest first by similarity.
+- **Proved a new test can fail.** The timeout branch in `errors.py` was disabled on purpose (with `sed`). `test_gemini_too_slow_says_try_again` failed. The file was restored, and all tests passed. See [Proving a test can fail](concepts.md#proving-a-test-can-fail-breaking-the-code-on-purpose).
+- **Re-ran both evals** to confirm nothing changed in behavior. Nothing in the prompts or retrieval was touched, so the scores should hold.
+- **`CLAUDE.md` updated.** The Step 16 row notes the revisit. The tests line now says 50 tests, with outside services mocked in `tests/test_api.py`.
+
+**Commands.**
+```bash
+uv run pytest -q
+# 37 passed before this step -> 49 after tests/test_api.py -> 50 after the search-shape test.
+
+uv run pytest tests/test_api.py -q
+# 12 passed in 0.61 s. No API calls, no cost.
+
+# Mutation check: the timeout branch in errors.py disabled with sed (exact command not recorded).
+# test_gemini_too_slow_says_try_again: 1 failed. File restored; all pass.
+
+uv run python evals/run_retrieval_eval.py
+# Saved evals/results/retrieval-20260929-162330.json. Identical to Monday.
+
+uv run python evals/run_answer_eval.py    # x3
+# Experiments answers-semantic-filtered-9491e6aa, -d37f4154, -2024ac7b.
+# 0 judge evaluator errors.
+```
+
+**What we saw.**
+
+*1. Retrieval: identical to Monday.* Retrieval is deterministic (the same question and data always give the same results), so an exact match was expected.
+
+| Search mode | Exercise recall | Passage recall | Passage MRR | Forbidden |
+|---|---|---|---|---|
+| Semantic + filters (default) | 0.83 | 0.97 | 0.86 | 0.00 |
+| Semantic | 0.80 | 0.97 | 0.79 | 0.17 |
+| Keyword | 0.59 | 0.66 | 0.50 | 0.15 |
+| Hybrid | 0.75 | 0.93 | 0.84 | 0.23 |
+
+*2. Answers: within the normal run-to-run range.* This step's 3 runs vs Monday's 3 runs (the F7a k = 5 runs):
+
+| Check | Monday (F7a, k = 5) | Today |
+|---|---|---|
+| No forbidden advice | 39/39 | 39/39 |
+| Citations valid | 120/120 | 117/120 |
+| Coverage claim correct | 111/120 | 110/120 |
+| Used expected evidence | 115/117 | 115/117 |
+| Exercise completeness (mean) | 0.80 | 0.81 |
+| No extra exercises | 60/69 | 61/69 |
+
+- Judge rules today: label-level 3/3, label-secondary 2/2, label-bodyweight 3/3, group-by-muscle 0/3.
+- The small differences are model noise. The changes didn't touch prompts or retrieval, and the F6 filtered runs had 118/120 citations. See [Run-to-run noise](concepts.md#run-to-run-noise).
+- The agenda said the evals should "match exactly". That was true for retrieval. Answers can only match within noise, because the model's output varies between runs.
+
+*3. The tests.*
+- The 12 web API tests run in 0.61 s with no paid call.
+- Each outside failure now reaches the user as one sentence that says which service failed and what to do.
+
+**Problems and fixes.**
+- **The search-shape test failed on its first run** with `TypeError: 'Vector' object is not iterable`. The stored pgvector value comes back from the database as a `Vector` object, not a Python list. Fix: `vector.to_list()`. This was a mistake in writing the test, not an app bug.
+
+**Open questions.**
+- **Resume numbers need one check before use.**
+  - "31% → 0%" matches the F6 averaged comparison: no forbidden advice 9/13 → 13/13, on every one of 3 runs ([0028](decisions/0028-before-after-averaged-over-three-runs.md)).
+  - "8/13" is the F2 single-run baseline ([F2](#phase-1f-f2-strengthen-the-eval-and-record-the-before-baseline)), and 8/13 would be 38%, not 31%.
+  - "40/40 citations" is a single-run figure. Over 3 runs the totals were 118/120 (F6), 120/120 (F7a), and 117/120 (today).
+- What the "before" dumbbells clip is (a screen recording for the portfolio?) and where the filter switch goes were not recorded.
+- The worst-case wait is about 25 s × 2 attempts ≈ 50 s *per OpenRouter call*. A full question makes several calls (limit reader, embedding, answer, plus a possible JSON retry). The worst case for a whole question was not calculated.
+- Whether the new messages were checked by hand in the web page was not recorded.
+- The developer's own recorded teach-back of this step is still to come.
+
+**Learned.**
+- New: [Mocking outside services (fakes)](concepts.md#mocking-outside-services-fakes), [Web API tests with TestClient](concepts.md#web-api-tests-with-testclient), [Mock at the lowest useful level](concepts.md#mock-at-the-lowest-useful-level), [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls), [Exception hierarchy order](concepts.md#exception-hierarchy-order-check-the-child-before-the-parent), [Graceful degradation](concepts.md#graceful-degradation), [Endpoint (web API)](concepts.md#endpoint-web-api)
+- Extended: [Unit tests vs evals](concepts.md#unit-tests-vs-evals) (evals as a safety net for refactors; the interview answer), [Proving a test can fail](concepts.md#proving-a-test-can-fail-breaking-the-code-on-purpose) (second case), [Fixtures, factories, and monkeypatching](concepts.md#fixtures-factories-and-monkeypatching), [Integration tests that skip gracefully](concepts.md#integration-tests-that-skip-gracefully) (search-shape test), [Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output) (clear message after 2 failures), [Typed API errors](concepts.md#typed-api-errors), [Friendly error messages](concepts.md#friendly-error-messages), [HTTP status codes 500, 502, 503](concepts.md#http-status-codes-500-502-503) (400 and 422 added), [FastAPI and uvicorn](concepts.md#fastapi-and-uvicorn) (length check moved into the endpoint), [Run-to-run noise](concepts.md#run-to-run-noise)
+
+**Decisions.**
+- New: [0031. Every OpenRouter call: 25-second time limit, 1 retry](decisions/0031-openrouter-timeout-25s-one-retry.md)
+- New: [0032. API errors: plain 400s for bad questions, the failing service named, status codes by cause](decisions/0032-api-errors-plain-400-named-service-status-codes.md)
+- Updated: [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (400s for bad input; timeouts)

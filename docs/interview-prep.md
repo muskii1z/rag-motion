@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 1F, F7b (the coach's four presentation rules tried in the answer prompt, three versions, 3 runs each; none beat the plain prompt: the grouping rule padded focused answers, coverage claims fell from 111/120 to 104–107/120, extras-free answers 87% → 81–83%; prompt reverted; decision 0030 accepted ("keep it undone"); idea for later: labels shown by code from catalog data).
+Last updated: Step 16 (revisited), 2026-09-29 (every OpenRouter call now has a 25 s time limit and 1 retry; clear messages for a slow or down answer model, a down search service, unreadable JSON twice, and empty or too-long questions; 12 mocked web API tests plus a search-shape test, 50 tests in total; evals re-run: retrieval identical, answers within run-to-run noise; decisions 0031 and 0032; new question: "How do you test an LLM application?").
 
 ---
 
@@ -530,6 +530,24 @@ Evidence so far:
 
 - [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **measured over 3 runs.** With filters, 0 of 13 limit questions cited forbidden material on any of 3 runs (without: 4 of 13 on every run), and 98% of citations pointed to retrieved evidence in both versions. The honest limit is unchanged: citation checks prove the source was retrieved, not that each sentence matches it.
 
+### How do you test an LLM application? (interview material)
+Not a question from the project brief, but a common one. The developer asked for this answer to be recorded (their own recorded teach-back is still to come):
+
+> "Unit tests for deterministic logic like citation validation and error handling, with model calls mocked out; evals for model behavior, scored in code and tracked in LangSmith."
+
+Evidence so far:
+- **[Step 16](build-log.md#step-16-tests-error-handling-readme-phase-1-complete): the first test suite.** 31 pytest tests in about 0.3 s, no API calls: the citation checker (including two real invented-citation bugs as [regression tests](concepts.md#regression-tests-from-real-failures)), chunking, the eval scoring code, models, errors, and database queries. See [Unit tests vs evals](concepts.md#unit-tests-vs-evals).
+- **[Phase 1F, F2](build-log.md#phase-1f-f2-strengthen-the-eval-and-record-the-before-baseline): the answer key is tested too.** No misspelled slugs, no item both expected and forbidden. See [Integrity tests for the answer key](concepts.md#integrity-tests-for-the-answer-key).
+- **[Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): model calls mocked out.**
+  - 12 web API tests act like the web page: they post a question to `POST /api/ask` and check the status code and message. Gemini, Voyage, and the database are replaced by fakes that answer or fail on command. 0.61 s, no cost. See [Mocking outside services](concepts.md#mocking-outside-services-fakes) and [Web API tests with TestClient](concepts.md#web-api-tests-with-testclient).
+  - The cases: normal answer (the real citation checker runs on it); empty, blank, too-short, and too-long questions (no service called); Gemini too slow; Gemini down; broken JSON twice; Voyage down; database down; unexpected error with no internals shown; the time limit is set.
+  - Fake as little as possible: for broken JSON, only the model call is faked, so the real retry runs twice before the clear message. See [Mock at the lowest useful level](concepts.md#mock-at-the-lowest-useful-level).
+  - "Test the test": the timeout branch was disabled on purpose and its test went red. See [Proving a test can fail](concepts.md#proving-a-test-can-fail-breaking-the-code-on-purpose).
+  - A search-shape test on the real database: at most k results, the fields answers need, sorted closest first.
+- **Evals for model behavior:** [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers) onward, 40 coach-reviewed questions, code-based checks plus an [AI judge](concepts.md#llm-as-judge-ai-judge) for four labeling rules, each run a LangSmith experiment. See [How do you know your RAG system works?](#how-do-you-know-your-rag-system-works).
+- **Evals as a safety net for refactors** ([Step 16 revisited](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures)): after the error-handling changes, retrieval scores matched Monday's exactly (it has no model in it); answers matched within noise (citations 117/120 vs 120/120, no forbidden advice 39/39 both). See [Run-to-run noise](concepts.md#run-to-run-noise).
+- Point to make: "Tests and evals answer different questions. A test says the code is broken, passes every time, and costs nothing. An eval says the answers got worse, varies run to run, and costs a few cents. I run tests after every change and evals after changes meant to affect quality, and I re-ran the evals after refactoring error handling to confirm nothing moved beyond noise."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -547,7 +565,9 @@ Evidence so far (partial: no program generation yet):
 - [Step 6](build-log.md#step-6-first-llm-call-via-openrouter-prose-to-structured-client-profile): the same pattern at a smaller scale. `extract_profile()` raises a clear error, rather than returning a bad object, when the reply was cut off by the length cap (`finish_reason == "length"`), the model refused, or the reply couldn't be parsed into `ClientProfile`. See [Typed API errors](concepts.md#typed-api-errors).
 - Caveat worth saying: passing validation isn't enough. Step 6's wrong outputs all validated, so a program workflow will need content checks (code rules and coach review), not just schema checks. See [Structured output (strict JSON schema)](concepts.md#structured-output-strict-json-schema).
 - [Step 10](build-log.md#step-10-rag-grounded-cited-answers-plus-a-minimal-local-web-ui): the RAG answer uses the same guarded call (`structured_completion()`), plus content checks after validation: `check_citations()` reports invented or mismatched citations. Today the problems are shown to the user (terminal and web page); they don't block the answer or trigger a retry. See [Citation validation](concepts.md#citation-validation).
-- No retry or repair loop exists yet.
+- No retry or repair loop exists yet. *Correction: since [after Step 15](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2), `structured_completion()` retries once when the model's JSON fails validation ([Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output)). There is still no repair loop that sends the error back to the model.*
+- [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): **what happens when validation fails twice.** The user gets HTTP 502 and "The AI sent back an unreadable answer 2 times in a row. Please ask again.", not "Unexpected error (ValidationError)". A mocked test makes the model return bad JSON and checks the real retry makes exactly 2 attempts before this message.
+  - Point to make: "One retry, then a clear stop. A program workflow would need the same shape: a bounded number of attempts and a message a person can act on, never an endless loop."
 
 ## Human-in-the-loop
 
@@ -610,6 +630,7 @@ Evidence so far:
 - [Phase 1F, F2](build-log.md#phase-1f-f2-strengthen-the-eval-and-record-the-before-baseline): the judge is traced as its own step (`judge_coach_rules`) and its verdicts appear as one LangSmith score per rule in the experiment (`answers-semantic-0b42f62a`), next to the four code-based scores. The eval script also prints each verdict with its reason, so a failed rule can be read without opening the dashboard.
 - [Phase 1F, F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises): the limit reader is traced as its own step (`extract_limits`), trace metadata records `use_filters`, and the trace output includes the limits read. So a missing or wrong filter can be traced to the exact reading ("which phrase did it treat as a limit?", via `limit_phrase`). Timings now include a `limits` entry.
 
+- [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): **the user and the developer see different things.** The user gets one sentence naming the failing service; the server log keeps the real error, and failures inside `answer_question` are recorded on its LangSmith trace. Revisit signal for the new 25 s limit: timeouts appearing in traces ([0031](decisions/0031-openrouter-timeout-25s-one-retry.md)).
 - [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **watching the evaluators, not just the app.** When 6 evals ran in parallel, the AI judge's scores came back nearly empty (HTTP 429 rate-limit errors), while the code checks looked normal. It showed up as missing scores, not low ones. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
 
 ## Production
@@ -690,6 +711,12 @@ Evidence so far:
 - [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **rate limits met in practice.** OpenRouter limits new accounts to 20 requests per minute on the judge model; six parallel evals went over it. `judge_answer()` now retries with increasing waits (10, 20, 40, 60 s), then raises so a real outage still surfaces. In the project's code only the judge retries; on the answer path a rate limit is still turned into a friendly error message by `errors.py` (checked in the repo while writing these docs). See [Rate limits (HTTP 429) and retry with backoff](concepts.md#rate-limits-http-429-and-retry-with-backoff).
   - Point to make: "At scale I'd expect rate limits everywhere. I've already hit one: I added retry with backoff and a hard stop, and I learned to check for missing scores, not just bad ones."
 
+- **[Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): failing gracefully when a dependency breaks.** Commit `776be1c`.
+  - **Time limits:** every OpenRouter call (LLM and embeddings share one client) now has a 25 s timeout and 1 retry. Before, the `openai` library default applied: 10 minutes and 2 retries. Worst case about 50 s per call. See [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls) and [0031](decisions/0031-openrouter-timeout-25s-one-retry.md).
+  - **Named failures:** a slow model → 503 "took too long"; model down → 503 "temporarily unavailable"; embeddings down → 503 "the search service (embeddings) isn't responding"; unreadable JSON twice → 502; bad questions → 400 with a plain sentence. See [Graceful degradation](concepts.md#graceful-degradation) and [0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md).
+  - **Proven by mocked tests**, 50 tests in total, and by re-running the evals (no change beyond noise).
+  - Point to make: "In production, what breaks is usually a dependency, not my code. So every outside call has a time limit, every failure names the service that broke, and a fake-service test proves each case."
+
 ## Security
 
 ### Where are your API keys stored?
@@ -737,7 +764,8 @@ Evidence so far:
   - **Traces contain prompts.** Every trace stores the question, the full prompt, the retrieved evidence, and the answer on LangSmith's servers. That's a data flow to a third party, planned since Step 5 and now live. Acceptable because clients are fictional and documents are public or project-owned.
   - **Data classification.** Before real client data, classify what ends up in prompts (personal, health-related, public) and decide what may leave the machine: mask fields, review the vendor, or self-host (for example Langfuse). Recorded as the revisit signal in [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md). See [Privacy of traces](concepts.md#privacy-of-traces).
   - Point to make: "Turning on tracing is a data-sharing decision. I made it knowingly, for fictional and public data, and wrote down the condition that would reverse it."
-- [Step 16](build-log.md#step-16-tests-error-handling-readme-phase-1-complete): **errors don't leak.** A rejected key produces "Check OPENROUTER_API_KEY in .env": the variable's name, never its value. Unexpected errors show only their type and "Details are in the server log", so file paths and library messages stay server-side. Tests switch LangSmith tracing off, so test data never leaves the machine. See [Friendly error messages](concepts.md#friendly-error-messages).
+- [Step 16](build-log.md#step-16-tests-error-handling-readme-phase-1-complete): **errors don't leak.** A rejected key produces "Check OPENROUTER_API_KEY in .env": the variable's name, never its value.
+  - [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): now enforced by a test through the web API. `test_unexpected_errors_dont_leak_internals` raises a made-up error inside the answer path and checks the reply is a 500 with no internals. Question length is also checked before any paid call: empty or over-500-character questions get a 400 and no service is called (tested). Unexpected errors show only their type and "Details are in the server log", so file paths and library messages stay server-side. Tests switch LangSmith tracing off, so test data never leaves the machine. See [Friendly error messages](concepts.md#friendly-error-messages).
 
 ### How do you decide what content your RAG system is allowed to ingest? (interview material)
 Not a question from the brief, but a strong one for RAG roles: data provenance (knowing where every piece of data came from) and licensing are part of RAG engineering, not an afterthought.
@@ -838,6 +866,14 @@ Evidence so far:
   - **Tests follow the modules:** citations (`rag.py`), chunking, evaluation, models and sources, errors, plus database integration tests.
 - [Phase 1F, F3 + F4](build-log.md#phase-1f-f3--f4-read-equipment-limits-from-the-question-and-filter-exercises): **the request path gains a step before search.** Question → `extract_limits` (small structured LLM call) → `owned_equipment()` in code (adds bodyweight, or None) → embed → Postgres search with the optional filter `(owned IS NULL OR equipment <@ owned)` → top 5 exercises + top 5 passages → answer LLM → citation checks. `answer_question(use_filters=True)` is the switch; the eval uses the same function. See [Optional filter in one query](concepts.md#optional-filter-in-one-query-null-means-no-filter).
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **the passage search gains its filter.** `extract_limits` now returns equipment and population. Exercises are filtered by equipment; passages by population (`population IS NULL OR cardinality(populations) = 0 OR population = ANY(populations)`), in all three search modes. Then top 5 of each → answer LLM → citation checks.
+- [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): **the failure path at each stage of the request.**
+  1. The endpoint checks the question first: under 3 or over 500 characters → 400 with a plain sentence, before any paid call.
+  2. Limit reader, embedding, and answer calls share one OpenRouter client with a 25 s limit and 1 retry.
+  3. The embedding call failing → 503 naming the search service.
+  4. The database unreachable → 503 with the Docker command.
+  5. The answer model slow → 503 "took too long"; down → 503 "temporarily unavailable"; unreadable JSON twice → 502.
+  6. Anything else → 500 with no internals, full error in the server log.
+  - Each stage's failure has a mocked test in `tests/test_api.py`. See [Graceful degradation](concepts.md#graceful-degradation).
 
 ## Tradeoffs
 
@@ -937,3 +973,6 @@ Evidence so far:
 - **Which tool for which failure** ([F7a](build-log.md#phase-1f-f7a-experiment-with-5-10-and-15-exercises-per-question), [Matching the fix to the failure](concepts.md#matching-the-fix-to-the-failure-filters-k-prompt-instructions)): hard limits in filters, breadth in k, presentation in the prompt. F7a showed that a bigger k doesn't fix grouping or labeling. F7b then measured the coach's presentation rules in the answer prompt ([One change at a time](concepts.md#one-change-at-a-time-ablation)): see the next bullet.
 - **Presentation rules in the prompt vs the plain prompt** ([0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md), [F7b](build-log.md#phase-1f-f7b-experiment-with-the-coachs-presentation-rules-in-the-answer-prompt-reverted)): three versions (all four rules; grouping only for list questions; labels only) against no rules, 3 runs each. Recommended and pending the developer's confirmation: revert to the plain prompt. Each version padded focused answers or hurt coverage accuracy (111/120 → 104–107/120) and no per-rule gain could be shown on 0 to 4 cases. Given up: the coach's grouping and labeling style isn't enforced yet. Options for later: labels printed by code from the catalog, a stronger answer model, or more exercises for list questions.
   - Point to make: "The cheapest fix, a few sentences in the prompt, turned out not to be free: on a small model, every extra instruction competes with the others. I'd rather print a label from my database than ask the model to remember it."
+- **How long to wait for a model** ([0031](decisions/0031-openrouter-timeout-25s-one-retry.md), [Step 16 revisited](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures)): the library default (10 minutes, 2 retries) vs 25 s and 1 retry on every OpenRouter call. Gained: a stuck provider becomes a clear message within about 50 s per call. Given up: a legitimately slow, long answer could be cut off. Revisit if timeouts show up in traces. The worst case for a whole question, which makes several calls, was not calculated.
+- **Where input validation lives** ([0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md)): Pydantic `Field` limits (automatic, visible in the API schema, but a technical 422 the page showed as "Unprocessable Entity") vs a check in the endpoint (a plain 400 sentence). Chose the endpoint. Given up: the limit is no longer in the published schema.
+  - Point to make: "I moved a validation rule out of the framework and into my own code, on purpose, because the framework's error was correct but useless to a person."

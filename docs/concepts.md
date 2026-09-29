@@ -1376,7 +1376,9 @@ The same question can get a different LLM answer on different runs, because answ
 
 *Phase 1F F6 update: the whole comparison is now averaged.* Right after the coach changed three coverage keys, one run had bands-only and one-kettlebell claiming `full`; in F5 they had claimed `partial`. Same system, opposite claim. So the final before/after used 3 runs per version, and the runs themselves show the spread: coverage 37, 35, 34 without filters and 37, 36, 36 with them; citations 40, 40, 38 and 40, 38, 40. See [Averaging repeated runs](#averaging-repeated-runs-consistent-vs-one-off-differences).
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6.*
+*Step 16 revisit update: noise when nothing should have changed.* After adding timeouts and error handling (no prompt or retrieval change), 3 answer runs gave citations 117/120 vs 120/120 on Monday, and coverage 110/120 vs 111/120. Retrieval, which has no model in it, matched exactly. So "the evals should match exactly" is a fair test for retrieval; for answers the fair test is "within the range seen before" (F6 had 118/120 citations).
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6; Step 16 revisit.*
 
 ### Coverage label drift (a metric drop that may not be a regression)
 A score can fall because the answer key is debatable, not because the answers got worse. In F5, filters changed what the model sees: for "bands only, full-body workout" it now sees only the few band and bodyweight exercises and says coverage is `partial`, while the key says `full`. `coverage_correct` fell from 36/40 to 33/40 while forbidden citations improved to 13/13. Before calling that a regression, check each miss: is the key right, is the label honest given the evidence, or is it run-to-run noise? Here that needs the coach.
@@ -1433,7 +1435,11 @@ Both check the system, but they answer different questions. A **unit test** chec
 
 **In an interview:** "I use two safety nets. Unit tests catch broken code in a third of a second with no API calls. Evals measure answer quality on 31 coach-reviewed questions. A change has to pass the tests before it's worth spending money on an eval run."
 
-*First seen: Step 16.*
+*Step 16 revisit update (2026-09-29): evals as a refactor safety net.* Tests check the parts that have one right answer, and pass every time. Evals score model behavior that varies. Evals also double as a check after a refactor (a change to how code is built that shouldn't change what it does). After adding timeouts and new error handling, both evals were re-run. Retrieval matched exactly, because it is deterministic. Answers matched within run-to-run noise (citations 117/120 vs 120/120; no forbidden advice 39/39 both), which is as close as model output can match. Test count: 50.
+
+**In an interview (how do you test an LLM application?):** "Unit tests for deterministic logic like citation validation and error handling, with model calls mocked out; evals for model behavior, scored in code and tracked in LangSmith."
+
+*First seen: Step 16. Extended: Step 16 revisit.*
 
 ### Regression tests from real failures
 A regression is an old bug coming back after a later change. A regression test reproduces a bug that actually happened, so it can never return unnoticed. Step 16 turned two real citation failures into tests: the invented id `exercise-push-up` (Step 13, when the model glued a tag name onto an id) and the typo `haugen219-sprint-17` (after Step 15). The Lesson 2 hand-graded search (recall 1, hit 1, MRR 1) also became a test of the scoring code. Real failures make better tests than imagined ones, because they are the mistakes this system actually makes.
@@ -1449,21 +1455,62 @@ An integration test checks that parts work together with a real outside system, 
 
 *Phase 1F F5 update:* a new integration test reuses a stored older-adult passage vector as the query (so no API call) and checks that a search filtered to `adults` returns exactly the adult and general passages: nothing from other groups, and no general passage lost. 37 tests in total.
 
-*First seen: Step 16. Extended: Phase 1F, F5.*
+*Step 16 revisit update: a search-shape test.* It checks the shape of what search returns, not which items. It uses the real database and SQL, with a stored exercise vector as the question, so again no Voyage call. It checks at most 5 exercises and 5 passages, the fields answers need, and similarity sorted closest first. Its first run failed: the stored vector comes back as a pgvector `Vector` object, not a list, and needed `.to_list()`. A test bug, not an app bug.
+
+*First seen: Step 16. Extended: Phase 1F, F5; Step 16 revisit.*
 
 ### Proving a test can fail (breaking the code on purpose)
 A test that can't fail is useless: it would pass whether or not the code works. The check is to break the code on purpose and confirm the test goes red. This is the idea behind mutation testing (tools that make many small deliberate bugs and count how many the tests catch). In Step 16 Claude put the Step 13 bug back into `rag.py` (reading only one id per bracket). `test_find_citations_reads_single_and_grouped_ids` failed (1 failed, 5 passed). The file was then restored exactly, with no diff (no difference from the original), and everything passed again.
 
 **In an interview:** "I don't trust a test until I've seen it fail. I reintroduced a real citation bug on purpose, watched the test catch it, then restored the code."
 
-*First seen: Step 16.*
+*Step 16 revisit update: done again for the new tests ("test the test").* The timeout branch in `errors.py` was disabled on purpose. `test_gemini_too_slow_says_try_again` failed; the file was restored and all tests passed. This matters more for mocked tests: a fake can make a test pass for the wrong reason, so seeing it go red on broken code is the proof it checks the real handling.
+
+*First seen: Step 16. Extended: Step 16 revisit.*
 
 ### Fixtures, factories, and monkeypatching
 Tools that make tests short and isolated. `conftest.py` is a special pytest file whose setup is shared by every test in the folder. A **fixture** is reusable setup that pytest hands to any test that names it; the chunking tests use one called `small_limits`. (The automatic skip for integration tests is a different pytest feature, a hook that runs while tests are being collected.) A **factory** is a small helper that builds a valid test object with sensible defaults, so each test only states what matters: `make_exercise(...)`, `make_passage(...)`. **Monkeypatching** temporarily replaces a value or function during one test and puts it back afterwards; `small_limits` shrinks the chunker's 150–450-word limits to 10–30 so a few short lines can trigger merging and splitting. `conftest.py` also turns LangSmith tracing off before importing `ragmotion`, because `config.py` loads `.env` without overriding variables already set, so tests never send traces.
 
 **In an interview:** "Tests build their data with small factories and shrink settings like chunk-size limits with monkeypatching, so each test is a few lines and needs no real documents. Tracing is switched off in test setup so tests never talk to outside services."
 
-*First seen: Step 16.*
+*Step 16 revisit update (2026-09-29): monkeypatching as mocking.* The same `monkeypatch` tool now swaps whole outside services for fakes: the limit reader, the search, the answer call, the embedding client, the database connection. Fixtures in `tests/test_api.py` set these fakes up, so each test only says what should go wrong. See [Mocking outside services (fakes)](#mocking-outside-services-fakes).
+
+*First seen: Step 16. Extended: Step 16 revisit.*
+
+### Mocking outside services (fakes)
+Mocking means replacing a real outside call (Gemini, Voyage, the database) with a stand-in during a test. The stand-in, often called a fake or a mock, returns a fixed answer, or raises an error on command. That makes the test free (no paid API call), fast (no network), and deterministic (the same result every time). It is also the only practical way to test failures: nobody can make Gemini go down on demand, but a fake can raise a timeout every time. In the Step 16 revisit, `tests/test_api.py` fakes `extract_limits`, the search, and the answer call with pytest's `monkeypatch`, then checks what the web API replies when each one misbehaves. The limit: a fake only behaves the way you wrote it, so mocked tests prove your handling code works, not that the real service behaves like your fake. That is why the evals, which call the real services, still run.
+
+**In an interview:** "I mock the model, the embedding service, and the database in my API tests, so I can make each one time out or fail on command and check the user gets the right message. Those tests are free and take under a second. The evals cover the real services."
+
+*First seen: Step 16 revisit.*
+
+### Web API tests with TestClient
+A web API test checks the app the way its user sees it. It sends a request to an endpoint (see [Endpoint (web API)](#endpoint-web-api)) and checks the status code and the reply. FastAPI's `TestClient` calls the app directly inside the test, as a browser would, with no server running and no port opened. `tests/test_api.py` has 12 such tests on `POST /api/ask`:
+- a normal question returns an answer with its sources, and the real citation checker finds no problems;
+- empty, blank, and too-short questions get 400 "Please type a question." without any service being called;
+- a very long question gets 400;
+- Gemini timing out or returning a 5xx gets 503;
+- broken JSON twice gets 502;
+- Voyage down gets 503 naming the search service;
+- the database down gets 503 with the Docker command;
+- an unexpected error gets 500 with no internals.
+
+They run in 0.61 s.
+
+**In an interview:** "My API tests act like the web page: they post a question and check the status code and message. Combined with mocks, one file covers the happy path and every outside failure I could think of, in well under a second."
+
+*First seen: Step 16 revisit.*
+
+### Mock at the lowest useful level
+When you fake something, fake as little as you can. Everything above the fake then runs for real and gets tested too. Two Step 16 revisit tests do this:
+- **Broken JSON twice** fakes only the single model call. So the real `structured_completion()` retry runs: 2 attempts, then the clear message.
+- **Voyage down** gives the real `search_all` and embedding code a client that can't connect. So the real code that turns a connection error into "the search service isn't responding" is what's tested.
+
+Faking the whole answer step instead would have skipped exactly the logic these tests exist to check. The tradeoff: a lower-level fake needs more setup and knows more about the code's internals.
+
+**In an interview:** "I mock at the network boundary when I want the logic above it tested. For the broken-JSON case I faked only the model call, so the test proves my retry really runs twice before giving up."
+
+*First seen: Step 16 revisit.*
 
 ---
 
@@ -2168,7 +2215,9 @@ When an API call fails, the `openai` library raises a different error type for e
 
 *Phase 1F F6 update:* `RateLimitError` is now handled by retrying, not just reported, in the AI judge. See [Rate limits (HTTP 429) and retry with backoff](#rate-limits-http-429-and-retry-with-backoff).
 
-*First seen: Step 6. Extended: Step 16, Phase 1F F6.*
+*Step 16 revisit update: two more types, one ordering rule.* `APITimeoutError` (no reply within the time limit) and `InternalServerError` (an HTTP 5xx reply from OpenRouter or the model host) now get their own messages. `APITimeoutError` must be checked before `APIConnectionError`, its parent class. See [Exception hierarchy order](#exception-hierarchy-order-check-the-child-before-the-parent). The project also added two of its own types: `SearchServiceUnavailable` (the embedding call failed) and `ModelOutputError` (unreadable JSON twice).
+
+*First seen: Step 6. Extended: Step 16, Phase 1F F6, Step 16 revisit.*
 
 ### Latency: where the time goes
 Latency is how long a request takes, from asking to getting the answer back. Step 9 searches took 180 to 380 ms each (milliseconds; 1,000 ms is one second). Almost all of that is the embedding call: the question travels over the internet to OpenRouter and Voyage and back. The database part, ranking 20 vectors on this machine, takes milliseconds. So speeding up the database would barely help; the network call dominates. `scripts/search.py` reports only the total time.
@@ -2190,7 +2239,30 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 
 **In an interview:** "Two of 31 eval answers came back as truncated JSON. My validation refused them, which is right, but it didn't retry. Now it retries once on a validation error, and all 31 score. One retry, not a loop, so a real problem still surfaces."
 
-*First seen: after Step 15.*
+*Step 16 revisit update: what happens when the retry fails too.* Before, the second failure surfaced as "Unexpected error (ValidationError)". Now `structured_completion()` raises `ModelOutputError`: "The AI sent back an unreadable answer 2 times in a row. Please ask again.", returned as HTTP 502. A test fakes only the model call to return bad JSON, so the real retry runs: 2 attempts, then the message. This retry is separate from the network retry in the OpenRouter client ([Timeouts and retries on outside calls](#timeouts-and-retries-on-outside-calls)). That one repeats a call that got no usable reply; this one repeats a call whose reply arrived but couldn't be read.
+
+*First seen: after Step 15. Extended: Step 16 revisit.*
+
+### Timeouts and retries on outside calls
+A timeout is the longest the app waits for a reply before giving up. A retry is trying the same call again after a failure. Every call to an outside service needs a time limit, or one slow provider can hang a request for minutes. Until the Step 16 revisit, no limit was set, so the `openai` library's defaults applied: 10 minutes per call and 2 retries. Now `config.py` sets `api_timeout_seconds = 25.0` and `api_max_retries = 1`. `get_client()` passes them to the one OpenRouter client that the LLM and the embeddings share. The worst case for one call is about timeout × (retries + 1) = 25 × 2 ≈ 50 s. A normal answer takes 2–5 s, so 25 s leaves plenty of room. The tradeoff: a legitimately slow, long answer could be cut off. See [0031](decisions/0031-openrouter-timeout-25s-one-retry.md).
+
+**In an interview:** "Every outside call has a 25-second limit and one retry, so the worst case is about 50 seconds instead of the library's 10-minute default. Normal answers take 2 to 5 seconds. If timeouts start showing up in my traces, that's the signal to revisit the number."
+
+*First seen: Step 16 revisit.*
+
+### Exception hierarchy order (check the child before the parent)
+In Python, error types form a family tree. A child type is a more specific kind of its parent. In the `openai` library, `APITimeoutError` is a child of `APIConnectionError`. A check like `isinstance(exc, APIConnectionError)` is also true for a timeout. So in a chain of checks, the first match wins. If the parent comes first, the child's specific message is never reached. `friendly_message()` in `errors.py` checks `APITimeoutError` first, with a comment saying why. The same rule applies to `try`/`except` blocks: list the specific error before the general one.
+
+**In an interview:** "A timeout is a kind of connection error in the OpenAI SDK, so my error mapper checks for the timeout first. Otherwise a slow model would be reported as 'check your internet', which sends the user looking in the wrong place."
+
+*First seen: Step 16 revisit.*
+
+### Graceful degradation
+Graceful degradation means a system behaves well when part of it breaks, instead of hanging, crashing, or showing internals. In production, the thing that breaks is usually a dependency (the model provider, the embedding service, the database), not your own code. In this project it currently means failing cleanly: a time limit on every outside call, and one plain sentence that names the failing service and says what to do, with the right status code. Each case is proven by a mocked test. A fuller form keeps part of the service running when one piece fails. This app does not do that yet: if the answer model is down, it returns an error, not the search results alone.
+
+**In an interview:** "I assume the dependencies will fail, not my code. So every outside call has a time limit, every failure becomes one sentence that names the service that broke, and a mocked test proves each case."
+
+*First seen: Step 16 revisit.*
 
 ### Rate limits (HTTP 429) and retry with backoff
 Providers cap how many requests you may send per minute (a rate limit). Going over it gets an HTTP 429 reply ("too many requests"); the `openai` library raises it as `RateLimitError`. In F6, OpenRouter limited new accounts to 20 requests per minute on the judge model (`anthropic/claude-sonnet-5.5`), and six evals running in parallel went over it. The standard fix is retry with backoff: wait, try again, and wait longer after each failure, so the bursts spread out. `judge_answer()` in `src/ragmotion/judge.py` waits 10, 20, 40, then 60 seconds, and raises the error if the fifth try also fails, so a real outage still surfaces instead of looping. The retry went into the judge call rather than lowering how many evals may run at once. Also learned: don't run many evals in parallel on a new account.
@@ -2204,14 +2276,29 @@ When something fails, the user should get one plain sentence that says what's wr
 
 **In an interview:** "Every failure becomes one sentence with the fix, like 'Is Docker running? Start it with docker compose up.' The full traceback goes to the server log, and unexpected errors never leak internals to the user."
 
-*First seen: Step 16.*
+*Step 16 revisit update: messages for the remaining failures, and the failing service named.*
+
+| Failure | Message |
+|---|---|
+| Answer model too slow | "The answer service took too long to respond. Try again in a minute." |
+| Answer model down (connection error or 5xx) | "The answer service is temporarily unavailable. Try again in a minute." |
+| Embedding service down | "The search service (embeddings) isn't responding, so the question can't be searched. Try again in a minute." |
+| Broken JSON twice | "The AI sent back an unreadable answer 2 times in a row. Please ask again." |
+| Empty or too-short question | "Please type a question." |
+| Question over 500 characters | "Questions can be up to 500 characters; this one has N. Please shorten it." |
+
+A fourth rule came with them: say *which* service failed (search or answer), because "something is down" doesn't tell anyone where to look. Each message is now checked by a mocked test in `tests/test_api.py`.
+
+*First seen: Step 16. Extended: Step 16 revisit.*
 
 ### HTTP status codes 500, 502, 503
 An HTTP status code is the three-digit number a web server sends with every reply to say how the request went. Codes in the 500s mean the server side failed, not the user. **500** (Internal Server Error): something went wrong in our own code. **502** (Bad Gateway): a service behind us gave a bad reply, such as OpenRouter rejecting the key or returning an error. **503** (Service Unavailable): something we depend on is temporarily unreachable or overloaded, such as the database being down, a rate limit, or a network timeout; trying again later may work. In Step 10 every failure was a 502; since Step 16 `friendly_message()` picks the code that matches the cause, which also tells monitoring tools and client code whether a retry makes sense.
 
 **In an interview:** "I map failures to the right status codes: 503 when a dependency like the database is down and a retry may work, 502 when the LLM provider rejects the call, and 500 for our own bugs, with details only in the log."
 
-*First seen: Step 16.*
+*Step 16 revisit update: 400 and 422, and more 502/503 cases.* Codes in the 400s mean the problem is in what the user sent. **400** (Bad Request) is now returned for an empty, too-short, or too-long question, with a plain sentence. **422** (Unprocessable Content) is what FastAPI sends automatically when a request fails its Pydantic validation. Its body is a technical list of field errors, and the web page showed only "Unprocessable Entity" (the code's older name). The question-length check was moved into the endpoint so users get the 400 sentence instead. New mappings: a model that times out or is down (5xx) → 503; the embedding service down → 503; unreadable model output twice → 502. The full rule: 400 bad input, 503 a service is unavailable, 502 a service sent a bad reply, 500 anything unknown. See [0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md).
+
+*First seen: Step 16. Extended: Step 16 revisit.*
 
 ### Reproducible setup from a fresh clone
 A setup is reproducible when someone with only the repo can rebuild the whole working system and get the same result. Here that means (the README's "Run it locally" section): install from `uv.lock` (`uv sync`), start Postgres with Docker Compose, apply `db/schema.sql`, seed and embed the exercises, download and verify the source documents, extract the PDF, then chunk and embed the passages. Writing the README in Step 16 exposed a gap: the source documents are git-ignored (licensing and size), and nothing fetched them. Fix: a `download_url` in the manifest for the two XML papers, and `scripts/download_sources.py`, which downloads any missing external document and checks every sha256 (a file fingerprint) against the manifest. The project's own notes live in the repo. Writing the setup instructions as if for a stranger is what found the gap.
@@ -2233,6 +2320,13 @@ The frontend is what runs in the user's browser (here, one HTML page). The backe
 
 *First seen: Step 10. Extended: UI redesign after Step 15.*
 
+### Endpoint (web API)
+A web API is the set of addresses a program offers for other programs to call over HTTP (the web's request protocol). An endpoint is one of those addresses plus its method: `POST /api/ask` is where the web page sends a question, and `GET /api/info` is where it asks which models and sources are live. The page and the server agree only on the endpoint's input (question, k) and output (answer, sources, status code, message). So anything that sends the same request, including a test, gets the same behavior as the page. The Step 16 revisit's web API tests call `POST /api/ask` exactly that way.
+
+**In an interview:** "The web page talks to one endpoint, POST /api/ask. Because the contract is just that endpoint, my tests can pretend to be the page and check every reply, including the failure ones."
+
+*First seen: Step 10 (named in the Step 16 revisit).*
+
 ### FastAPI and uvicorn
 FastAPI is a Python library for building web APIs (programs other programs call over HTTP, the web's request protocol). A route connects a URL and method to a Python function: in `src/ragmotion/app.py`, `GET /` returns the HTML page and `POST /api/ask` answers a question. The request body is validated by a Pydantic model (question 3 to 500 characters, k 1 to 10), so bad input is rejected before any code runs. The function returns a dict that FastAPI sends back as JSON. Errors get an HTTP status code: any failure in the RAG step comes back as 502 ("the server behind me failed") with the reason. Uvicorn is the server program that runs a FastAPI app and listens on a port; `--reload` restarts it whenever code changes. Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`.
 
@@ -2240,7 +2334,9 @@ FastAPI is a Python library for building web APIs (programs other programs call 
 
 *Step 16 update: specific codes, safe messages.* Errors are no longer a blanket 502 with the raw error text. `friendly_message()` picks 500, 502, or 503 by cause and returns one plain sentence; the full traceback is logged on the server. `/api/info` handles errors the same way. See [HTTP status codes 500, 502, 503](#http-status-codes-500-502-503) and [Friendly error messages](#friendly-error-messages).
 
-*First seen: Step 10. Extended: Step 16.*
+*Step 16 revisit update: question length checked in the endpoint.* The Pydantic model no longer limits the question's length (`k` keeps its 1–10 limit). `ask()` trims the question and returns 400 with a plain sentence if it is under 3 or over 500 characters. Before, FastAPI's automatic 422 reached the page as "Unprocessable Entity". The tradeoff: the limit now lives in code, not in the API's published schema (the OpenAPI description FastAPI generates). The app is also now tested through `TestClient` ([Web API tests with TestClient](#web-api-tests-with-testclient)).
+
+*First seen: Step 10. Extended: Step 16, Step 16 revisit.*
 
 ### Design tokens
 Design tokens are named values for a design's basic choices: colors, fonts, spacing. Code uses the name (for example "indigo" or "ink"), not the raw value (`#4B4FE8`), so one change updates the whole page and a dark mode is just a second set of values for the same names. The redesigned page defines a palette (sky, lilac, blush, ink, indigo, cyan, plus document green and notes amber) and three type roles: Bricolage Grotesque for display, Figtree for body text, JetBrains Mono for labels, ids, and metrics.
