@@ -15,6 +15,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
 from ragmotion.config import settings
+from ragmotion.errors import ModelOutputError
 from ragmotion.models import ClientProfile, QuestionLimits
 
 T = TypeVar("T", bound=BaseModel)
@@ -62,7 +63,8 @@ class LLMUsage:
 def get_client() -> OpenAI:
     if not settings.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is not set. Add it to .env (see .env.example).")
-    client = OpenAI(api_key=settings.openrouter_api_key.strip(), base_url=settings.openrouter_base_url)
+    client = OpenAI(api_key=settings.openrouter_api_key.strip(), base_url=settings.openrouter_base_url,
+                    timeout=settings.api_timeout_seconds, max_retries=settings.api_max_retries)
     # wrap_openai records every chat call (prompt, response, tokens) in LangSmith when tracing is on.
     return wrap_openai(client, chat_name="llm (OpenRouter)")
 
@@ -86,9 +88,11 @@ def structured_completion(
         try:
             return _structured_completion_once(system_prompt, user_content, response_model,
                                                max_tokens=max_tokens, temperature=temperature, model=model)
-        except ValidationError:
+        except ValidationError as e:
             if attempt == retries:
-                raise
+                raise ModelOutputError(
+                    f"The AI sent back an unreadable answer {retries + 1} times in a row. Please ask again."
+                ) from e
 
 
 def _structured_completion_once(

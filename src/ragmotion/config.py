@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     llm_model: str = "google/gemini-2.5-flash-lite"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
+    # Every call to OpenRouter (LLM and embeddings) gives up after this many seconds, and is retried
+    # at most this many times. Without a limit, a hung call would wait the library's default 10 minutes.
+    # A normal answer takes 2-5 s, so 25 s with 1 retry means a clear error within about a minute.
+    api_timeout_seconds: float = 25.0
+    api_max_retries: int = 1
+
     # Embedding model, also through OpenRouter. Must match the vector(1024) column in
     # db/schema.sql. Changing the model means re-embedding every stored row.
     embedding_model: str = "voyageai/voyage-4-lite"

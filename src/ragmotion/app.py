@@ -28,8 +28,11 @@ log = logging.getLogger("ragmotion")
 app = FastAPI(title="rag-motion", description="Grounded answers from the exercise knowledge base.")
 
 
+MAX_QUESTION_CHARS = 500
+
+
 class AskRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=500)
+    question: str  # length is checked in ask(), so the user gets a plain sentence, not a validation dump
     k: int = Field(default=5, ge=1, le=10)  # how many exercises AND how many passages to retrieve
 
 
@@ -66,8 +69,15 @@ def info() -> dict:
 
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict:
+    question = req.question.strip()
+    if len(question) < 3:
+        raise HTTPException(status_code=400, detail="Please type a question.")
+    if len(question) > MAX_QUESTION_CHARS:
+        raise HTTPException(status_code=400, detail=f"Questions can be up to {MAX_QUESTION_CHARS} characters; "
+                                                    f"this one has {len(question)}. Please shorten it.")
     try:
-        r = answer_question(req.question.strip(), k_exercises=req.k, k_passages=req.k)
+        # Failures inside are also recorded on the answer_question trace in LangSmith.
+        r = answer_question(question, k_exercises=req.k, k_passages=req.k)
     except Exception as e:
         log.exception("Failed to answer %r", req.question)  # full details for debugging
         status, message = friendly_message(e)

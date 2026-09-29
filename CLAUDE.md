@@ -32,7 +32,7 @@ Current phase: **Phase 1, Production RAG Fundamentals.** Do not jump ahead to ag
 | 13 | Embed chunks, search exercises + documents together, answers cite both | done |
 | 14 | LangSmith tracing on the RAG pipeline (moved after ingestion by developer choice) | done |
 | 15 | Evaluation set: compare keyword-only (Postgres full-text) vs semantic-only (pgvector) vs combined on the same questions; own scoring script first, then viewed in LangSmith | done (baseline; expected answers pending coach review) |
-| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | done: **Phase 1 complete** |
+| 16 | Harden the FastAPI app (built in Step 10): tests, error handling, README | done: **Phase 1 complete**. Revisited 2026-09-29: time limits on every OpenRouter call, clear messages for slow/down services, broken JSON twice, bad questions; mocked web API tests (`tests/test_api.py`); evals unchanged |
 
 Update the Status column as steps complete.
 
@@ -65,7 +65,7 @@ Update the Status column as steps complete.
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; PDFs extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`); research articles read from Europe PMC JATS XML (`format = "jats-xml"`, no PDF step); notes are Markdown; then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
 - **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING=true`, `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
 - **Evaluation**: `evals/eval_set.yaml` (v3: 40 coach-reviewed questions; `answer_rules` graded by an AI judge, `src/ragmotion/judge.py`, model `anthropic/claude-sonnet-5.5`). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode]` (LangSmith experiment, code-based checks). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
-- **Tests**: `uv run pytest` (37 tests, offline; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
+- **Tests**: `uv run pytest` (50 tests, offline; outside services mocked in `tests/test_api.py`; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules

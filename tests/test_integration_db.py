@@ -67,3 +67,21 @@ def test_population_filter_skips_other_groups_but_keeps_general_passages():
         pops = conn.execute("SELECT source_id || '-' || chunk_index, populations FROM document_chunk").fetchall()
     kept = {pid for pid, p in pops if not p or "adults" in p}
     assert set(tags) == kept  # exactly the adult and general passages
+
+
+def test_search_returns_at_most_k_results_with_the_fields_answers_need(monkeypatch):
+    # Real database and SQL; the question's embedding is a stored vector, so no Voyage call.
+    from ragmotion import retrieval
+
+    with get_connection() as conn:
+        vector = conn.execute("SELECT embedding FROM exercise WHERE slug = 'goblet-squat'").fetchone()[0]
+    monkeypatch.setattr(retrieval, "embed_query", lambda text: vector.to_list())
+
+    exercises, passages = retrieval.search_all("any question", k_exercises=5, k_passages=5)
+    assert 0 < len(exercises) <= 5 and 0 < len(passages) <= 5
+    for h in exercises:
+        assert h.slug and h.name and h.equipment and h.difficulty and -1 <= h.similarity <= 1
+    for p in passages:
+        assert p.passage_id.startswith(p.source_id) and p.source_title and p.text and p.license
+    sims = [h.similarity for h in exercises]
+    assert sims == sorted(sims, reverse=True)  # closest first

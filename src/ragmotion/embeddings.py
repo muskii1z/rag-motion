@@ -13,9 +13,11 @@ embed_query() instead of choosing the mode themselves.
 
 from typing import Literal
 
+import openai
 from langsmith import traceable
 
 from ragmotion.config import settings
+from ragmotion.errors import SearchServiceUnavailable
 from ragmotion.llm import get_client
 from ragmotion.models import Exercise
 
@@ -52,12 +54,19 @@ def _summarize_vectors(vectors: list[list[float]] | None) -> dict:
 def _embed(texts: list[str], input_type: InputType) -> list[list[float]]:
     if not texts:
         return []
-    response = get_client().embeddings.create(
-        model=settings.embedding_model,
-        input=texts,
-        # Voyage-specific setting; OpenRouter passes it through (verified in Step 7).
-        extra_body={"input_type": input_type},
-    )
+    try:
+        response = get_client().embeddings.create(
+            model=settings.embedding_model,
+            input=texts,
+            # Voyage-specific setting; OpenRouter passes it through (verified in Step 7).
+            extra_body={"input_type": input_type},
+        )
+    except (openai.APIConnectionError, openai.InternalServerError) as e:  # includes timeouts
+        # Name the failing service: "search is down" is more useful than a generic error.
+        raise SearchServiceUnavailable(
+            "The search service (embeddings) isn't responding, so the question can't be searched. "
+            "Try again in a minute."
+        ) from e
     # The API may return items out of order; each carries its original index.
     vectors = [item.embedding for item in sorted(response.data, key=lambda d: d.index)]
 
