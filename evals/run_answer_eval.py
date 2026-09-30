@@ -1,8 +1,14 @@
-"""Step 15 / F2: evaluate full RAG answers as a LangSmith experiment.
+"""Step 15 / F2: evaluate full RAG answers on the eval set.
 
 Run from the project folder:
-    uv run python evals/run_answer_eval.py                 # semantic retrieval (the default pipeline)
+    uv run python evals/run_answer_eval.py                 # local run: results saved to evals/results/
+    uv run python evals/run_answer_eval.py --langsmith     # also record it as a LangSmith experiment
     uv run python evals/run_answer_eval.py --mode hybrid
+
+By default the eval runs locally with tracing off and saves every answer and score to
+evals/results/answers-<timestamp>.json, so it keeps working when LangSmith is unreachable or out of
+its monthly trace allowance (hit on 2026-09-30). --langsmith runs the same checks through
+LangSmith's evaluate() so the run is also browsable there.
 
 Each question runs the whole pipeline once. Checks, per answer:
   citations_valid         every citation points to retrieved evidence (the Step 10 checker)
@@ -21,13 +27,18 @@ Cost: roughly $0.0005 per question for answers, plus ~$0.005 per judged question
 
 import argparse
 import hashlib
+import inspect
+import json
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
-from langsmith import Client, evaluate
+from langsmith import Client, evaluate, tracing_context
 
 from ragmotion.config import settings
-from ragmotion.judge import RULES, judge_answer
-from ragmotion.evaluation import EVAL_SET, load_eval_set, passage_matches
+from ragmotion.evaluation import EVAL_SET, EvalQuestion, load_eval_set, passage_matches
+from ragmotion.ingestion import PROJECT_ROOT
+from ragmotion.judge import JUDGE_MODEL, RULES, judge_answer
 from ragmotion.rag import answer_question
 from ragmotion.retrieval import ChunkHit
 
@@ -36,6 +47,17 @@ def dataset_name() -> str:
     """One dataset per version of eval_set.yaml, so editing the file never overwrites old results."""
     digest = hashlib.sha256(EVAL_SET.read_bytes()).hexdigest()[:8]
     return f"rag-motion-eval-{digest}"
+
+
+def reference(q: EvalQuestion) -> dict:
+    """The answer key for one question, in the shape the evaluators read (same for local and LangSmith)."""
+    return {
+        "id": q.id, "category": q.category, "expected_coverage": q.expected_coverage,
+        "expected_exercises": q.expected_exercises, "forbidden_exercises": q.forbidden_exercises,
+        "acceptable_exercises": q.acceptable_exercises,
+        "expected_passages": q.expected_passages, "forbidden_passages": q.forbidden_passages,
+        "reviewed": q.reviewed, "answer_rules": q.answer_rules,
+    }
 
 
 def ensure_dataset(client: Client) -> str:
@@ -47,12 +69,7 @@ def ensure_dataset(client: Client) -> str:
     client.create_examples(
         dataset_id=ds.id,
         inputs=[{"question": q.question} for q in questions],
-        outputs=[{
-            "id": q.id, "category": q.category, "expected_coverage": q.expected_coverage,
-            "expected_exercises": q.expected_exercises, "forbidden_exercises": q.forbidden_exercises, "acceptable_exercises": q.acceptable_exercises,
-            "expected_passages": q.expected_passages, "forbidden_passages": q.forbidden_passages,
-            "reviewed": q.reviewed, "answer_rules": q.answer_rules,
-        } for q in questions],
+        outputs=[reference(q) for q in questions],
     )
     return name
 
@@ -143,43 +160,61 @@ CHECK_KEYS = ["citations_valid", "coverage_correct", "used_expected_evidence", "
               *[f"rule_{r.replace('-', '_')}" for r in RULES]]
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
-    parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
-    parser.add_argument("--no-filters", action="store_true", help="skip the F4 equipment filter (the F2 baseline)")
-    args = parser.parse_args()
-    use_filters = not args.no_filters
+def run_evaluator(evaluator, inputs: dict, outputs: dict, ref: dict) -> list[dict]:
+    """Call one evaluator the way LangSmith would (by parameter name) and return its results as a list."""
+    available = {"inputs": inputs, "outputs": outputs, "reference_outputs": ref}
+    kwargs = {name: available[name] for name in inspect.signature(evaluator).parameters}
+    try:
+        result = evaluator(**kwargs)
+    except Exception as e:  # one broken check shouldn't sink the run; it's reported instead
+        return [{"key": evaluator.__name__, "score": None, "comment": f"evaluator error: {type(e).__name__}: {e}",
+                 "error": True}]
+    return result["results"] if "results" in result else [result]
 
-    client = Client()
-    name = ensure_dataset(client)
-    print(f"Dataset: {name}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  k_exercises: {args.k_exercises}  |  model: {settings.llm_model}")
 
-    results = evaluate(
-        make_target(args.mode, use_filters, args.k_exercises),
-        data=name,
-        evaluators=EVALUATORS,
-        experiment_prefix=f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else ""),
-        metadata={"retrieval_mode": args.mode, "use_filters": use_filters, "k_exercises": args.k_exercises, "llm_model": settings.llm_model,
-                  "embedding_model": settings.embedding_model},
-        max_concurrency=4,
-    )
+def run_locally(questions: list[EvalQuestion], target) -> list[dict]:
+    """Run the pipeline and every check on each question, without LangSmith. Returns one row per question."""
+    def one(q: EvalQuestion) -> dict:
+        inputs, ref = {"question": q.question}, reference(q)
+        try:
+            outputs = target(inputs)
+        except Exception as e:
+            return {"id": q.id, "category": q.category, "question": q.question, "outputs": None,
+                    "error": f"{type(e).__name__}: {e}", "results": []}
+        results = [r for ev in EVALUATORS for r in run_evaluator(ev, inputs, outputs, ref)]
+        return {"id": q.id, "category": q.category, "question": q.question, "outputs": outputs,
+                "error": None, "results": results}
 
-    # ---- Local summary ----
-    totals, by_cat, costs = defaultdict(list), defaultdict(lambda: defaultdict(list)), []
-    failures, verdicts = [], []
+    with tracing_context(enabled=False), ThreadPoolExecutor(max_workers=4) as pool:
+        return list(pool.map(one, questions))
+
+
+def rows_from_langsmith(results) -> list[dict]:
+    """LangSmith's result objects, turned into the same rows as a local run."""
+    rows = []
     for row in results:
         ref = row["example"].outputs
-        for er in row["evaluation_results"]["results"]:
-            if er.key.startswith("rule_") and er.comment:
-                verdicts.append((ref["id"], er.key, er.comment))
-            if er.score is None:
+        rows.append({
+            "id": ref["id"], "category": ref["category"], "question": row["example"].inputs["question"],
+            "outputs": row["run"].outputs, "error": row["run"].error,
+            "results": [{"key": er.key, "score": er.score, "comment": er.comment}
+                        for er in row["evaluation_results"]["results"]],
+        })
+    return rows
+
+
+def print_summary(rows: list[dict]) -> None:
+    totals, failures, verdicts = defaultdict(list), [], []
+    for row in rows:
+        for r in row["results"]:
+            if r["key"].startswith("rule_") and r.get("comment"):
+                verdicts.append((row["id"], r["key"], r["comment"]))
+            if r["score"] is None:
                 continue
-            totals[er.key].append(er.score)
-            by_cat[ref["category"]][er.key].append(er.score)
-            if er.score == 0:
-                detail = er.comment if er.key == "only_keyed_exercises" else (row["run"].outputs or {}).get("evidence_coverage")
-                failures.append((ref["id"], er.key, detail))
+            totals[r["key"]].append(r["score"])
+            if r["score"] == 0:
+                detail = r.get("comment") if r["key"] == "only_keyed_exercises" else (row["outputs"] or {}).get("evidence_coverage")
+                failures.append((row["id"], r["key"], detail))
     print("\nOverall (share of applicable questions that passed):")
     for key in CHECK_KEYS:
         vals = totals.get(key, [])
@@ -193,7 +228,47 @@ def main() -> None:
     print("\nAI judge verdicts (coach: do you agree?):")
     for qid, key, comment in sorted(verdicts):
         print(f"  {qid:<30} {key:<22} {comment}")
-    print(f"\nExperiment: {results.experiment_name}  (smith.langchain.com -> Datasets & Experiments -> {name})")
+    errors = [(row["id"], row["error"]) for row in rows if row["error"]]
+    errors += [(row["id"], r["comment"]) for row in rows for r in row["results"] if r.get("error")]
+    if errors:
+        print(f"\nERRORS ({len(errors)}): these questions or checks didn't run, so the totals above leave them out")
+        for qid, err in errors:
+            print(f"  {qid:<30} {err}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
+    parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
+    parser.add_argument("--no-filters", action="store_true", help="skip the F4/F5 filters (the F2 baseline)")
+    parser.add_argument("--langsmith", action="store_true", help="also record the run as a LangSmith experiment")
+    args = parser.parse_args()
+    use_filters = not args.no_filters
+    run_name = f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else "")
+    metadata = {"retrieval_mode": args.mode, "use_filters": use_filters, "k_exercises": args.k_exercises,
+                "llm_model": settings.llm_model, "embedding_model": settings.embedding_model,
+                "judge_model": JUDGE_MODEL, "eval_set": dataset_name()}
+    print(f"Eval set: {dataset_name()}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  "
+          f"k_exercises: {args.k_exercises}  |  model: {settings.llm_model}  |  "
+          f"{'LangSmith experiment' if args.langsmith else 'local run'}")
+
+    target = make_target(args.mode, use_filters, args.k_exercises)
+    experiment = None
+    if args.langsmith:
+        results = evaluate(target, data=ensure_dataset(Client()), evaluators=EVALUATORS,
+                           experiment_prefix=run_name, metadata=metadata, max_concurrency=4)
+        rows, experiment = rows_from_langsmith(results), results.experiment_name
+    else:
+        rows = run_locally(load_eval_set(), target)
+
+    print_summary(rows)
+
+    out_dir = PROJECT_ROOT / "evals" / "results"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{run_name}-{datetime.now():%Y%m%d-%H%M%S}.json"
+    out.write_text(json.dumps({"run": run_name, "metadata": metadata, "langsmith_experiment": experiment,
+                               "rows": rows}, indent=2, default=str))
+    print(f"\nSaved {out.relative_to(PROJECT_ROOT)}" + (f"  |  LangSmith experiment: {experiment}" if experiment else ""))
 
 
 if __name__ == "__main__":
