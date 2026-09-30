@@ -169,25 +169,42 @@ def keyword_search_all(question: str, k_exercises: int = 5, k_passages: int = 5,
     return exercises, passages
 
 
-def _rrf(rankings: list[list], key) -> list:
+def _rrf(rankings: list[list], key, weights: list[float] | None = None) -> list:
+    """Reciprocal Rank Fusion; each ranking's contribution can be weighted (F7d)."""
+    weights = weights or [1.0] * len(rankings)
     scores, items = {}, {}
-    for ranking in rankings:
+    for ranking, weight in zip(rankings, weights):
         for rank, item in enumerate(ranking, start=1):
             k = key(item)
-            scores[k] = scores.get(k, 0.0) + 1.0 / (RRF_K + rank)
+            scores[k] = scores.get(k, 0.0) + weight / (RRF_K + rank)
             items.setdefault(k, item)
     ordered = sorted(scores, key=scores.get, reverse=True)
     return [items[k].model_copy(update={"similarity": scores[k]}) for k in ordered]
 
 
 def hybrid_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20,
-                      owned: list[str] | None = None, population: str | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
-    """Semantic + keyword, each retrieving `pool` candidates, merged with RRF. `similarity` holds the RRF score."""
+                      owned: list[str] | None = None, population: str | None = None,
+                      semantic_weight: float | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+    """Semantic + keyword, each retrieving `pool` candidates, merged with (weighted) RRF. `similarity` holds the RRF score."""
+    w = [semantic_weight or settings.hybrid_semantic_weight, 1.0]
     sem_ex, sem_ps = search_all(question, k_exercises=pool, k_passages=pool, owned=owned, population=population)
     kw_ex, kw_ps = keyword_search_all(question, k_exercises=pool, k_passages=pool, owned=owned, population=population)
-    exercises = _rrf([sem_ex, kw_ex], key=lambda h: h.slug)[:k_exercises]
-    passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id)[:k_passages]
+    exercises = _rrf([sem_ex, kw_ex], key=lambda h: h.slug, weights=w)[:k_exercises]
+    passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id, weights=w)[:k_passages]
     return exercises, passages
 
 
-SEARCH_MODES = {"semantic": search_all, "keyword": keyword_search_all, "hybrid": hybrid_search_all}
+def split_search_all(question: str, k_exercises: int = 5, k_passages: int = 5, pool: int = 20,
+                     owned: list[str] | None = None, population: str | None = None,
+                     semantic_weight: float | None = None) -> tuple[list[ExerciseHit], list[ChunkHit]]:
+    """F7d: semantic for exercises (keyword search is weak on short entries and slang), hybrid for passages
+    (exact phrases like "vigorous intensity" help rank the right passage first)."""
+    w = [semantic_weight or settings.hybrid_semantic_weight, 1.0]
+    sem_ex, sem_ps = search_all(question, k_exercises=k_exercises, k_passages=pool, owned=owned, population=population)
+    _, kw_ps = keyword_search_all(question, k_exercises=1, k_passages=pool, owned=owned, population=population)
+    passages = _rrf([sem_ps, kw_ps], key=lambda p: p.passage_id, weights=w)[:k_passages]
+    return sem_ex, passages
+
+
+SEARCH_MODES = {"semantic": search_all, "keyword": keyword_search_all, "hybrid": hybrid_search_all,
+                "split": split_search_all}

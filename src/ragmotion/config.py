@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # e.g. for a demo recording: USE_FILTERS=false uv run uvicorn ragmotion.app:app ...
     use_filters: bool = True
 
+    # F7d: in hybrid search, how much the semantic ranking counts relative to the keyword ranking
+    # (1.0 = equal; 2.0 = semantic counts twice as much).
+    hybrid_semantic_weight: float = 1.0
+
     # F7c: expand coach slang before search: "none", "dictionary" or "llm" (see rewrite.py).
     query_rewrite: str = "dictionary"  # chosen 2026-09-30: same quality as the LLM rewrite, free, no added time
 

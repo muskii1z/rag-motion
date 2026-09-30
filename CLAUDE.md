@@ -49,7 +49,8 @@ Update the Status column as steps complete.
 | F7a | Test 5 vs 10 exercises per question | done: developer kept 5 (lists +12% complete, but more unasked-for extras on focused questions) |
 | F7b | Coach's presentation rules in the answer prompt (3 versions, 3 runs each) | tried and reverted: no version beat the plain prompt; side effects on focused answers (decision 0030, accepted). Later idea: show level/bodyweight labels in code |
 | F7c | Query rewriting for slang: 6 slang questions (46 total), dictionary vs LLM rewrite, 3 runs each | done: dictionary is the default (`src/ragmotion/rewrite.py`): slang questions 89% -> 100% found, forbidden 93% -> 100%, MRR 0.86 -> 0.97, no added time; LLM rewrite same quality but +640 ms |
-| F7d | Hybrid search with filters, weightings, decide default | next |
+| F7d | Hybrid search with filters: weightings 1:1-3:1, and split (semantic exercises + hybrid passages) | done: semantic stays default; with filters semantic ranks passages best (MRR 0.86 vs 0.84); split answers: coverage 0.86 vs 0.91. `--mode split`, `--weight` available |
+| Next | Program-design sources, then Phase 2 program generator | |
 | Pre-Phase 2 | Program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18-19) | |
 
 **Where we are (2026-09-28):** Phase 1F filters done and measured (no forbidden advice 69% -> 100%, 3 runs each). Exercises per question stay at 5 (F7a, decision 0029). Open choice for the developer: (1) optional: add the coach's presentation rules (group by muscle group; label intermediate, bodyweight, secondary) to the answer prompt and re-measure; or (2) program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19), then Phase 2.

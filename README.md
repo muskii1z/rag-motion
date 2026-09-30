@@ -14,7 +14,7 @@ Built step by step as an AI-engineering portfolio project, with every decision a
 - **Shows its work.** The web page color-codes citations (guidelines, research, notes, catalog) and opens the exact source passage on click. General training knowledge, when useful, is shown separately and labeled "not from your sources".
 - **Respects limits.** It reads the person's equipment and age group from the question and filters the search, so someone with only dumbbells never gets a bench exercise, and a beginner adult never gets older-adult numbers.
 - **Checks itself.** Python verifies that every citation points to retrieved evidence, catching invented or mistyped sources before the user trusts them.
-- **Is measured.** A 40-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
+- **Is measured.** A 46-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
 
 ## How it works
 
@@ -69,18 +69,25 @@ Sources are chosen under a written [licensing policy](docs/decisions/0017-knowle
 
 ## Evaluation
 
-40 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach jargon, equipment limits (bands only, one kettlebell, no equipment, a full gym), guideline dosage, specific groups (beginner adults, older adults, kids, pregnancy), research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **set question by question by the coach**. One question is a trap: with a full gym nothing should be removed, so it catches a filter that's too strict.
+46 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach slang (RDL, RFESS, BW, DB), equipment limits (bands only, one kettlebell, no equipment, a full gym), guideline dosage, specific groups (beginner adults, older adults, kids, pregnancy), research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **set question by question by the coach**. One question is a trap: with a full gym nothing should be removed, so it catches a filter that's too strict.
 
-**Retrieval** (top 5, same 40 questions):
+**Retrieval** (top 5, all 46 questions; each row adds one change):
 
-| Search mode | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
+| Search setup | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
 |---|---|---|---|---|
-| Keyword (Postgres full-text) | 0.59 | 0.66 | 0.50 | 15% |
-| Hybrid (reciprocal rank fusion) | 0.75 | 0.93 | 0.84 | 23% |
-| Semantic | 0.80 | 0.97 | 0.79 | 17% |
-| **Semantic + equipment and age-group filters (default)** | **0.83** | **0.97** | **0.86** | **0%** |
+| Keyword (Postgres full-text) | 0.64 | 0.66 | 0.50 | 15% |
+| Hybrid, keyword + semantic merged (reciprocal rank fusion) | 0.77 | 0.93 | 0.84 | 22% |
+| Semantic | 0.81 | 0.97 | 0.79 | 17% |
+| Semantic + equipment and age-group filters | 0.83 | 0.97 | 0.86 | 2% |
+| **+ slang dictionary (default)** | **0.87** | **0.97** | **0.86** | **0%** |
+| *Tried:* hybrid + filters + slang, semantic weighted 2:1 | 0.83 | 0.96 | 0.84 | 0% |
+| *Tried:* semantic for exercises, hybrid for passages | 0.87 | 0.96 | 0.84 | 0% |
 
-**Answers**, before and after the filters (full pipeline, scored in code, averaged over 3 runs each, tracked as LangSmith experiments):
+Hybrid search used to rank passages better than semantic (0.84 vs 0.79). Once the age-group filter removed wrong-group passages, semantic ranked them best (0.86), so hybrid no longer earns its place. Both hybrid variants were also checked on full answers (3 runs): no gain, and a worse coverage claim (0.86 vs 0.91), so semantic stays the default.
+
+**Slang** ("RFESS", "BW squat", "DB row"): probing 20 slang questions showed the embedding model already understood 16. A small glossary, expanded before search (longest term first, whole words only), fixed the rest: the slang questions' expected exercise was found 89% → 100% of the time, with no added time. An LLM rewrite scored the same but added 0.6 s per question, so the dictionary won.
+
+**Answers**, before and after the filters (full pipeline, scored in code, averaged over 3 runs each, results saved in `evals/results/`):
 
 | Check | No filters | With filters |
 |---|---|---|
@@ -125,9 +132,10 @@ uv run python scripts/ask.py "How much strength training should a beginner adult
 Tests and evaluation:
 
 ```bash
-uv run pytest                                  # 37 tests, ~0.4 s, no API calls
+uv run pytest                                  # 54 tests, ~1 s, no API calls
 uv run python evals/run_retrieval_eval.py      # retrieval scores (free)
-uv run python evals/run_answer_eval.py         # answer scores + AI judge (~10 cents, needs LangSmith key)
+uv run python evals/run_answer_eval.py         # answer scores + AI judge (~10 cents), saved to evals/results/
+uv run python evals/run_answer_eval.py --langsmith   # also record it as a LangSmith experiment
 uv run python evals/run_answer_eval.py --no-filters   # the same, without the filters, for comparison
 ```
 

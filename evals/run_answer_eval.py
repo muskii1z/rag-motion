@@ -241,20 +241,22 @@ def print_summary(rows: list[dict]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
+    parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid", "split"])
     parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
     parser.add_argument("--no-filters", action="store_true", help="skip the F4/F5 filters (the F2 baseline)")
+    parser.add_argument("--weight", type=float, default=1.0, help="hybrid/split: semantic weight vs keyword (F7d)")
     parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting (F7c)")
     parser.add_argument("--no-judge", action="store_true", help="skip the AI judge (saves ~8c when rules aren't being measured)")
     parser.add_argument("--langsmith", action="store_true", help="also record the run as a LangSmith experiment")
     args = parser.parse_args()
     use_filters = not args.no_filters
+    settings.hybrid_semantic_weight = args.weight
     if args.no_judge:
         EVALUATORS.remove(coach_rules)
-    run_name = f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else "") + (f"-rw-{args.rewrite}" if args.rewrite != "none" else "")
+    run_name = f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else "") + (f"-rw-{args.rewrite}" if args.rewrite != "none" else "") + (f"-w{args.weight:g}" if args.mode in ("hybrid", "split") else "")
     metadata = {"retrieval_mode": args.mode, "use_filters": use_filters, "k_exercises": args.k_exercises,
                 "llm_model": settings.llm_model, "embedding_model": settings.embedding_model,
-                "judge_model": None if args.no_judge else JUDGE_MODEL, "rewrite": args.rewrite, "eval_set": dataset_name()}
+                "judge_model": None if args.no_judge else JUDGE_MODEL, "rewrite": args.rewrite, "hybrid_semantic_weight": args.weight, "eval_set": dataset_name()}
     print(f"Eval set: {dataset_name()}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  "
           f"k_exercises: {args.k_exercises}  |  model: {settings.llm_model}  |  "
           f"{'LangSmith experiment' if args.langsmith else 'local run'}")
@@ -272,7 +274,7 @@ def main() -> None:
 
     out_dir = PROJECT_ROOT / "evals" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"{run_name}-{datetime.now():%Y%m%d-%H%M%S}.json"
+    out = out_dir / f"{run_name}-{datetime.now():%Y%m%d-%H%M%S-%f}.json"
     out.write_text(json.dumps({"run": run_name, "metadata": metadata, "langsmith_experiment": experiment,
                                "rows": rows}, indent=2, default=str))
     print(f"\nSaved {out.relative_to(PROJECT_ROOT)}" + (f"  |  LangSmith experiment: {experiment}" if experiment else ""))

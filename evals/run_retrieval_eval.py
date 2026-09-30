@@ -44,6 +44,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--details", action="store_true")
     parser.add_argument("--k", type=int, default=5, help="results per search (F7 test)")
+    parser.add_argument("--weight", type=float, default=1.0, help="hybrid: semantic weight vs keyword (F7d)")
     parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting for the filtered row (F7c)")
     args = parser.parse_args()
     global K
@@ -67,17 +68,24 @@ def main() -> None:
                                       "retrieved_exercises": [h.slug for h in exercises],
                                       "retrieved_passages": [p.passage_id for p in passages]})
 
-        # F4/F5: same semantic search, with the equipment and population filters from the question's limits.
-        results["semantic+filter"] = []
+        # F4/F5: with the filters from the question's limits (read once per question), for the modes
+        # the pipeline can use (F7d adds hybrid with a semantic weight, and split: semantic exercises + hybrid passages).
+        settings.hybrid_semantic_weight = args.weight
+        limits_by_q = {}
         for q in questions:
             search_q = rewrite_query(q.question, args.rewrite)
             limits = extract_limits(search_q)[0]
-            owned, population = limits.owned_equipment(), limits.population
-            exercises, passages = search_all(search_q, k_exercises=K, k_passages=K, owned=owned, population=population)
-            score = score_retrieval(q, exercises, passages)
-            results["semantic+filter"].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned, "population": population,
-                                               "retrieved_exercises": [h.slug for h in exercises],
-                                               "retrieved_passages": [p.passage_id for p in passages]})
+            limits_by_q[q.id] = (search_q, limits.owned_equipment(), limits.population)
+        for mode in ["semantic", "hybrid", "split"]:
+            row = f"{mode}+filter"
+            results[row] = []
+            for q in questions:
+                search_q, owned, population = limits_by_q[q.id]
+                exercises, passages = SEARCH_MODES[mode](search_q, k_exercises=K, k_passages=K, owned=owned, population=population)
+                score = score_retrieval(q, exercises, passages)
+                results[row].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned, "population": population,
+                                     "retrieved_exercises": [h.slug for h in exercises],
+                                     "retrieved_passages": [p.passage_id for p in passages]})
 
     # ---- Overall table ----
     print(f"{'mode':<16} " + " ".join(f"{m:>15}" for m in METRICS))
@@ -109,7 +117,7 @@ def main() -> None:
 
     out_dir = PROJECT_ROOT / "evals" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"retrieval-{datetime.now():%Y%m%d-%H%M%S}.json"
+    out = out_dir / f"retrieval-{datetime.now():%Y%m%d-%H%M%S-%f}.json"
     out.write_text(json.dumps({"k": K, "chunker": chunker_label(), "embedding_model": settings.embedding_model,
                                "questions": len(questions), "reviewed": reviewed, "results": results}, indent=2))
     print(f"\nSaved {out.relative_to(PROJECT_ROOT)}")
