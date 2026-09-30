@@ -74,15 +74,18 @@ def ensure_dataset(client: Client) -> str:
     return name
 
 
-def make_target(mode: str, use_filters: bool, k_exercises: int):
+def make_target(mode: str, use_filters: bool, k_exercises: int, rewrite: str = "none"):
     def target(inputs: dict) -> dict:
-        r = answer_question(inputs["question"], mode=mode, use_filters=use_filters, k_exercises=k_exercises)
+        r = answer_question(inputs["question"], mode=mode, use_filters=use_filters, k_exercises=k_exercises, rewrite=rewrite)
         return {
             "answer": r.answer.answer,
             "general_guidance": r.answer.general_guidance,
             "evidence_coverage": r.answer.evidence_coverage,
             "cited_ids": r.answer.cited_ids,
             "retrieved_exercises": [h.slug for h in r.exercises],
+            "search_query": r.search_query,
+            "timings_ms": r.timings_ms,
+            "cost_usd": sum(u.cost_usd or 0 for u in (r.usage, r.limits_usage) if u),
             "citation_problems": r.citation_problems,
             "cited_passages": [p.model_dump() for p in r.passages if p.passage_id in r.cited],
         }
@@ -241,18 +244,22 @@ def main() -> None:
     parser.add_argument("--mode", default="semantic", choices=["semantic", "keyword", "hybrid"])
     parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
     parser.add_argument("--no-filters", action="store_true", help="skip the F4/F5 filters (the F2 baseline)")
+    parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting (F7c)")
+    parser.add_argument("--no-judge", action="store_true", help="skip the AI judge (saves ~8c when rules aren't being measured)")
     parser.add_argument("--langsmith", action="store_true", help="also record the run as a LangSmith experiment")
     args = parser.parse_args()
     use_filters = not args.no_filters
-    run_name = f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else "")
+    if args.no_judge:
+        EVALUATORS.remove(coach_rules)
+    run_name = f"answers-{args.mode}" + ("-filtered" if use_filters else "") + (f"-k{args.k_exercises}" if args.k_exercises != 5 else "") + (f"-rw-{args.rewrite}" if args.rewrite != "none" else "")
     metadata = {"retrieval_mode": args.mode, "use_filters": use_filters, "k_exercises": args.k_exercises,
                 "llm_model": settings.llm_model, "embedding_model": settings.embedding_model,
-                "judge_model": JUDGE_MODEL, "eval_set": dataset_name()}
+                "judge_model": None if args.no_judge else JUDGE_MODEL, "rewrite": args.rewrite, "eval_set": dataset_name()}
     print(f"Eval set: {dataset_name()}  |  retrieval: {args.mode}  |  filters: {use_filters}  |  "
           f"k_exercises: {args.k_exercises}  |  model: {settings.llm_model}  |  "
           f"{'LangSmith experiment' if args.langsmith else 'local run'}")
 
-    target = make_target(args.mode, use_filters, args.k_exercises)
+    target = make_target(args.mode, use_filters, args.k_exercises, args.rewrite)
     experiment = None
     if args.langsmith:
         results = evaluate(target, data=ensure_dataset(Client()), evaluators=EVALUATORS,

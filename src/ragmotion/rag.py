@@ -19,7 +19,9 @@ from langsmith.run_helpers import get_current_run_tree
 
 from ragmotion.llm import LLMUsage, extract_limits, structured_completion
 from ragmotion.models import GroundedAnswer, QuestionLimits
+from ragmotion.config import settings
 from ragmotion.retrieval import SEARCH_MODES, ChunkHit, ExerciseHit
+from ragmotion.rewrite import rewrite_query
 
 ANSWER_SYSTEM_PROMPT = """\
 You are an assistant for strength coaches. You answer questions using ONLY the evidence inside
@@ -80,6 +82,7 @@ class RAGResult:
     citation_problems: list[str] = field(default_factory=list)
     limits: QuestionLimits | None = None  # what F3 read from the question (None if filters were off)
     limits_usage: LLMUsage | None = None
+    search_query: str | None = None  # the question as the search saw it (after slang rewriting, F7c)
     timings_ms: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -151,22 +154,26 @@ def _summarize_result(r: "RAGResult | None") -> dict:
 @traceable(run_type="chain", name="answer_question", process_inputs=lambda inputs: {"question": inputs["question"]},
            process_outputs=_summarize_result)
 def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mode: str = "semantic",
-                    use_filters: bool = True) -> RAGResult:
+                    use_filters: bool = True, rewrite: str | None = None) -> RAGResult:
     """mode: "semantic" (default), "keyword", or "hybrid" retrieval (see retrieval.SEARCH_MODES).
 
     use_filters: read the question's limits first; search only usable exercises (F4) and passages
     about the asked-about group or everyone (F5).
+    rewrite: expand slang before search: "none", "dictionary" or "llm" (default: settings.query_rewrite).
+    The answer model still sees the coach's original question.
     """
     run = get_current_run_tree()
     if run:  # settings go to trace metadata so the trace list previews the question itself
         run.add_metadata({"retrieval_mode": mode, "k_exercises": k_exercises, "k_passages": k_passages,
-                          "use_filters": use_filters})
+                          "use_filters": use_filters, "rewrite": rewrite or settings.query_rewrite})
     t_start = time.perf_counter()
-    limits, limits_usage = extract_limits(question) if use_filters else (None, None)
+    search_query = rewrite_query(question, rewrite or settings.query_rewrite)
+    t_rewrite = time.perf_counter()
+    limits, limits_usage = extract_limits(search_query) if use_filters else (None, None)
     owned = limits.owned_equipment() if limits else None
     population = limits.population if limits else None
     t0 = time.perf_counter()
-    exercises, passages = SEARCH_MODES[mode](question, k_exercises=k_exercises, k_passages=k_passages, owned=owned, population=population)
+    exercises, passages = SEARCH_MODES[mode](search_query, k_exercises=k_exercises, k_passages=k_passages, owned=owned, population=population)
     t1 = time.perf_counter()
 
     user_content = f"{format_evidence(exercises, passages)}\n\n<question>\n{question}\n</question>"
@@ -189,6 +196,7 @@ def answer_question(question: str, k_exercises: int = 5, k_passages: int = 5, mo
         citation_problems=check_citations(answer, retrieved_ids),
         limits=limits,
         limits_usage=limits_usage,
-        timings_ms={"limits": (t0 - t_start) * 1000, "retrieval": (t1 - t0) * 1000,
+        search_query=search_query,
+        timings_ms={"rewrite": (t_rewrite - t_start) * 1000, "limits": (t0 - t_rewrite) * 1000, "retrieval": (t1 - t0) * 1000,
                     "generation": (t2 - t1) * 1000, "total": (t2 - t_start) * 1000},
     )

@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # e.g. for a demo recording: USE_FILTERS=false uv run uvicorn ragmotion.app:app ...
     use_filters: bool = True
 
+    # F7c: expand coach slang before search: "none", "dictionary" or "llm" (see rewrite.py).
+    query_rewrite: str = "dictionary"  # chosen 2026-09-30: same quality as the LLM rewrite, free, no added time
+
     api_timeout_seconds: float = 25.0
     api_max_retries: int = 1
 

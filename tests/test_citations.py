@@ -41,3 +41,4 @@ def test_general_guidance_must_not_cite_sources():
     a = answer("Do goblet squats [goblet-squat].", ["goblet-squat"], general="Rest 2 minutes [goblet-squat].")
     problems = check_citations(a, {"goblet-squat"})
     assert any("general guidance" in p for p in problems)
+

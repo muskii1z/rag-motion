@@ -25,6 +25,7 @@ from ragmotion.evaluation import load_eval_set, score_retrieval
 from ragmotion.ingestion import PROJECT_ROOT
 from ragmotion.llm import extract_limits
 from ragmotion.retrieval import SEARCH_MODES, search_all
+from ragmotion.rewrite import rewrite_query
 
 K = 5
 METRICS = ["exercise_recall", "exercise_hit", "exercise_mrr", "passage_recall", "passage_hit", "passage_mrr", "forbidden"]
@@ -43,6 +44,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--details", action="store_true")
     parser.add_argument("--k", type=int, default=5, help="results per search (F7 test)")
+    parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting for the filtered row (F7c)")
     args = parser.parse_args()
     global K
     K = args.k
@@ -68,9 +70,10 @@ def main() -> None:
         # F4/F5: same semantic search, with the equipment and population filters from the question's limits.
         results["semantic+filter"] = []
         for q in questions:
-            limits = extract_limits(q.question)[0]
+            search_q = rewrite_query(q.question, args.rewrite)
+            limits = extract_limits(search_q)[0]
             owned, population = limits.owned_equipment(), limits.population
-            exercises, passages = search_all(q.question, k_exercises=K, k_passages=K, owned=owned, population=population)
+            exercises, passages = search_all(search_q, k_exercises=K, k_passages=K, owned=owned, population=population)
             score = score_retrieval(q, exercises, passages)
             results["semantic+filter"].append({"id": q.id, "category": q.category, **asdict(score), "owned": owned, "population": population,
                                                "retrieved_exercises": [h.slug for h in exercises],
