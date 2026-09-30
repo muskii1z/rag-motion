@@ -269,7 +269,11 @@ Measured on the 29-question eval set (top 5), keyword search lost clearly to sem
 
 **In an interview (with evidence):** "I measured keyword search instead of assuming. On my data it lost clearly: 0.66 exercise recall against 0.89 for semantic. It won the one question where the literal word mattered, 'biceps', and it failed on 'RDL', because my catalog spells out 'Romanian deadlift'. Keyword search only helps if the user's words are in the text."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 10 and 15.*
+*Phase 1F F7d update: why keyword search is weak on exercises and useful on passages.* Exercise entries are short, and coaches use synonyms and slang the entries don't contain, so keyword search finds few of the right ones (exercise recall 0.64 on the 46-question set, 0.59 on the 40-question F2 baseline). Passages are long and can share exact phrases with a question, such as "vigorous intensity", which is where keyword search helped. In F7d it stays in the code only as half of [hybrid search](#hybrid-search), not as a default.
+
+**In an interview:** "Keyword search depends on the text being long enough to share the user's words. My exercise entries are a few sentences, so it misses; my guideline passages are long, so it sometimes catches an exact phrase."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 10 and 15, Phase 1F F7d.*
 
 ### Semantic search
 Semantic search compares [embeddings](#embedding) instead of words, using [pgvector](#pgvector) inside the database. It matches by meaning, so "hip hinge" can find "Romanian deadlift" even with no words in common. Its weak spot is exact terms: "RDL" is just three letters to the embedding model, so it may rank loosely related exercises above the one literally named "Dumbbell RDL".
@@ -295,7 +299,11 @@ Semantic search compares [embeddings](#embedding) instead of words, using [pgvec
 
 **In an interview (with evidence):** "On my 29-question baseline, semantic search beat keyword by over 0.2 in exercise recall and found every expected passage. Where it failed, every other mode failed too, which told me those were filtering problems, not search problems."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 7, 9, and 15.*
+*Phase 1F F7d update: a common mix-up, and the full current pipeline.* The developer thought the current search was keyword matching. It isn't: semantic search compares meaning (embeddings), keyword search compares words. The default pipeline is: the slang dictionary expands the question → the equipment and population limits are read from it → semantic search runs with the filters inside the SQL → the top 5 exercises and top 5 passages go to the LLM. Re-tested against weighted hybrid and a split mode in F7d, semantic with filters had the best passage ranking (MRR 0.86) and tied for best exercise recall (0.87), so it stays the default ([0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md)).
+
+**In an interview (with evidence):** "My default search is semantic, with hard filters inside the same SQL query and a slang glossary in front of it. I re-tested hybrid after adding the filters, and plain semantic still ranked best, so I kept the simpler path."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Steps 7, 9, and 15, Phase 1F F7d.*
 
 ### Metadata filtering
 Metadata is the structured information stored in regular columns, such as equipment and difficulty. Metadata filtering applies hard rules to those columns (equipment includes dumbbell, difficulty = beginner), written as a SQL `WHERE` clause, the part of a query that says which rows to keep. Embeddings can't guarantee these rules, because a barbell exercise can be very close in meaning to a dumbbell one. Filters turn "dumbbells only" from a hope into a rule. Note that semantic search plus filters is called "semantic search plus metadata filtering", not hybrid search.
@@ -341,14 +349,22 @@ Hybrid search runs [keyword search](#keyword-search) and [semantic search](#sema
 
 **In an interview (with evidence):** "Hybrid search is supposed to be the best of both, but on my data a standard equal-weight hybrid came out slightly worse than semantic alone, because the weaker keyword results diluted the good ones. It ranked the right passage higher more often, so it's worth tuning, but it has to earn its place with numbers."
 
-*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 15.*
+*Phase 1F F7d update: re-tested with filters, weights, and a split mode.* How the project's hybrid works, step by step: semantic search and keyword search each pull a pool of 20 candidates, the two lists are merged with [RRF](#reciprocal-rank-fusion-rrf), and the top 5 are kept. (Not "5 from each", as the developer first described it.) Three weightings (semantic counted 1, 2, or 3 times keyword) and a **split** mode proposed by the developer (semantic for exercises, hybrid for passages) were tested with filters and the slang dictionary on 46 questions. Hybrid's exercise recall stayed at 0.83 vs semantic's 0.87 at every weight. On passages, the best weighting (2:1) reached MRR 0.84, but semantic now scores 0.86. Split kept semantic's exercises but gained nothing on passages, and on full answers (3 runs) its coverage claims were less accurate (0.855 vs 0.906). The reason hybrid's old passage advantage vanished: the population filter removed the wrong-group passages that used to push semantic's right answer down. See [Interaction effects](#interaction-effects-re-test-old-decisions-after-big-changes) and [0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md).
+
+**In an interview (with evidence):** "Before filters, hybrid ranked my passages better than semantic, 0.84 against 0.79. After I added an age-group filter, semantic went to 0.86 and no hybrid weighting beat it. The filter had fixed the same problem hybrid was patching, so hybrid no longer earned the extra query."
+
+*First seen: between Steps 2 and 3. Extended: between Steps 5 and 6, Step 15, Phase 1F F7d.*
 
 ### Reciprocal Rank Fusion (RRF)
 A way to merge ranked lists from different searches without comparing their scores. Keyword scores (`ts_rank_cd`) and semantic scores (cosine similarity) are on different scales, so adding them would be meaningless. RRF uses only positions: an item gets 1 / (60 + rank) from each list it appears in, and those are summed. First place in one list is worth 1/61 (about 0.0164), 20th place 1/80 (0.0125), and appearing in both lists adds the two together, so items both searches agree on rise. The constant 60 is a common default that keeps the top rank from dominating. In rag-motion, `hybrid_search_all()` takes 20 candidates from each search, fuses them, and keeps the top 5; `RRF_K = 60` in `retrieval.py`. Plain RRF weights both lists equally, which in Step 15 let weaker keyword results push out good semantic ones. Giving each list its own weight is a Phase 1F experiment.
 
 **In an interview:** "To merge keyword and vector results I use Reciprocal Rank Fusion: each item scores one over sixty plus its rank in each list, summed. It ignores the raw scores, which aren't comparable, and rewards agreement. The equal-weight version hurt on my data, so the next experiment is weighting the lists."
 
-*First seen: Step 15.*
+*Phase 1F F7d update: weighted RRF.* Weighted RRF multiplies each list's points by a weight: an item scores weight / (60 + rank) from each list. With semantic at 2 and keyword at 1 ("2:1"), first place in the semantic list is worth 2/61 and first place in the keyword list 1/61. `_rrf()` in `retrieval.py` now takes a weight per ranking; the semantic weight is `settings.hybrid_semantic_weight` in `config.py` (default 1.0), set from the evals with `--weight`. Measured with filters: 2:1 gave the best passage ranking of the three weights (MRR 0.84), 3:1 the worst (0.79), and none beat plain semantic (0.86).
+
+**In an interview:** "Weighted RRF lets me trust one search more than the other without comparing their raw scores. I tried semantic at one, two, and three times keyword. Two to one was best, and still not better than semantic alone."
+
+*First seen: Step 15. Extended: Phase 1F F7d.*
 
 ### Reranking
 Reranking is a second stage after retrieval. First, retrieve a wide set of candidates (say the top 20). Then a second, more careful model reorders them and the best 5 are kept. It is slower but more accurate, which is why it only runs on a short list. Voyage AI sells reranking models, so this could stay with a provider the project already uses. It is the only part of the production-style pipeline that needs a model outside Postgres.
@@ -1398,7 +1414,9 @@ Change one thing, measure, then change the next. An ablation study is the formal
 
 *Phase 1F F5 update: the second filter, measured separately.* Equipment alone (F4): forbidden rate 0.17 → 0.03, forbidden citations 8/13 → 12/13. Adding population (F5): 0.03 → 0.00 and 12/13 → 13/13, plus passage MRR 0.79 → 0.86. Because they went in separately, each filter's share of the improvement is known.
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+*Phase 1F F7d update: the README table, one change per row.* The README's retrieval table was rebuilt so each row adds exactly one change: keyword, hybrid, semantic, + filters, + slang dictionary (the default), then two rows marked *Tried* (hybrid 2:1, split). A reader can see what each change contributed, and what was tried and dropped.
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F7d.*
 
 ### Run-to-run noise
 The same question can get a different LLM answer on different runs, because answers are sampled (the answering call uses temperature 0.2). So a single failure after a change might be the change, or might be chance. The check: see whether the change could even touch that question, then re-run it a few times. In F3 + F4, one question failed a citation check after the filter was added; it had no equipment limit (so identical search), and re-running it 3 times gave 1 failure and 2 clean runs.
@@ -1463,7 +1481,9 @@ An experiment that finds "no improvement" is still worth recording. It stops an 
 
 **In an interview:** "One of my experiments shipped nothing. I tried three versions of formatting rules in the prompt and none beat the original, so I reverted and wrote down why. That cost under a dollar and stopped me shipping a change that made focused answers worse."
 
-*First seen: Phase 1F, F7b.*
+*Phase 1F F7d update: a second one, and the developer's own idea.* Weighted hybrid and the developer's split mode (semantic exercises, hybrid passages) were built, measured, and not adopted. Both stay in the code behind `--mode` and `--weight`, and the README keeps them as *Tried* rows. Recorded as a decision ([0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md)) so the question doesn't get re-opened without new evidence.
+
+*First seen: Phase 1F, F7b. Extended: Phase 1F, F7d.*
 
 ### Measure before building (probe the failure first)
 Before building a fix, run the questions it is meant to fix and see how many actually fail. A probe is a quick, throwaway test like that. In F7c, 20 slang questions went through search before any rewriting existed: 16 already ranked the right exercise first. That shrank the job from "the model doesn't understand coach shorthand" to four specific failures (RFESS twice, BW read as barbell, DB row), which became eval questions. It also showed the fix didn't need to be clever.
@@ -1478,6 +1498,13 @@ A guard question is an eval question that already passes, added on purpose so a 
 **In an interview:** "My eval has questions for what's broken and guard questions for what already works. If a fix raises one and drops the other, the eval shows both."
 
 *First seen: Phase 1F, F7c.*
+
+### Interaction effects (re-test old decisions after big changes)
+An interaction effect is when one change alters what another change does. In rag-motion, hybrid search was kept on the list in Step 15 because it ranked passages better than semantic search (0.84 vs 0.79 without filters). Then the population filter (F5) removed wrong-group passages, which were what had been pushing semantic's right passage down. When hybrid was re-tested in F7d, its advantage was gone: semantic scored 0.86. An earlier change had removed the problem a later technique was meant to solve. The habit: when a big change lands, re-test the decisions that were made before it. The coaching version: once a client's mobility limit is fixed, the regression you chose for it may no longer be needed.
+
+**In an interview:** "Results from before a big change aren't permanent. Hybrid search beat semantic on my passages until I added an age-group filter; after that, semantic won. I only knew because I re-ran the comparison instead of trusting the old table."
+
+*First seen: Phase 1F, F7d.*
 
 ## Testing
 
@@ -2357,7 +2384,9 @@ When something fails, the user should get one plain sentence that says what's wr
 
 A fourth rule came with them: say *which* service failed (search or answer), because "something is down" doesn't tell anyone where to look. Each message is now checked by a mocked test in `tests/test_api.py`.
 
-*First seen: Step 16. Extended: Step 16 revisit.*
+*Phase 1F F7d update: seen in a real outage.* During an eval run, OpenRouter stopped answering (connect timeouts), while google.com and LangSmith still responded. The run stopped with the `SearchServiceUnavailable` message, which named the embedding service, so it was clear which dependency was down and that the internet connection was fine. It recovered within a minute and the run was repeated.
+
+*First seen: Step 16. Extended: Step 16 revisit, Phase 1F F7d.*
 
 ### HTTP status codes 500, 502, 503
 An HTTP status code is the three-digit number a web server sends with every reply to say how the request went. Codes in the 500s mean the server side failed, not the user. **500** (Internal Server Error): something went wrong in our own code. **502** (Bad Gateway): a service behind us gave a bad reply, such as OpenRouter rejecting the key or returning an error. **503** (Service Unavailable): something we depend on is temporarily unreachable or overloaded, such as the database being down, a rate limit, or a network timeout; trying again later may work. In Step 10 every failure was a 502; since Step 16 `friendly_message()` picks the code that matches the cause, which also tells monitoring tools and client code whether a retry makes sense.
@@ -2467,6 +2496,13 @@ A feature flag is a setting that turns a behavior on or off without changing the
 **In an interview:** "I recorded a before-and-after demo of my filters without keeping old code around. The filters sit behind a setting, so I started the app once with them off, recorded, and restarted it normally. I didn't build a toggle in the UI, because users should never turn safety filters off."
 
 *First seen: eval resilience and demo recordings (2026-09-30).*
+
+### Unique output names for parallel runs
+When several copies of a script run at once, each must write to its own file. The eval scripts named results files by the time to the second (`answers-...-20260930-163152.json`). In F7d, two parallel answer runs finished in the same second, wrote the same filename, and one overwrote the other, so one of three runs was silently lost. The fix: add microseconds to the timestamp (`%Y%m%d-%H%M%S-%f` in Python's date format), in both eval scripts. Other common fixes are a random id or the process id in the name.
+
+**In an interview:** "I lost an eval run because two parallel runs finished in the same second and wrote the same file. Nothing crashed; one result just vanished. Now result filenames include microseconds."
+
+*First seen: Phase 1F, F7d.*
 
 ---
 

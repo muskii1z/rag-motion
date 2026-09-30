@@ -4174,3 +4174,119 @@ Slang questions only:
 - New: [0036. Query rewriting: slang dictionary by default, not an LLM rewrite](decisions/0036-query-rewriting-dictionary-default.md)
 - Updated: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (query rewriting built and measured)
 - Next: F7d, hybrid search with filters and weightings.
+
+## Phase 1F, F7d: Hybrid search re-tested with filters (weightings and a split mode); README results update
+**Date:** 2026-09-30 · **Commit:** `39385b8` feat: weighted hybrid and split search tested with filters (F7d); semantic stays default
+
+**Goal.** Decide the default search mode now that the filters and the slang dictionary exist, testing hybrid weightings and the developer's idea of semantic search for exercises plus hybrid search for passages.
+
+**Context.** Hybrid search was set aside in Step 15 because equal-weight hybrid was slightly worse overall, but it ranked the right passage higher (passage MRR 0.76 vs 0.70), so tuned weights went on the Phase 1F list ([0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md), [0012](decisions/0012-keyword-baseline-and-query-rewriting.md)). Since then the equipment filter (F4), the population (age-group) filter (F5), and the slang dictionary (F7c) went in. F7d re-runs the hybrid question on top of all of them.
+
+**What we did.**
+
+*1. Cleared up what the current search actually is.* The developer thought the current search was keyword matching. It isn't. Explained:
+- **Current pipeline:** slang dictionary expands the question → the limits (equipment, population) are read from it → **semantic search** (embeddings, matching by meaning) with the filters inside the SQL → top 5 exercises + top 5 passages go to the LLM. See [Semantic search](concepts.md#semantic-search).
+- **Keyword search** = Postgres full-text search, matching the question's words. See [Keyword search](concepts.md#keyword-search).
+- **Hybrid** = run both searches; each pulls a pool of 20 candidates; merge the two lists with [reciprocal rank fusion](concepts.md#reciprocal-rank-fusion-rrf) (RRF: points by rank position, because the two searches score on different scales); keep the top 5. See [Hybrid search](concepts.md#hybrid-search).
+- **Why hybrid was worse on exercises:** exercise entries are short, and coaches use synonyms and slang, so keyword search finds few right ones (exercise recall 0.59 on the 40-question F2 baseline). At equal weight (1:1) its weak picks take slots in the top 5.
+- **Why hybrid helped passages:** passages are long and contain exact phrases a question may repeat ("vigorous intensity").
+
+*2. The developer proposed a design, and it was built and tested.* "Semantic for exercises, hybrid for passages" became a new search mode, **split**.
+
+*3. Code changes* (`src/ragmotion/retrieval.py`, `src/ragmotion/config.py`, both eval scripts):
+- `_rrf()` now accepts a weight per ranking (**weighted RRF**). Each list's points are multiplied by its weight, so "2:1" means semantic ranks count double.
+- `hybrid_search_all()` gains `semantic_weight`; the default comes from the new `settings.hybrid_semantic_weight = 1.0` in `config.py`. Keyword's weight stays 1.0.
+- New `split_search_all()`: exercises straight from semantic search; passages = weighted RRF of a semantic pool and a keyword pool (20 each). Registered as `SEARCH_MODES["split"]`.
+- `evals/run_retrieval_eval.py`: new `--weight`. The filtered part now reports three rows, `semantic+filter`, `hybrid+filter`, `split+filter`, with the limits read once per question and reused for all three (so the comparison uses identical limits).
+- `evals/run_answer_eval.py`: `--mode split` and `--weight`. The weight is in the run name (for example `-w2`) and in the saved metadata.
+
+*4. Fixed a bug found along the way.* Parallel eval runs that finished in the same second wrote the same results filename, so one overwrote the other. One of the three split answer runs was lost this way. Filenames in both eval scripts now include microseconds (`%Y%m%d-%H%M%S-%f`). See [Unique output names for parallel runs](concepts.md#unique-output-names-for-parallel-runs).
+
+*5. README results update.*
+- Evaluation section now says 46 questions (with slang examples: RDL, RFESS, BW, DB).
+- Retrieval table rebuilt so **each row adds one change**: keyword, hybrid, semantic, + filters, + slang dictionary (default), plus two *Tried* rows (hybrid 2:1, split).
+- New paragraphs on the hybrid finding and the slang result.
+- Answers table note now says results are saved in `evals/results/`; the commands list `--langsmith`; the test count is 54.
+
+*6. CLAUDE.md:* F7d marked done; next is program-design sources, then the Phase 2 program generator.
+
+**Commands.**
+
+```bash
+uv run python evals/run_retrieval_eval.py --rewrite dictionary --weight 1
+uv run python evals/run_retrieval_eval.py --rewrite dictionary --weight 2
+uv run python evals/run_retrieval_eval.py --rewrite dictionary --weight 3
+# Retrieval only, no LLM answer. First attempt failed: OpenRouter unreachable
+# (connect timeouts). The new SearchServiceUnavailable message appeared.
+# Re-run after it recovered. Saved: evals/results/retrieval-20260930-163102.json,
+# -163104.json, -163107.json.
+
+uv run python evals/run_answer_eval.py --no-judge --rewrite dictionary --mode split --weight 2   # x3
+# 3 answer runs, judge skipped. One was overwritten by the filename clash;
+# re-run after the fix. Saved: evals/results/answers-split-filtered-rw-dictionary-w2-*.json
+# Semantic baseline for comparison: the 3 F7c dictionary runs on the same 46 questions.
+```
+
+**What we saw.**
+
+Retrieval, filters + dictionary on, top 5, 46 questions:
+
+| Mode | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
+|---|---|---|---|---|
+| **semantic (default)** | **0.87** | **0.97** | **0.86** | **0%** |
+| hybrid 1:1 | 0.83 | 0.96 | 0.83 | 0% |
+| hybrid 2:1 | 0.83 | 0.96 | 0.84 | 0% |
+| hybrid 3:1 | 0.83 | 0.96 | 0.79 | 0% |
+| split 1:1 | 0.87 | 0.96 | 0.83 | 0% |
+| split 2:1 | 0.87 | 0.96 | 0.84 | 0% |
+| split 3:1 | 0.87 | 0.96 | 0.79 | 0% |
+
+Without filters, same 46 questions (the README's upper rows):
+
+| Mode | Exercise recall | Passage recall | Passage MRR | Forbidden |
+|---|---|---|---|---|
+| keyword | 0.64 | 0.66 | 0.50 | 15% |
+| hybrid 1:1 | 0.77 | 0.93 | 0.84 | 22% |
+| semantic | 0.81 | 0.97 | 0.79 | 17% |
+
+- Recall: share of expected items found in the top 5. MRR (mean reciprocal rank): how high the first right item ranks, 1.0 meaning always first. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr).
+- **Split's exercise numbers equal semantic's**, as expected: split uses semantic search for exercises.
+- **No weighting beat semantic on passages.** 2:1 was hybrid's best (0.84); 3:1 was worse (0.79).
+- **The key finding: hybrid's old advantage disappeared.** Without filters, hybrid ranked passages better than semantic (0.84 vs 0.79). With filters, semantic ranks them best (0.86). The age-group filter removed the wrong-group passages that used to push semantic's right passage down, and that was the gap keyword search had been filling. An earlier change removed the problem a later technique was meant to solve. See [Interaction effects](concepts.md#interaction-effects-re-test-old-decisions-after-big-changes).
+
+Answers, 3 runs each, judge skipped, semantic (F7c dictionary runs) vs split 2:1:
+
+| Check | Semantic | Split 2:1 |
+|---|---|---|
+| Citations valid | 0.986 | 0.978 |
+| Coverage claim correct | 0.906 | 0.855 |
+| Used expected evidence | 0.978 | 1.000 |
+| No forbidden citations | 1.000 | 1.000 |
+| Exercise completeness | 0.852 | 0.862 |
+| No extra exercises | 0.724 | 0.655 |
+
+- Split was slightly better on expected evidence and completeness, and worse on coverage claims and extras. Not a clear win for either on these checks, and split adds a second search per question.
+
+**Problems and fixes.**
+- **OpenRouter outage mid-run.** Connect timeouts to openrouter.ai, while google.com and LangSmith responded, so the internet connection was fine. The eval stopped with the new `SearchServiceUnavailable` message (from [Step 16 revisited](#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures)), which named the search service as the one failing. OpenRouter recovered within a minute; re-ran. See [Friendly error messages](concepts.md#friendly-error-messages) (extended).
+- **Results filename collision** in parallel runs: one split run overwritten. Fixed with microsecond timestamps; the lost run was repeated.
+
+**Developer questions.**
+- **"Explain hybrid search... is the current search purely semantic, like we're just matching keywords?"** Corrected: semantic matches meaning (embeddings), keyword matches words. The current default is semantic with filters, after the slang dictionary. Hybrid runs both and merges.
+- **"Hybrid runs meaning and keyword searches, takes 5 from each, merges... but it was worse at exercise recall?"** Not 5 each: a pool of 20 from each, merged with RRF, and the top 5 kept. Worse on exercises because keyword search is weak on short entries and slang, so at equal weight its weak picks take slots. Better on passages because long passages share exact phrases with questions.
+- **"I like semantic for exercises and hybrid for passages; can we test it?"** Built as `split` and tested (tables above). It didn't beat semantic. Claude recommended keeping semantic; the developer made the call.
+
+**Open questions.**
+- The README says "Both hybrid variants were also checked on full answers (3 runs)". The brief and the saved files show answer runs for **split 2:1 only** (`answers-split-filtered-rw-dictionary-w2-*.json`); no full hybrid answer runs are recorded. Either the README sentence should say split only, or the hybrid answer runs exist and weren't reported.
+- The commit message rounds coverage to 0.86 vs 0.91; the brief's figures are 0.855 vs 0.906. Same numbers, different rounding.
+- The retrieval results were single runs per weighting. Differences of 0.01 to 0.02 in passage MRR may be noise ([Small-sample noise](concepts.md#small-sample-noise)).
+- Whether keyword search should come back if future sources (for example the program-design papers) rely on exact terms was not tested.
+
+**Learned.**
+- New: [Interaction effects (re-test old decisions after big changes)](concepts.md#interaction-effects-re-test-old-decisions-after-big-changes), [Unique output names for parallel runs](concepts.md#unique-output-names-for-parallel-runs)
+- Extended: [Hybrid search](concepts.md#hybrid-search), [Reciprocal Rank Fusion (RRF)](concepts.md#reciprocal-rank-fusion-rrf) (weighted RRF), [Semantic search](concepts.md#semantic-search), [Keyword search](concepts.md#keyword-search), [One change at a time (ablation)](concepts.md#one-change-at-a-time-ablation), [Negative results are results](concepts.md#negative-results-are-results), [Friendly error messages](concepts.md#friendly-error-messages)
+
+**Decisions.**
+- New: [0037. Semantic search stays the default after re-testing hybrid with filters](decisions/0037-semantic-stays-default-after-hybrid-retest.md)
+- Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) and [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (the tuned-hybrid experiment they planned is done)
+- Next: program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19), then the Phase 2 program generator.

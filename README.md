@@ -83,7 +83,7 @@ Sources are chosen under a written [licensing policy](docs/decisions/0017-knowle
 | *Tried:* hybrid + filters + slang, semantic weighted 2:1 | 0.83 | 0.96 | 0.84 | 0% |
 | *Tried:* semantic for exercises, hybrid for passages | 0.87 | 0.96 | 0.84 | 0% |
 
-Hybrid search used to rank passages better than semantic (0.84 vs 0.79). Once the age-group filter removed wrong-group passages, semantic ranked them best (0.86), so hybrid no longer earns its place. Both hybrid variants were also checked on full answers (3 runs): no gain, and a worse coverage claim (0.86 vs 0.91), so semantic stays the default.
+Hybrid search used to rank passages better than semantic (0.84 vs 0.79). Once the age-group filter removed wrong-group passages, semantic ranked them best (0.86), so hybrid no longer earns its place. The split variant (the stronger of the two) was also checked on full answers (3 runs): no gain, and a worse coverage claim (0.855 vs 0.906), so semantic stays the default. Full hybrid wasn't run on answers, since it already trailed on exercise retrieval.
 
 **Slang** ("RFESS", "BW squat", "DB row"): probing 20 slang questions showed the embedding model already understood 16. A small glossary, expanded before search (longest term first, whole words only), fixed the rest: the slang questions' expected exercise was found 89% → 100% of the time, with no added time. An LLM rewrite scored the same but added 0.6 s per question, so the dictionary won.
 

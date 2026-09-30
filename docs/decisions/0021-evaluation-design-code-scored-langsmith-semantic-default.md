@@ -140,3 +140,9 @@ See the [build log](../build-log.md#eval-walkthrough-part-1-the-answer-key-gradi
 - LangSmith's free-plan trace allowance ran out, so `evals/run_answer_eval.py` now runs locally by default and saves every answer and score to `evals/results/answers-<run>-<timestamp>.json`. `--langsmith` still records an experiment. Reasoning in [0033](0033-answer-eval-local-first-optional-langsmith.md).
 - Questions or checks that error are listed under "ERRORS" instead of silently shrinking the sample.
 - First local run (`answers-semantic-filtered-20260930-133643.json`): citations 40/40, coverage 36/40, expected evidence 39/39, no forbidden citations 13/13, completeness 0.81, no extras 20/23. Within the usual range.
+
+## Update (2026-09-30, Phase 1F F7d): hybrid re-tested with filters; semantic still the default
+- The "tuned weights" experiment this record set aside was run: hybrid at 1:1, 2:1, and 3:1 (semantic weight vs keyword), plus a split mode (semantic exercises, hybrid passages), all with filters and the slang dictionary, 46 questions.
+- Semantic: exercise recall 0.87, passage recall 0.97, passage MRR 0.86. Best hybrid (2:1): 0.83 / 0.96 / 0.84. Split 2:1: 0.87 / 0.96 / 0.84. All 0% forbidden.
+- Hybrid's passage advantage from this record's Tradeoffs is gone: the population filter removed the wrong-group passages it used to beat. Semantic stays the default. Reasoning in [0037](0037-semantic-stays-default-after-hybrid-retest.md).
+- `evals/run_retrieval_eval.py` now reports `semantic+filter`, `hybrid+filter`, and `split+filter` rows; results filenames include microseconds so parallel runs don't overwrite each other.

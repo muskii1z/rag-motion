@@ -316,6 +316,12 @@ Evidence so far:
   - 46 questions, semantic + filters: MRR 0.86 → 0.97, hit rate 0.97 → 1.00, jargon recall 0.89 → 1.00, forbidden rate 0.02 → 0.00.
   - Point to make: "An embedding model can't know that BW means bodyweight in a gym and not barbell. The model already knew most shorthand, so I didn't retrain or swap anything; a glossary in front of the search fixed the rest."
 
+- **[Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): hybrid search re-tested once the filters existed.** Commit `39385b8`. Decision: [0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md).
+  - Hybrid = semantic and keyword search each pull 20 candidates, merged with [weighted RRF](concepts.md#reciprocal-rank-fusion-rrf), top 5 kept. Tested at 1:1, 2:1, 3:1 (semantic weight vs keyword), plus the developer's **split** idea: semantic for exercises, hybrid for passages.
+  - 46 questions, filters + slang dictionary, top 5 (exercise recall / passage recall / passage MRR): semantic 0.87 / 0.97 / 0.86; hybrid 2:1 (its best) 0.83 / 0.96 / 0.84; split 2:1 0.87 / 0.96 / 0.84. All 0% forbidden.
+  - Without filters, hybrid had ranked passages better than semantic (0.84 vs 0.79). The age-group filter removed the wrong-group passages that were pushing semantic's right passage down, which was the gap keyword search had been filling. See [Interaction effects](concepts.md#interaction-effects-re-test-old-decisions-after-big-changes) and [Hybrid search](concepts.md#hybrid-search) (extended).
+  - Point to make: "Vector similarity wasn't enough on its own, but the fix turned out to be filters, not keyword search. Once the filters were in, adding keyword search on top no longer helped, so I kept one search path."
+
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
@@ -528,6 +534,13 @@ Evidence so far:
   - Answers, none / dictionary / LLM: no forbidden citations 0.929 / 1.000 / 1.000; expected evidence 0.956 / 0.978 / 0.993; completeness 0.814 / 0.852 / 0.850; no extras 0.793 / 0.724 / 0.736.
   - The tradeoff the eval surfaced: rewriting made single-exercise slang answers mention more variants. See [Answer completeness and extra items](concepts.md#answer-completeness-and-extra-items-answer-level-recall-and-precision) (extended).
   - Point to make: "Two versions of the fix scored the same on quality, so the tie was broken by time: the eval now records latency per question, and the LLM version was 26% slower."
+
+- **[Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): re-running an old comparison after the system changed.** Decision: [0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md).
+  - Step 15's result (hybrid ranks passages better) no longer held once filters were added: semantic passage MRR 0.86 vs hybrid's best 0.84. See [Interaction effects](concepts.md#interaction-effects-re-test-old-decisions-after-big-changes).
+  - The developer's split idea, measured on answers (3 runs each vs semantic): coverage claim correct 0.855 vs 0.906, expected evidence 1.000 vs 0.978, completeness 0.862 vs 0.852, no extras 0.655 vs 0.724, no forbidden citations 1.000 both. Not adopted. See [Negative results are results](concepts.md#negative-results-are-results) (extended).
+  - A measurement bug: two parallel runs finished in the same second and one results file overwrote the other. Filenames now include microseconds. See [Unique output names for parallel runs](concepts.md#unique-output-names-for-parallel-runs).
+  - The README's retrieval table now adds one change per row, with the tried-and-dropped options marked. See [One change at a time](concepts.md#one-change-at-a-time-ablation) (extended).
+  - Point to make: "An eval result is only true for the system you measured. After adding filters I re-ran my earlier hybrid comparison, and the answer had flipped."
 
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
@@ -756,6 +769,9 @@ Evidence so far:
 - **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): don't let a vendor's quota stop the core loop.** The answer eval now runs without LangSmith and keeps its own results ([0033](decisions/0033-answer-eval-local-first-optional-langsmith.md), [Vendor dependency](concepts.md#vendor-dependency-keep-the-core-loop-running-without-it)). Spend check: $2.77 of the $10 OpenRouter limit so far, mostly the AI judge (about 8 cents per eval run); the judge never runs on user requests. Safety filters can be switched off only by a startup setting for demos, not from the page ([0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)).
   - Point to make: "In production, the tools around the app break or run out too. I make sure the things I rely on to decide whether to ship keep working without them."
 
+- [Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): **an outage in the middle of an eval.** OpenRouter stopped answering (connect timeouts) while google.com and LangSmith responded. The run stopped with the `SearchServiceUnavailable` message naming the search (embedding) service; it recovered within a minute and the run was repeated. See [Friendly error messages](concepts.md#friendly-error-messages) (extended).
+  - Point to make: "The error named the service that was down, so I didn't waste time debugging my own code or my network. That's what the named-failure work was for."
+
 ## Security
 
 ### Where are your API keys stored?
@@ -916,6 +932,8 @@ Evidence so far:
 
 - [Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): **a rewrite step at the very front.** Question → `rewrite_query` (dictionary by default; `expand_slang`) → `extract_limits` on the rewritten text → filtered search on the rewritten text → answer LLM on the **original** question. `RAGResult.search_query` records what the search saw; timings include `rewrite`. See [0036](decisions/0036-query-rewriting-dictionary-default.md).
 
+- [Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): **the default path is unchanged: still one search.** Question → slang dictionary → `extract_limits` → semantic search with filters in SQL → top 5 exercises + top 5 passages → LLM. Hybrid and split stay available for the evals (`--mode hybrid|split --weight N`) but would add a keyword query per request. See [0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md).
+
 ## Tradeoffs
 
 ### What would you change if this system had 100,000 users?
@@ -988,6 +1006,7 @@ Evidence so far:
 
   - Keyword search is cheap and exact, but coaches don't use the catalog's words. Hybrid costs a second query and a merge step, ranks the right passage higher, but lost recall with equal weights. At scale, keyword search would need a stored `tsvector` with a GIN index instead of computing it per query.
   - Point to make: "Hybrid is the textbook answer, but my numbers said equal-weight hybrid was slightly worse than semantic alone. I kept semantic and put weighted hybrid on the experiment list, instead of adopting the textbook answer."
+  - *F7d update ([0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md)):* weighted hybrid tested with filters. Best weighting 2:1: exercise recall 0.83, passage MRR 0.84, vs semantic 0.87 and 0.86. Hybrid's passage advantage disappeared once the population filter existed. Semantic stays the default.
 - **Code evaluators vs LLM judges** ([Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers), [Code-based evaluators vs LLM-as-judge](concepts.md#code-based-evaluators-vs-llm-as-judge)): code checks are deterministic, free, and independent of the model being tested. Given up: judging quality of prose or advice, which needs the coach or a judge model validated against the coach's grades. At 100,000 users, sampled human review plus cheap code checks on every answer would be the starting point (not built).
 - **Versioned eval datasets** ([LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments)): a new dataset per version of the question file keeps every old result comparable, at the cost of many datasets to clean up later.
 - **Top-k vs complete answers** ([Eval walkthrough, part 1](build-log.md#lesson-3-the-reviewed-baseline), [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k)): search returns the top 5, which keeps the prompt small, but some questions want everything that fits. After the coach's review, "I only have a pair of dumbbells" expects 7 exercises, so the best possible recall is 5/7 = 0.71; the actual was 3/7, because two forbidden exercises took slots. The key was not trimmed to fit k. The gap stays visible as a finding; what to change (k, filters, or something else) is not decided.
@@ -1025,3 +1044,5 @@ Evidence so far:
 - **Dictionary vs LLM query rewrite** ([0036](decisions/0036-query-rewriting-dictionary-default.md), [F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite)): same answer quality; dictionary 0 ms and fixed "BW" read as barbell, LLM +640 ms median (26% slower) and didn't. Given up: slang not in the glossary isn't expanded, and the glossary is maintained by hand. See [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting).
   - Point to make: "I only pay for a model call where a lookup can't do the job."
 - **Rewrite what the search sees, not what the answer model sees** ([F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite)): the rewritten question drives limits and search; the answer model gets the coach's original words. Gained: the answer responds to what was actually asked. No downside was recorded.
+- **Semantic vs hybrid vs the developer's split mode** ([0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md), [F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update)): split (semantic exercises, hybrid passages) kept semantic's exercise recall but didn't beat it on passages (MRR 0.84 vs 0.86) and made coverage claims less accurate on full answers (0.855 vs 0.906). Given up by keeping semantic: keyword search's exact-phrase strength, if future sources depend on exact terms. Gained: one query per search instead of two, and a simpler default. The developer made the call after Claude recommended semantic.
+  - Point to make: "It was my idea, and I built it and tested it properly. It didn't win, so I kept the simpler system and left my version in the code behind a flag in case new sources change the answer."
