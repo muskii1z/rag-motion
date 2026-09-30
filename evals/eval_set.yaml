@@ -440,3 +440,54 @@ questions:
   reviewed: true
   notes: >-
     Coach: pull-up expected; bodyweight exercises (push-up) fine if labeled. Inverted row is forbidden because the catalog version uses a barbell. Everything else needing equipment is forbidden.
+
+# ---- Slang, added for query rewriting (Thursday). Drafted by Claude after probing 20 slang questions
+# ---- (16 already ranked #1); coach approved 2026-09-30. 1-4 are the weak ones, 5-6 guard what already works.
+- id: jargon-rfess
+  question: "RFESS for single-leg strength"
+  category: jargon
+  expected_exercises: [bulgarian-split-squat]
+  expected_coverage: full
+  reviewed: true
+  notes: "RFESS = rear-foot-elevated split squat = Bulgarian split squat. Probe: ranked #5 before rewriting."
+
+- id: jargon-rfess-dbs
+  question: "RFESS with DBs"
+  category: jargon
+  expected_exercises: [bulgarian-split-squat]
+  expected_coverage: full
+  reviewed: true
+  notes: "Probe: missed entirely before rewriting (top results were deadlifts). 'with DBs' is not an equipment limit."
+
+- id: jargon-bw-squat
+  question: "BW squat progression"
+  category: jargon
+  expected_exercises: [pistol-squat, split-squat]
+  forbidden_exercises: [barbell-back-squat]
+  expected_coverage: full
+  reviewed: true
+  notes: "BW = bodyweight. Probe: read BW as barbell, so the barbell back squat ranked #1; forbidden because it's the misread."
+
+- id: jargon-db-row
+  question: "DB row for the lats"
+  category: jargon
+  expected_exercises: [one-arm-dumbbell-row]
+  expected_coverage: full
+  reviewed: true
+  notes: "DB = dumbbell. Probe: ranked #2 behind the barbell bent-over row."
+
+- id: jargon-sl-rdl
+  question: "SL RDL for hamstrings"
+  category: jargon
+  expected_exercises: [single-leg-romanian-deadlift]
+  expected_coverage: full
+  reviewed: true
+  notes: "Guard: ranked #1 before rewriting. A dictionary must expand 'SL RDL' before 'RDL' or it breaks this."
+
+- id: jargon-kbs
+  question: "KBS for hip power"
+  category: jargon
+  expected_exercises: [kettlebell-swing]
+  expected_coverage: full
+  reviewed: true
+  notes: "Guard: ranked #1 before rewriting."
