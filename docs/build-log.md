@@ -3921,3 +3921,122 @@ uv run python evals/run_answer_eval.py    # x3
 - New: [0031. Every OpenRouter call: 25-second time limit, 1 retry](decisions/0031-openrouter-timeout-25s-one-retry.md)
 - New: [0032. API errors: plain 400s for bad questions, the failing service named, status codes by cause](decisions/0032-api-errors-plain-400-named-service-status-codes.md)
 - Updated: [0015](decisions/0015-local-web-ui-fastapi-static-html.md) (400s for bad input; timeouts)
+
+## Eval resilience: local-first answer eval, tracing off by default (plus filter demo recordings)
+**Date:** 2026-09-30 · **Commits:** `23e6c73` chore: USE_FILTERS setting to show the pre-filter behavior for demo recordings; `41119f8` feat: answer eval runs locally by default; tracing off for everyday use (this docs update is committed separately)
+
+**Goal.** Keep the evals working when LangSmith is unavailable (its free-plan monthly trace allowance ran out), and stop everyday app use from spending that allowance.
+
+This is not a numbered step. It came out of the developer's weekly agenda ("record the before clip") and a problem found while doing it.
+
+**What we did.**
+
+*Part A: before/after demo recordings for the portfolio*
+- **A switch to turn the filters off** (commit `23e6c73`).
+  - Added `use_filters: bool = True` to `src/ragmotion/config.py`. It can be overridden with the environment variable `USE_FILTERS`.
+  - `app.py` now passes `settings.use_filters` to `answer_question`.
+  - So the app can be started once with `USE_FILTERS=false` to show how it behaved before the filters.
+  - The developer asked "How hard is it to turn the filters off and on?" Easy: the pipeline already had the switch. The developer explicitly did **not** want a button in the page: "I just need a before clip." See [Feature flag](concepts.md#feature-flag-config-switch) and [0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md).
+  - This answers the [Step 16 revisit](#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures) open question about where the filter switch goes.
+- **Equipment filter, before and after.** Question: "I only have a pair of dumbbells. Good lower-body exercises?"
+  - **Before (filters off):** recommended Dumbbell Step-Up (needs a box) and Dumbbell Hip Thrust (needs a bench). This was reproduced 3 of 3 times with a script before recording. The screenshot also cited `pag2-77`, a passage from the older-adults chapter, for a question that names no age group.
+  - **After (filters on):** reverse lunge, dumbbell RDL, goblet squat, and single-leg RDL (labeled "more challenging"). No box or bench exercises, no older-adult passage.
+  - The "after" answer left out sets and reps guidance. That is run-to-run variation, not the filter: the question names no group, so passages weren't filtered at all. See [Run-to-run noise](concepts.md#run-to-run-noise).
+- **Beginner (level) filter: the "before" only.** A level filter is not built yet; it is the next step. These show what it should fix:
+  - "What are some beginner exercises for Hamstrings?" retrieves Nordic Hamstring Curl (advanced) at rank 1 and Single-Leg RDL (intermediate) at rank 4. The answer model skipped both on its own, because it sees each exercise's difficulty. But the answer then had only 3 exercises: 2 of the 5 retrieval slots were wasted. See [Defense in depth](concepts.md#defense-in-depth-filters-plus-the-models-own-judgment).
+  - "Bodyweight leg exercises for a beginner with no equipment" recommended pistol squat and single-leg hop in 1 of 3 runs.
+  - A preview of the fix: the top 5 beginner-only matches for the hamstring question would be dumbbell RDL, glute bridge, dumbbell hip thrust, dumbbell reverse lunge, and band lateral walk. The last is a weak match. So the catalog itself is thin on beginner hamstring exercises; a filter alone won't make that answer great.
+- **"Failed to fetch" in the browser.** The page could not reach the server because the server wasn't running. It was started in a Terminal-panel tab.
+
+*Part B: what the evals cost*
+- Checked spending with OpenRouter's key-info endpoint: **$2.77 used of the $10 limit** in total.
+- Most of it came from the AI judge: about 8 cents per eval run, over about 30 runs. The judge runs only in evals, never in the app.
+- The developer asked: "Do we need Claude Sonnet as the judge? It's quite expensive." Options proposed (none chosen yet):
+  - **GPT-5 mini**, about 1 cent per run, and from a different model family than the answering model (Gemini). Recommended, but only after an agreement check: run both judges on the same answers and compare their verdicts.
+  - **Claude Haiku 4.5**, about 4 cents per run.
+  - **Gemini Flash-Lite**, rejected: same family as the answering model, so it would be grading its own family ([Judge safeguards](concepts.md#judge-safeguards)).
+  - Recorded as an update to [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md#update-2026-09-30-judge-cost-checked-cheaper-judge-proposed-not-decided).
+
+*Part C: LangSmith's allowance ran out, so the eval moved local*
+- **Found in the server log:** LangSmith returned HTTP 429 "Monthly unique traces usage limit exceeded" (free plan). HTTP 429 means "too many requests".
+  - The app itself was unaffected. Traces were simply not stored.
+  - But the answer eval ran through LangSmith's `evaluate()`. It would fail or not record its results.
+  - Each answer-eval run creates about 40 traces (one per question), so repeated evals use up the allowance quickly. See [Trace allowance and sampling](concepts.md#trace-allowance-and-sampling-observability-cost).
+  - The developer: "we definitely need those locked in so we can keep evals working."
+- **`evals/run_answer_eval.py` refactored** (commit `41119f8`):
+  - **Default is now a local run.** Tracing is switched off for the run (`tracing_context(enabled=False)`). Questions run 4 at a time (`ThreadPoolExecutor(4)`, a pool of 4 worker threads).
+  - **The same evaluators.** A small helper, `run_evaluator`, calls each check with the arguments it asks for by name (`inputs`, `outputs`, `reference_outputs`), the way LangSmith does.
+  - **Every answer and score is saved** to `evals/results/answers-<run>-<timestamp>.json`, with metadata: retrieval mode, filters on or off, k, the LLM, embedding and judge models, and the eval set's hash.
+  - **`--langsmith` keeps the old behavior** (a LangSmith experiment). Its results are converted to the same row format and also saved locally.
+  - **Errors are listed, not dropped.** If a question's pipeline fails, or a check errors (for example, the judge is down), it is recorded and printed under "ERRORS". Before, a crashed check simply left no score, and the totals quietly counted fewer questions. That was the lesson from the F6 rate-limit incident. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
+  - **One answer key for both paths.** `reference(q)` builds the expected answer for a question, so local and LangSmith runs grade against the identical key.
+  - See [Vendor dependency](concepts.md#vendor-dependency-keep-the-core-loop-running-without-it) and [0033](decisions/0033-answer-eval-local-first-optional-langsmith.md).
+- **Tracing off by default.** `LANGSMITH_TRACING=false` in `.env` (only that line changed) and in `.env.example`, with a comment: turn it on to debug a request, or put `LANGSMITH_TRACING=true` in front of one command. See [0034](decisions/0034-langsmith-tracing-off-by-default.md).
+- **3 new offline tests** in `tests/test_answer_eval_runner.py`:
+  - Evaluators receive the arguments they ask for.
+  - A broken check is reported, not fatal.
+  - A local run needs no LangSmith, and records a question whose pipeline failed.
+- `CLAUDE.md` updated in the same commit.
+- Restarted the app so it picks up tracing off.
+
+**Commands.**
+```bash
+USE_FILTERS=false uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010
+# The app with filters off, for the "before" recording.
+uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010
+# The normal app (filters on), for the "after" recording.
+
+uv run pytest -q
+# 50 passed before -> 53 passed after the new runner tests.
+
+uv run python evals/run_answer_eval.py
+# Local run, while LangSmith was over its monthly limit. No errors.
+# Saved evals/results/answers-semantic-filtered-20260930-133643.json
+```
+The command used for the OpenRouter spend check was not recorded.
+
+**What we saw.**
+
+The local answer eval, with LangSmith over its limit:
+
+| Check | Result |
+|---|---|
+| Citations valid | 40/40 |
+| Coverage claim correct | 36/40 |
+| Used expected evidence | 39/39 |
+| No forbidden citations | 13/13 |
+| Exercise completeness (mean) | 0.81 |
+| No extra exercises | 20/23 |
+| Judge: label-level | 1/1 |
+| Judge: label-secondary | 0/1 |
+| Judge: label-bodyweight | 1/1 |
+| Judge: group-by-muscle | 0/1 |
+
+- All within the usual run-to-run range.
+- The label-secondary fail was on `ex-grip`. The judge's reason (from the results file): Hammer Curl's catalog primary muscles don't include forearms or grip, and the answer said it "builds grip support alongside the biceps" without labeling it as secondary or indirect work.
+- The results file's metadata: semantic retrieval, filters on, k = 5, `google/gemini-2.5-flash-lite`, `voyageai/voyage-4-lite`, judge `anthropic/claude-sonnet-5.5`, eval set `rag-motion-eval-23e1f7fa`, no LangSmith experiment.
+- **The eval no longer depends on LangSmith being reachable.**
+
+**Problems and fixes.**
+- **LangSmith's monthly trace allowance ran out** (HTTP 429). Fix: the answer eval runs locally by default, and tracing is off for everyday use.
+- **"Failed to fetch" in the browser.** The server wasn't running. Fix: started it.
+- **Not a problem, but worth noting:** decision [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md) already listed "if free-tier limits or costs start to bite, for example during repeated eval runs" as its revisit signal. That is exactly what happened.
+
+**Open questions.**
+- Where the before/after recordings are saved, and whether both are final, was not recorded.
+- The exact free-plan trace allowance, and when it resets, were not recorded.
+- The cheaper judge is not decided. It needs the agreement check first (both judges on the same answers).
+- The "about 30 runs" and "about 8 cents per run" figures are estimates from the spend check, not a per-run log.
+- The command used for the spend check was not recorded.
+- Comparing two local runs side by side needs our own script or reading the JSON; nothing does this yet.
+
+**Learned.**
+- New: [Vendor dependency (keep the core loop running without it)](concepts.md#vendor-dependency-keep-the-core-loop-running-without-it), [Trace allowance and sampling (observability cost)](concepts.md#trace-allowance-and-sampling-observability-cost), [Defense in depth (filters plus the model's own judgment)](concepts.md#defense-in-depth-filters-plus-the-models-own-judgment), [Feature flag (config switch)](concepts.md#feature-flag-config-switch)
+- Extended: [LangSmith (tracing and evals)](concepts.md#langsmith-tracing-and-evals), [Tracing and traces](concepts.md#tracing-and-traces), [Trace hygiene](concepts.md#trace-hygiene-disable-preview-friendly-inputs-metadata), [LangSmith datasets and experiments](concepts.md#langsmith-datasets-and-experiments), [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores), [LLM-as-judge](concepts.md#llm-as-judge-ai-judge)
+
+**Decisions.**
+- New: [0033. Answer eval runs locally by default; LangSmith upload is optional](decisions/0033-answer-eval-local-first-optional-langsmith.md)
+- New: [0034. LangSmith tracing off by default; on to debug](decisions/0034-langsmith-tracing-off-by-default.md)
+- New: [0035. USE_FILTERS environment setting for demo recordings, not a UI toggle](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)
+- Updated: [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md) (revisit signal hit), [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (local-first runner), [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md) (judge cost; cheaper judge proposed, not decided)
+- Next: the beginner (level) filter. Optional: a cheaper judge, after an agreement check.

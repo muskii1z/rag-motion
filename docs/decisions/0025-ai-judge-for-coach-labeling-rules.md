@@ -46,3 +46,12 @@ Use an AI judge for the four labeling rules, and keep every exact-fact check in 
 - **Lost:** the judge's rules have no 3-run before/after comparison ([0028](0028-before-after-averaged-over-three-runs.md)).
 - **README:** the design row "Code-based eval checks, not an LLM judge" was replaced by "Code checks for facts; an AI judge only for the coach's labeling rules", which matches this decision.
 - **Revisit when (added):** the account's rate limit rises, or the judge moves to a provider with a higher limit; then parallel runs are safe again.
+
+## Update (2026-09-30): judge cost checked; cheaper judge proposed, not decided
+- **Spend so far:** $2.77 of the $10 OpenRouter limit in total. Most of it is the judge: about 8 cents per eval run, over about 30 runs. The judge runs only in evals, never in the app.
+- The developer asked: "Do we need Claude Sonnet as the judge? It's quite expensive." This is the "judge cost matters" revisit signal above.
+- **Options proposed:**
+  - GPT-5 mini, about 1 cent per run, a different family from the Gemini answerer. Recommended, but only after an agreement check: both judges grade the same answers and their verdicts are compared.
+  - Claude Haiku 4.5, about 4 cents per run.
+  - Gemini Flash-Lite: rejected, same family as the answering model.
+- **Status:** not decided. The agreement check has not been run. Sonnet 5.5 stays the judge until then.

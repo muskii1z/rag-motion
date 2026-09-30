@@ -305,6 +305,11 @@ Evidence so far:
 - **[Phase 1F, F7a](build-log.md#phase-1f-f7a-experiment-with-5-10-and-15-exercises-per-question): how many results to show, measured.** k had been 5 since Step 9, untested. With filters, exercise recall 0.83 (k = 5) → 0.94 (10) → 0.99 (15). But one question, `constraint-beginner-home`, started retrieving advanced bodyweight exercises (pistol squat, bounding) at k = 10, because exercises are filtered by equipment, not level. See [Top-k retrieval](concepts.md#top-k-retrieval) and [Recall ceiling from top-k](concepts.md#recall-ceiling-from-top-k) (both extended), [Adaptive k](concepts.md#adaptive-k-k-chosen-per-question-type), [0029](decisions/0029-exercise-k-stays-5-for-all-questions.md).
   - Point to make: "k is a dial between finding everything and adding noise. At 10, list answers got more complete, focused answers picked up extras, and a filter gap I hadn't noticed showed up. I kept 5: the completeness gain wasn't worth the noise."
 
+- **[Demo recordings, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): the filters, before and after, on camera.** Decision: [0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md).
+  - "I only have a pair of dumbbells. Good lower-body exercises?" With filters off: Dumbbell Step-Up (needs a box) and Dumbbell Hip Thrust (needs a bench), on 3 of 3 runs, plus an older-adults passage for a general question. With filters on: reverse lunge, dumbbell RDL, goblet squat, single-leg RDL; no box, bench, or older-adult passage.
+  - The next gap, level: "What are some beginner exercises for Hamstrings?" retrieves an advanced exercise at rank 1 and an intermediate one at rank 4. The model skipped both, so the answer had only 3 exercises. See [Defense in depth](concepts.md#defense-in-depth-filters-plus-the-models-own-judgment).
+  - Point to make: "Even when the model is careful and skips the advanced exercise, similarity search has already wasted a slot on it. The filter's job isn't only safety; it's making sure every slot holds something the person can use."
+
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
@@ -505,6 +510,12 @@ Evidence so far:
   - **Reading tiny samples:** each judge rule had only 0 to 4 applicable cases, so rule gains couldn't be shown; the harm showed on the larger checks. See [Small-sample noise](concepts.md#small-sample-noise) and [Negative results are results](concepts.md#negative-results-are-results).
   - Point to make: "My eval stopped me shipping a change that sounded obviously right. Three versions of formatting rules, three runs each, and every one made focused answers worse or coverage claims less accurate. I reverted and wrote down what would make it worth trying again."
 
+- **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): keeping the measurement loop alive.** Decision: [0033](decisions/0033-answer-eval-local-first-optional-langsmith.md).
+  - LangSmith's free plan ran out of monthly traces, and the answer eval ran through it. Now it runs locally by default, saves every answer and score with its settings to `evals/results/`, and uploads to LangSmith only with `--langsmith`.
+  - Failed questions and errored checks are listed under "ERRORS", so a missing score can't hide ([Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores)).
+  - First local run, with LangSmith unreachable: citations 40/40, coverage 36/40, expected evidence 39/39, no forbidden citations 13/13, completeness 0.81. Within the usual range.
+  - Point to make: "My eval decides what ships, so it can't depend on a dashboard's free plan. When LangSmith's allowance ran out, I made the eval run and save results on its own; LangSmith became optional."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -547,6 +558,8 @@ Evidence so far:
 - **Evals for model behavior:** [Step 15](build-log.md#step-15-evaluation-baseline-for-retrieval-and-answers) onward, 40 coach-reviewed questions, code-based checks plus an [AI judge](concepts.md#llm-as-judge-ai-judge) for four labeling rules, each run a LangSmith experiment. See [How do you know your RAG system works?](#how-do-you-know-your-rag-system-works).
 - **Evals as a safety net for refactors** ([Step 16 revisited](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures)): after the error-handling changes, retrieval scores matched Monday's exactly (it has no model in it); answers matched within noise (citations 117/120 vs 120/120, no forbidden advice 39/39 both). See [Run-to-run noise](concepts.md#run-to-run-noise).
 - Point to make: "Tests and evals answer different questions. A test says the code is broken, passes every time, and costs nothing. An eval says the answers got worse, varies run to run, and costs a few cents. I run tests after every change and evals after changes meant to affect quality, and I re-ran the evals after refactoring error handling to confirm nothing moved beyond noise."
+
+- **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): the eval runner is tested too.** 3 offline tests in `tests/test_answer_eval_runner.py`: checks get the arguments they ask for, a broken check is reported not fatal, and a local run needs no LangSmith and records a failed question. 53 tests in total.
 
 ## Agents
 
@@ -633,6 +646,12 @@ Evidence so far:
 - [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): **the user and the developer see different things.** The user gets one sentence naming the failing service; the server log keeps the real error, and failures inside `answer_question` are recorded on its LangSmith trace. Revisit signal for the new 25 s limit: timeouts appearing in traces ([0031](decisions/0031-openrouter-timeout-25s-one-retry.md)).
 - [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **watching the evaluators, not just the app.** When 6 evals ran in parallel, the AI judge's scores came back nearly empty (HTTP 429 rate-limit errors), while the code checks looked normal. It showed up as missing scores, not low ones. See [Evaluator errors shrink the sample](concepts.md#evaluator-errors-shrink-the-sample-check-errors-not-just-scores).
 
+- **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): observability has a budget.** Decisions: [0034](decisions/0034-langsmith-tracing-off-by-default.md), [0020 note](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md).
+  - LangSmith returned HTTP 429 "Monthly unique traces usage limit exceeded". Each answer-eval run makes about 40 traces. The app kept working; traces weren't stored. Found in the server log.
+  - Tracing is now off by default and switched on to debug one request. The 0020 decision had named this exact revisit signal in Step 14.
+  - See [Trace allowance and sampling](concepts.md#trace-allowance-and-sampling-observability-cost).
+  - Point to make: "I ran out of free traces, which taught me that tracing everything isn't free. Locally I trace on demand; in production I'd sample a share of requests and trace every failure."
+
 ## Production
 
 ### How would you deploy this?
@@ -716,6 +735,9 @@ Evidence so far:
   - **Named failures:** a slow model → 503 "took too long"; model down → 503 "temporarily unavailable"; embeddings down → 503 "the search service (embeddings) isn't responding"; unreadable JSON twice → 502; bad questions → 400 with a plain sentence. See [Graceful degradation](concepts.md#graceful-degradation) and [0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md).
   - **Proven by mocked tests**, 50 tests in total, and by re-running the evals (no change beyond noise).
   - Point to make: "In production, what breaks is usually a dependency, not my code. So every outside call has a time limit, every failure names the service that broke, and a fake-service test proves each case."
+
+- **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): don't let a vendor's quota stop the core loop.** The answer eval now runs without LangSmith and keeps its own results ([0033](decisions/0033-answer-eval-local-first-optional-langsmith.md), [Vendor dependency](concepts.md#vendor-dependency-keep-the-core-loop-running-without-it)). Spend check: $2.77 of the $10 OpenRouter limit so far, mostly the AI judge (about 8 cents per eval run); the judge never runs on user requests. Safety filters can be switched off only by a startup setting for demos, not from the page ([0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)).
+  - Point to make: "In production, the tools around the app break or run out too. I make sure the things I rely on to decide whether to ship keep working without them."
 
 ## Security
 
@@ -976,3 +998,8 @@ Evidence so far:
 - **How long to wait for a model** ([0031](decisions/0031-openrouter-timeout-25s-one-retry.md), [Step 16 revisited](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures)): the library default (10 minutes, 2 retries) vs 25 s and 1 retry on every OpenRouter call. Gained: a stuck provider becomes a clear message within about 50 s per call. Given up: a legitimately slow, long answer could be cut off. Revisit if timeouts show up in traces. The worst case for a whole question, which makes several calls, was not calculated.
 - **Where input validation lives** ([0032](decisions/0032-api-errors-plain-400-named-service-status-codes.md)): Pydantic `Field` limits (automatic, visible in the API schema, but a technical 422 the page showed as "Unprocessable Entity") vs a check in the endpoint (a plain 400 sentence). Chose the endpoint. Given up: the limit is no longer in the published schema.
   - Point to make: "I moved a validation rule out of the framework and into my own code, on purpose, because the framework's error was correct but useless to a person."
+- **Where eval results live** ([0033](decisions/0033-answer-eval-local-first-optional-langsmith.md), [eval resilience](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings)): wait for LangSmith's monthly reset, pay for a plan, or run locally with LangSmith optional. Chose local-first. Given up: LangSmith's side-by-side comparison only for `--langsmith` runs; local JSON needs our own comparison, which doesn't exist yet.
+- **Trace everything vs trace on demand** ([0034](decisions/0034-langsmith-tracing-off-by-default.md)): tracing off by default. Given up: no trace for an everyday bad answer; it must be reproduced with tracing on.
+- **UI toggle vs startup setting for the filters** ([0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)): the developer chose a setting ("I just need a before clip"). Given up: a restart between recordings. Gained: users can't switch the safety filters off.
+- **Judge cost** ([0025 update](decisions/0025-ai-judge-for-coach-labeling-rules.md#update-2026-09-30-judge-cost-checked-cheaper-judge-proposed-not-decided)): Sonnet 5.5 at about 8 cents per run vs GPT-5 mini (about 1 cent, different family, recommended after an agreement check) or Haiku 4.5 (about 4 cents). Gemini Flash-Lite rejected (same family as the answerer). Not decided.
+  - Point to make: "A cheaper judge is only cheaper if it agrees with the one I trust. I'd measure agreement on the same answers before switching."

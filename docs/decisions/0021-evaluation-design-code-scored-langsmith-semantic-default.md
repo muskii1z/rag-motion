@@ -135,3 +135,8 @@ See the [build log](../build-log.md#eval-walkthrough-part-1-the-answer-key-gradi
 - **Retrieval** (F5 file `retrieval-20260928-144918.json`): semantic + filters is now the default row: exercise recall 0.83, passage recall 0.97, passage MRR 0.86, 0% of questions with a forbidden item.
 - **Evaluator errors:** the AI judge lost most verdicts to a rate limit when 6 evals ran in parallel; fixed with retry ([0025 update](0025-ai-judge-for-coach-labeling-rules.md)).
 - **Still failing:** `ex-band-pull` and `ex-overhead` coverage claims across runs (keys may need the coach); `pop-beginner-adult` group-by-muscle (top-5 ceiling).
+
+## Update (2026-09-30): answer eval runs locally by default
+- LangSmith's free-plan trace allowance ran out, so `evals/run_answer_eval.py` now runs locally by default and saves every answer and score to `evals/results/answers-<run>-<timestamp>.json`. `--langsmith` still records an experiment. Reasoning in [0033](0033-answer-eval-local-first-optional-langsmith.md).
+- Questions or checks that error are listed under "ERRORS" instead of silently shrinking the sample.
+- First local run (`answers-semantic-filtered-20260930-133643.json`): citations 40/40, coverage 36/40, expected evidence 39/39, no forbidden citations 13/13, completeness 0.81, no extras 20/23. Within the usual range.

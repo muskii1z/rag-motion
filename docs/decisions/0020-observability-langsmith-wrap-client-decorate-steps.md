@@ -33,3 +33,9 @@ Use LangSmith. Wrap the LLM client once in `llm.py` (`get_client()` returns `wra
 - The retrieval eval (no LLM calls) now runs with `tracing_context(enabled=False)`; it had sent about 87 search-only traces per run and buried real questions.
 - `answer_question`'s trace input is only the question (`process_inputs`); `retrieval_mode`, `k_exercises`, `k_passages` go into trace metadata. Commit `87af333`. See [Trace hygiene](../concepts.md#trace-hygiene-disable-preview-friendly-inputs-metadata).
 - Free-plan retention is 14 days (part of the open free-tier question). Eval results are also kept locally in `evals/results/`.
+
+## Note 2026-09-30: the revisit signal was hit
+- The "free-tier limits or costs start to bite" signal above happened. LangSmith returned HTTP 429 "Monthly unique traces usage limit exceeded" (free plan). The app was unaffected; traces weren't stored.
+- Response: tracing is off by default ([0034](0034-langsmith-tracing-off-by-default.md)), and the answer eval runs locally with LangSmith optional ([0033](0033-answer-eval-local-first-optional-langsmith.md)).
+- The wrapper and decorators stay in the code. They do nothing when tracing is off, and work again as soon as it is switched on.
+- The exact allowance and reset date were not recorded (still part of the open free-tier question).

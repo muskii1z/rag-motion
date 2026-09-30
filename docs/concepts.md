@@ -865,6 +865,13 @@ A filter design choice: what happens to items with no tag? Here an empty populat
 
 *First seen: Phase 1F, F5.*
 
+### Defense in depth (filters plus the model's own judgment)
+Defense in depth means having more than one layer of protection, so one layer failing doesn't let the problem through. In rag-motion the layers are the filters in code and the answer model's own judgment. The model often skips an unsuitable exercise by itself, because it sees each exercise's difficulty and equipment. But relying on that is luck. A filter guarantees the model never sees the item, and it frees the retrieval slot for something usable. Seen while recording the demo (2026-09-30): for "What are some beginner exercises for Hamstrings?", search returned Nordic Hamstring Curl (advanced) at rank 1 and Single-Leg RDL (intermediate) at rank 4. The model skipped both, so the answer was safe, but it had only 3 exercises: 2 of the 5 slots were wasted. With filters off, the dumbbells-only question did recommend a step-up (needs a box) and a hip thrust (needs a bench) on 3 of 3 runs, so the model's judgment alone is not enough.
+
+**In an interview:** "My answer model often drops an unsuitable exercise by itself, but I don't rely on that. The filter makes sure it never sees it, and the slot goes to an exercise the person can actually use. Without the filter I saw both failures: wasted slots when the model was careful, and bench exercises for someone with only dumbbells when it wasn't."
+
+*First seen: eval resilience and demo recordings (2026-09-30).*
+
 ### Matching the fix to the failure (filters, k, prompt instructions)
 Different failures need different tools. **Hard limits** (equipment the person doesn't own, the wrong age group) go in filters in code, because a prompt rule can still slip. **Breadth** (a list question needs more than 5 exercises) is controlled by k. **Presentation** (grouping by muscle group, labeling an exercise as bodyweight, secondary, or intermediate) belongs in the prompt, because it's about how the answer is written, and writing is the model's job. F7a showed the cost of using the wrong tool: raising k to 10 made list answers more complete, but the beginner-adult answer still wasn't grouped by muscle group on any run, because no prompt ever asked for it.
 
@@ -1115,7 +1122,9 @@ In LangSmith, a **dataset** is a stored list of examples: inputs plus reference 
 
 *Eval walkthrough update: the reviewed dataset.* The coach-reviewed key became dataset `rag-motion-eval-a2d30357`; the reviewed baseline is experiment `answers-semantic-9f0524fd`. The dataset's reference outputs now also carry `acceptable_exercises`, ready for future answer-level checks.
 
-*First seen: Step 15. Extended: after Step 15, Eval walkthrough part 1.*
+*Update 2026-09-30: experiments are optional.* `evals/run_answer_eval.py` now runs locally by default and saves every answer and score to `evals/results/answers-<run>-<timestamp>.json`, with the settings as metadata (including the eval set's hash). A LangSmith experiment is recorded only with `--langsmith`; its results are saved locally in the same format too. Given up: LangSmith's side-by-side comparison view is only available for `--langsmith` runs. See [0033](decisions/0033-answer-eval-local-first-optional-langsmith.md).
+
+*First seen: Step 15. Extended: after Step 15, Eval walkthrough part 1, 2026-09-30.*
 
 ### Small-sample noise
 With few test questions, one question changing moves the average a lot. Hit rate over the 18 exercise questions moves by about 0.056 (1/18) if a single question flips from hit to miss. So Step 15 adopted a rule: treat differences under about 0.05 as noise. Keyword's 0.66 exercise recall against semantic's 0.89 is a real gap; semantic 0.89 against hybrid 0.84 sits right at the edge. Answers also vary from run to run, and each question ran once per experiment, so answer-level differences of one or two questions (such as 29/29 vs 27/29 valid citations) need repeat runs before they mean much.
@@ -1325,7 +1334,11 @@ A second model reads an answer and grades it against narrow yes/no rules. It is 
 
 *Phase 1F F6 update: the judge is a network dependency too.* When 6 evals ran in parallel, the judge hit OpenRouter's rate limit and most of its verdicts were lost, while the code checks ran normally. `judge_answer()` now waits and retries. The sequential run's verdicts: `label-level` pass on one kettlebell (swing and Turkish get-up labeled intermediate); `group-by-muscle` fail on the beginner adult (five exercises in one sentence, missing core, glutes/hamstrings, and arms). See [Rate limits (HTTP 429) and retry with backoff](#rate-limits-http-429-and-retry-with-backoff).
 
-*First seen: Phase 1F, F2. Extended: Phase 1F, F6.*
+*Update 2026-09-30: the judge is most of the bill.* OpenRouter showed $2.77 spent in total of the $10 limit. Most of it was the judge: about 8 cents per eval run, over about 30 runs. The judge runs only in evals, never for users. Cheaper options proposed: GPT-5 mini (about 1 cent per run, a different family from the Gemini answerer; recommended after an agreement check, meaning both judges grade the same answers and their verdicts are compared) or Claude Haiku 4.5 (about 4 cents). Gemini Flash-Lite was rejected as the same family as the answerer. Not decided yet. See the [0025 update](decisions/0025-ai-judge-for-coach-labeling-rules.md#update-2026-09-30-judge-cost-checked-cheaper-judge-proposed-not-decided).
+
+**In an interview (cost):** "My AI judge was most of my API bill, about 8 cents a run. Before swapping it for a model that costs about an eighth as much, I'd run both on the same answers and check they agree, because a cheap judge that disagrees with the coach is worse than no judge."
+
+*First seen: Phase 1F, F2. Extended: Phase 1F, F6, 2026-09-30.*
 
 ### Judge safeguards
 An AI judge can be wrong, so it gets guardrails:
@@ -1405,7 +1418,9 @@ When an evaluator crashes on a question, it usually records no score, not a zero
 
 *Phase 1F F7a update: the retry held.* The six F7a answer runs went in pairs, in parallel. With the F6 wait-and-retry in the judge, there were 0 evaluator errors.
 
-*First seen: Phase 1F, F6. Extended: Phase 1F, F7a.*
+*Update 2026-09-30: errors are printed, not lost.* The answer-eval runner now records a question whose pipeline failed, or a check that errored (for example, the judge is down), and lists them under "ERRORS" with a note that the totals leave them out. A test (`tests/test_answer_eval_runner.py`) checks that a broken check is reported and doesn't stop the run.
+
+*First seen: Phase 1F, F6. Extended: Phase 1F, F7a, 2026-09-30.*
 
 ### Answer completeness and extra items (answer-level recall and precision)
 Two code checks added in F7a to judge the written answer, not the search. **Completeness** (`exercise_completeness`): of the exercises the key expects, what share did the answer actually cite? Its comment reads "named X of Y". **Extras** (`only_keyed_exercises`): did the answer cite any exercise outside the key's expected and acceptable lists? It scores 1 if not, 0 if so, and lists the extras. Both score only the 23 of 40 questions whose key lists expected exercises. They are needed together to test k: more exercises in front of the model should raise completeness and can lower "only keyed". At k = 5 vs 10 (3 runs each): completeness 0.80 → 0.92; only keyed 60/69 → 54/69. The extras at k = 10 clustered on focused and research questions (for example 7 extra exercises in an answer about the Bulgarian split squat).
@@ -2133,7 +2148,11 @@ Observability means being able to see what a system did and why. LangSmith is a 
 
 *Step 16 update: tracing when things fail, and in tests.* The functions that summarize a step's output for the trace (`_summarize_result`, `_summarize_vectors`, `_as_trace_documents`) assumed a result always exists. When a call failed, LangSmith printed "process_outputs failed ... NoneType". They now return `{}` on failure, and LangSmith records the error itself. Tests switch tracing off in `conftest.py` so they never send traces. Lesson: observability code runs on the failure path too, so it must handle missing results.
 
-*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15, after Step 15, Step 16.*
+*Update 2026-09-30: the free plan ran out; LangSmith became optional.* The server log showed HTTP 429 "Monthly unique traces usage limit exceeded". The app was unaffected, but the answer eval ran through LangSmith and would have stopped recording. Now the answer eval runs locally by default and saves its own results; `--langsmith` still records an experiment. Tracing is off by default (`LANGSMITH_TRACING=false`) and switched on to debug. See [Vendor dependency](#vendor-dependency-keep-the-core-loop-running-without-it) and [Trace allowance and sampling](#trace-allowance-and-sampling-observability-cost).
+
+**In an interview (2026-09-30):** "LangSmith is my viewer, not my source of truth. When its free allowance ran out, my evals kept running locally and saving their own results."
+
+*First seen: Step 5 (planned, not built). Extended: after Step 10, Steps 13, 14, and 15, after Step 15, Step 16, eval resilience (2026-09-30).*
 
 ### Tracing and traces
 Tracing means recording what happens inside each request automatically. A **trace** is the record of one request, shaped like a tree. Each box in the tree is a **run** (one step), with its inputs, outputs, start and end time, and, for model calls, tokens and cost. Runs have types, which LangSmith uses to display them: **chain** (a step that calls other steps, like `answer_question`), **retriever** (returns documents, like `search_all`), **embedding**, **llm** (a model call), and **tool** (a helper like `check_citations`). In Step 14 the tree for one question was:
@@ -2152,7 +2171,9 @@ answer_question   (chain)       2.54s
 
 **In an interview:** "A trace is a tree of steps for one request: retrieval, embedding, the model call, the checks, each with inputs, outputs, and timing. When an answer is bad, I open its trace and see whether the right evidence was retrieved and what exact prompt the model got."
 
-*First seen: Step 14.*
+*Update 2026-09-30: traces are counted.* Every traced request uses up part of the tracing tool's allowance. One answer-eval run makes about 40 traces, one per question, which is how the free plan ran out. Tracing is now off by default. See [Trace allowance and sampling](#trace-allowance-and-sampling-observability-cost).
+
+*First seen: Step 14. Extended: 2026-09-30.*
 
 ### Auto-instrumentation vs decorators (wrap_openai and @traceable)
 Two ways to get steps into a trace. **Auto-instrumentation** means wrapping a library's client so its calls are recorded without changing the code that uses it. `wrap_openai(client)` does this for the `openai` client: every chat call, including `parse()` (structured outputs), becomes an llm run with the prompt, response, and tokens. A **decorator** is a line placed above a Python function (`@traceable(...)`) that adds behavior to it; here, it records each call as a run, nested under whichever traced function called it. Before relying on the wrapper, the SDK was inspected: `wrap_openai` does **not** trace embedding calls, so `_embed` got a decorator instead. In rag-motion: the client is wrapped once in `llm.py` (`chat_name="llm (OpenRouter)"`, replacing the misleading default "ChatOpenAI"), and `answer_question`, `extract_profile`, `search_all`, `_embed`, and `check_citations` are decorated.
@@ -2200,7 +2221,16 @@ Verified on the latest trace: inputs `{'question': 'Good single-leg exercises fo
 
 **In an interview:** "I treat traces like logs: signal over volume. I turned tracing off for my search-only eval, made the trace input just the user's question, and moved settings like retrieval mode into metadata I can filter on."
 
-*First seen: after Step 15.*
+*Update 2026-09-30: off by default.* The first habit, "turn tracing off where there's nothing to debug", now applies everywhere. `LANGSMITH_TRACING=false` in `.env` and `.env.example`; set it to `true` (or put `LANGSMITH_TRACING=true` in front of one command) to debug a request. The local answer eval also runs with tracing off. See [0034](decisions/0034-langsmith-tracing-off-by-default.md).
+
+*First seen: after Step 15. Extended: 2026-09-30.*
+
+### Trace allowance and sampling (observability cost)
+Tracing every request is not free. Hosted tracing tools charge per trace, or give a fixed allowance per month on a free plan. A trace is one recorded request with every step inside it; one run of the answer eval creates about 40 (one per question). On 2026-09-30, LangSmith's free plan returned HTTP 429 "Monthly unique traces usage limit exceeded" (HTTP 429 means "too many requests"). The app kept working; the traces just weren't stored. Production teams handle this with **sampling**: tracing only a percentage of requests (say 1 in 10), plus every request that fails. rag-motion's answer for now is simpler: tracing is off by default and switched on to debug one request ([0034](decisions/0034-langsmith-tracing-off-by-default.md)).
+
+**In an interview:** "Observability has a budget. I ran out of my free plan's monthly traces because every eval run made about 40. So tracing is off by default and I turn it on to debug; in production I'd sample a share of requests and always trace the failures."
+
+*First seen: eval resilience (2026-09-30).*
 
 ---
 
@@ -2309,6 +2339,13 @@ A setup is reproducible when someone with only the repo can rebuild the whole wo
 
 ---
 
+### Vendor dependency (keep the core loop running without it)
+A vendor dependency is any outside company's service your project relies on (here: OpenRouter for models, LangSmith for traces and experiments). The rule learned: don't let a third-party tool's quota or outage stop your core measurement loop, and keep your own copy of the results. Until 2026-09-30 the answer eval ran only through LangSmith's `evaluate()`, so when LangSmith's free-plan allowance ran out, the eval could no longer record. Now it runs locally by default with the same checks, saves every answer and score to a JSON file in `evals/results/`, and uploads to LangSmith only with `--langsmith`. The eval still needs OpenRouter, because the answers and the judge are model calls.
+
+**In an interview:** "My evals are how I decide whether a change ships, so they can't depend on a dashboard's free plan. When LangSmith's trace allowance ran out, I made the eval run locally by default and save its own results. LangSmith became an optional viewer, not a requirement."
+
+*First seen: eval resilience (2026-09-30).*
+
 ## Web apps
 
 ### Frontend/backend split
@@ -2385,6 +2422,13 @@ Every call to an outside AI service goes through one module: `llm.py` for the LL
 *Step 10 update: one shared LLM call.* `llm.py` now has `structured_completion(system_prompt, user_content, response_model, *, max_tokens, temperature=0, model=None)`, which works with any Pydantic model and returns the parsed object plus a usage record. The safety settings live in it once: `require_parameters`, usage accounting, a required `max_tokens`, and checks for a cut-off reply, a refusal, or a parse failure. Step 6's `extract_profile()` and Step 10's RAG answer both call it, so a new LLM task can't forget a guard.
 
 *First seen: Step 7. Extended: Step 10.*
+
+### Feature flag (config switch)
+A feature flag is a setting that turns a behavior on or off without changing the code. In rag-motion, `use_filters` in `config.py` (default `True`) can be overridden with the environment variable `USE_FILTERS`. Starting the app with `USE_FILTERS=false uv run uvicorn ...` shows how it behaved before the filters, which is what the portfolio's "before" recording needed. The developer chose a setting read at startup, not a button in the page, because this is a one-off demo, not a feature for users ([0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)). `LANGSMITH_TRACING` is another switch of the same kind.
+
+**In an interview:** "I recorded a before-and-after demo of my filters without keeping old code around. The filters sit behind a setting, so I started the app once with them off, recorded, and restarted it normally. I didn't build a toggle in the UI, because users should never turn safety filters off."
+
+*First seen: eval resilience and demo recordings (2026-09-30).*
 
 ---
 
