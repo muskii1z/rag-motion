@@ -246,7 +246,7 @@ Evidence so far:
 - [Between Steps 5 and 6](build-log.md#b-article-review-rag-is-simpler-than-you-think): domain jargon, and planned counters.
   - [Semantic search](concepts.md#semantic-search) (extended): coaches write RDL, BSS, SL RDL, Pallof. A general embedding model may not know BSS means Bulgarian split squat.
   - [Keyword search](concepts.md#keyword-search) (extended with BM25 and Postgres full-text search): Step 15 will measure keyword-only as a baseline next to semantic-only and combined. Planned, not built.
-  - [Query rewriting](concepts.md#query-rewriting): an LLM with an abbreviation glossary rewrites the question before search. Phase 1F experiment. Planned, not built.
+  - [Query rewriting](concepts.md#query-rewriting): an LLM with an abbreviation glossary rewrites the question before search. Phase 1F experiment. Planned, not built. *F7c: built and measured; a dictionary won over the LLM, see the F7c bullet below.*
   - [Query decomposition (multi-intent questions)](concepts.md#query-decomposition-multi-intent-questions): "explosive lower-body program to run faster" is four searches in one. Phase 2 idea.
   - [Retrieve-then-rerank vs parallel hybrid](concepts.md#retrieve-then-rerank-vs-parallel-hybrid): why keyword-first "hybrid" can't recover what keyword search missed, and why this project plans run-both-and-merge.
   - Decision: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -310,10 +310,18 @@ Evidence so far:
   - The next gap, level: "What are some beginner exercises for Hamstrings?" retrieves an advanced exercise at rank 1 and an intermediate one at rank 4. The model skipped both, so the answer had only 3 exercises. See [Defense in depth](concepts.md#defense-in-depth-filters-plus-the-models-own-judgment).
   - Point to make: "Even when the model is careful and skips the advanced exercise, similarity search has already wasted a slot on it. The filter's job isn't only safety; it's making sure every slot holds something the person can use."
 
+- **[Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): jargon, fixed and measured.** Decision: [0036](decisions/0036-query-rewriting-dictionary-default.md).
+  - Probe first: 16 of 20 slang questions already ranked the right exercise #1. The failures: RFESS (#5, and missed in "RFESS with DBs"), "BW squat progression" (BW read as barbell, so the barbell back squat was #1), "DB row" (#2 behind the barbell row). See [Measure before building](concepts.md#measure-before-building-probe-the-failure-first).
+  - Fix: expand slang before search with a glossary (longest term first, whole words, one pass). Only the search sees the rewrite; the answer model gets the coach's words. See [Query rewriting](concepts.md#query-rewriting) (extended), [Longest match first, whole words, one pass](concepts.md#longest-match-first-whole-words-one-pass-safe-text-substitution).
+  - 46 questions, semantic + filters: MRR 0.86 → 0.97, hit rate 0.97 → 1.00, jargon recall 0.89 → 1.00, forbidden rate 0.02 → 0.00.
+  - Point to make: "An embedding model can't know that BW means bodyweight in a gym and not barbell. The model already knew most shorthand, so I didn't retrain or swap anything; a glossary in front of the search fixed the rest."
+
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
 
 *Step 15 follow-up: tested, not just argued.* The article's "start with keyword search" was measured on this project's data: keyword recall 0.66 vs semantic 0.89 for exercises, 0.75 vs 1.00 for passages ([0012 update](decisions/0012-keyword-baseline-and-query-rewriting.md)). Point to make: "The advice fits documentation search, where users type exact terms. My users are coaches describing what they want, and my catalog doesn't reuse their words. I didn't dismiss the advice; I ran it, and the numbers said no for this data."
+
+*Phase 1F F7c follow-up: "cheap query rewriting" tested too.* The article recommended an LLM query rewrite. On this project a plain dictionary matched it on answer quality, fixed one misread the LLM didn't ("BW squat"), and added 0 ms instead of about 640 ms ([0036](decisions/0036-query-rewriting-dictionary-default.md)). Point to make: "The idea was right; the cheapest version of it was enough."
 
 ## PostgreSQL
 
@@ -516,6 +524,11 @@ Evidence so far:
   - First local run, with LangSmith unreachable: citations 40/40, coverage 36/40, expected evidence 39/39, no forbidden citations 13/13, completeness 0.81. Within the usual range.
   - Point to make: "My eval decides what ships, so it can't depend on a dashboard's free plan. When LangSmith's allowance ran out, I made the eval run and save results on its own; LangSmith became optional."
 
+- **[Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): adding questions for a new failure, with guards.** Probe first, then 4 failing slang questions plus 2 [guard questions](concepts.md#guard-questions-eval-items-that-must-keep-passing) that already passed, all coach-approved (46 total). Then three versions (none, dictionary, LLM rewrite), 3 answer runs each, judge skipped with `--no-judge` to save about 8 cents per run.
+  - Answers, none / dictionary / LLM: no forbidden citations 0.929 / 1.000 / 1.000; expected evidence 0.956 / 0.978 / 0.993; completeness 0.814 / 0.852 / 0.850; no extras 0.793 / 0.724 / 0.736.
+  - The tradeoff the eval surfaced: rewriting made single-exercise slang answers mention more variants. See [Answer completeness and extra items](concepts.md#answer-completeness-and-extra-items-answer-level-recall-and-precision) (extended).
+  - Point to make: "Two versions of the fix scored the same on quality, so the tie was broken by time: the eval now records latency per question, and the LLM version was 26% slower."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -561,6 +574,8 @@ Evidence so far:
 
 - **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): the eval runner is tested too.** 3 offline tests in `tests/test_answer_eval_runner.py`: checks get the arguments they ask for, a broken check is reported not fatal, and a local run needs no LangSmith and records a failed question. 53 tests in total.
 
+- **[Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): a unit test for each matching rule.** `tests/test_rewrite.py` checks longest first ("SL RDL" as one term), case-insensitive, plural before singular ("DBs"), whole words only ("Sandbag" untouched), and no-slang questions unchanged. Possible because the dictionary is deterministic; an LLM rewrite can only be checked by eval. 54 tests pass. See [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting).
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -581,6 +596,8 @@ Evidence so far (partial: no program generation yet):
 - No retry or repair loop exists yet. *Correction: since [after Step 15](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2), `structured_completion()` retries once when the model's JSON fails validation ([Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output)). There is still no repair loop that sends the error back to the model.*
 - [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): **what happens when validation fails twice.** The user gets HTTP 502 and "The AI sent back an unreadable answer 2 times in a row. Please ask again.", not "Unexpected error (ValidationError)". A mocked test makes the model return bad JSON and checks the real retry makes exactly 2 attempts before this message.
   - Point to make: "One retry, then a clear stop. A program workflow would need the same shape: a bounded number of attempts and a message a person can act on, never an endless loop."
+
+- [Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite) (developer question, plan only): **the program generator will have code checks.** The answer to "when does this become a workout protocol generator?": a step-by-step builder (profile → exercises per movement pattern via filtered search → sets and reps from program-design sources, cited → weekly layout), then code checks: each muscle group trained 2+ times a week, only owned equipment, rest days. With its own eval. Not built.
 
 ## Human-in-the-loop
 
@@ -897,6 +914,8 @@ Evidence so far:
   6. Anything else → 500 with no internals, full error in the server log.
   - Each stage's failure has a mocked test in `tests/test_api.py`. See [Graceful degradation](concepts.md#graceful-degradation).
 
+- [Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): **a rewrite step at the very front.** Question → `rewrite_query` (dictionary by default; `expand_slang`) → `extract_limits` on the rewritten text → filtered search on the rewritten text → answer LLM on the **original** question. `RAGResult.search_query` records what the search saw; timings include `rewrite`. See [0036](decisions/0036-query-rewriting-dictionary-default.md).
+
 ## Tradeoffs
 
 ### What would you change if this system had 100,000 users?
@@ -1003,3 +1022,6 @@ Evidence so far:
 - **UI toggle vs startup setting for the filters** ([0035](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)): the developer chose a setting ("I just need a before clip"). Given up: a restart between recordings. Gained: users can't switch the safety filters off.
 - **Judge cost** ([0025 update](decisions/0025-ai-judge-for-coach-labeling-rules.md#update-2026-09-30-judge-cost-checked-cheaper-judge-proposed-not-decided)): Sonnet 5.5 at about 8 cents per run vs GPT-5 mini (about 1 cent, different family, recommended after an agreement check) or Haiku 4.5 (about 4 cents). Gemini Flash-Lite rejected (same family as the answerer). Not decided.
   - Point to make: "A cheaper judge is only cheaper if it agrees with the one I trust. I'd measure agreement on the same answers before switching."
+- **Dictionary vs LLM query rewrite** ([0036](decisions/0036-query-rewriting-dictionary-default.md), [F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite)): same answer quality; dictionary 0 ms and fixed "BW" read as barbell, LLM +640 ms median (26% slower) and didn't. Given up: slang not in the glossary isn't expanded, and the glossary is maintained by hand. See [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting).
+  - Point to make: "I only pay for a model call where a lookup can't do the job."
+- **Rewrite what the search sees, not what the answer model sees** ([F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite)): the rewritten question drives limits and search; the answer model gets the coach's original words. Gained: the answer responds to what was actually asked. No downside was recorded.

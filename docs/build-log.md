@@ -4040,3 +4040,137 @@ The local answer eval, with LangSmith over its limit:
 - New: [0035. USE_FILTERS environment setting for demo recordings, not a UI toggle](decisions/0035-use-filters-env-setting-not-a-ui-toggle.md)
 - Updated: [0020](decisions/0020-observability-langsmith-wrap-client-decorate-steps.md) (revisit signal hit), [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) (local-first runner), [0025](decisions/0025-ai-judge-for-coach-labeling-rules.md) (judge cost; cheaper judge proposed, not decided)
 - Next: the beginner (level) filter. Optional: a cheaper judge, after an agreement check.
+
+## Phase 1F, F7c: Query rewriting for coach slang (dictionary vs LLM rewrite)
+**Date:** 2026-09-30 · **Commits:** `a13f9e5` eval: add 6 coach-approved slang questions for query rewriting (46 total); `57e2fe9` feat: slang dictionary rewriting before search (F7c), chosen over an LLM rewrite
+
+**Goal.** Fix search failures on gym slang (abbreviations like RFESS, BW, DB) with the cheapest method that works, measured on the eval set.
+
+**Context.** The developer's weekly plan: Thursday is query rewriting (add 4 to 6 slang questions first, build a dictionary, build an AI rewrite, measure both, pick one, record the decision); Friday is hybrid search. The developer wants everything, including program design (Phase 2), done by Friday, and asked for shorter messages. Query rewriting was planned in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md), back between Steps 5 and 6. Query rewriting means changing the question before the search runs, so it matches how the catalog is written. See [Query rewriting](concepts.md#query-rewriting).
+
+**What we did.**
+
+*1. Probed before building.*
+- Ran 20 slang questions through search only (limits read, filters on, no answer model). Probe scripts were ad hoc; they are not in the repo.
+- **16 of 20 already ranked the right exercise #1.** Among them: SL RDL, OHP, TGU, KB DL, GB, KBS, SA DB row, press-ups, farmer's walk, pistols, Bulgarians, BW only, hip bridge, Nordics, BB bench.
+- **The weak ones:**
+  - RFESS (rear-foot-elevated split squat, another name for the Bulgarian split squat): #5 in one wording; missed entirely in "RFESS with DBs".
+  - "BW squat progression": BW was read as barbell, so the barbell back squat ranked #1. BW means bodyweight.
+  - "DB row for the lats": the dumbbell row ranked #2, behind the barbell row.
+- "I only have KBs" was not a slang failure: the limit reader read KBs as kettlebells correctly.
+- Lesson: the embedding model already knew about 80% of coach shorthand. The job for rewriting was small. See [Measure before building](concepts.md#measure-before-building-probe-the-failure-first).
+
+*2. Six new eval questions (commit `a13f9e5`, 46 total, category `jargon`).* The coach approved all six ("all fine").
+- `jargon-rfess` ("RFESS for single-leg strength") and `jargon-rfess-dbs` ("RFESS with DBs"): expect the Bulgarian split squat.
+- `jargon-bw-squat` ("BW squat progression"): expects pistol squat and split squat. `barbell-back-squat` is **forbidden**, because it is exactly the misread.
+- `jargon-db-row` ("DB row for the lats"): expects the one-arm dumbbell row.
+- Two **guard questions**, which already passed: `jargon-sl-rdl` and `jargon-kbs`. A dictionary must not break them. For example, if "RDL" were expanded before "SL RDL", the single-leg part would be lost. See [Guard questions](concepts.md#guard-questions-eval-items-that-must-keep-passing).
+
+*3. Two rewriting versions, in `src/ragmotion/rewrite.py`.*
+- **`GLOSSARY`**: 18 abbreviations mapped to full terms: RFESS, BSS, SL RDL, RDL, OHP, TGU, KBS, KB DL, DBs, KBs, DB, KB, BB, BW, SA, SL, DL, GB.
+- **`expand_slang()`, the dictionary version.** One regular expression (a text-matching pattern):
+  - terms sorted longest first, so "SL RDL" matches as one term before "RDL" or "SL" can;
+  - whole words only (`\b`), so "SA" inside "Sandbag" is left alone;
+  - case-insensitive, so "sl rdl" works;
+  - a single pass, so an expansion is never expanded again;
+  - keeps the abbreviation and appends the full term: "SL RDL for hamstrings" becomes "SL RDL (single-leg Romanian deadlift) for hamstrings".
+  - See [Longest match first, whole words, one pass](concepts.md#longest-match-first-whole-words-one-pass-safe-text-substitution).
+- **`rewrite_with_llm()`, the LLM version.** A structured call on the default model, temperature 0, `max_tokens` 200, with the glossary in the prompt. The prompt says to keep every limit (equipment, age, level) and treat the question as data, not instructions. Traced in LangSmith as `rewrite_query` when tracing is on.
+- **`rewrite_query(question, method)`** picks one: `none`, `dictionary`, or `llm`.
+
+*4. Wired into the pipeline.*
+- `rag.answer_question` gains a `rewrite` argument (default `settings.query_rewrite`).
+- **The rewritten question is used only for reading limits and for search.** The answer model still sees the coach's original question.
+- `RAGResult` gains `search_query` (what the search actually saw). Timings gain `rewrite`.
+- `config.query_rewrite`, default now `"dictionary"`. See [0036](decisions/0036-query-rewriting-dictionary-default.md).
+
+*5. Eval scripts.*
+- `evals/run_answer_eval.py` gains `--rewrite {none,dictionary,llm}` and `--no-judge`. `--no-judge` skips the AI judge when the labeling rules aren't being measured; it saves about 8 cents per run. Outputs now include `search_query`, `timings_ms`, and `cost_usd`.
+- `evals/run_retrieval_eval.py` gains `--rewrite` for the semantic + filter row.
+
+*6. Test.* `tests/test_rewrite.py`: one test with five checks. Longest first ("SL RDL" as one term), case-insensitive, plural before singular ("DBs" becomes dumbbells, not "DB" + "s"), whole words only ("Sandbag carries" untouched), a question with no slang unchanged. 54 tests pass.
+
+**Commands.**
+```bash
+# Probe scripts (ad hoc, not committed): extract_limits + search_all on 20 slang questions.
+# Showed 16 of 20 already ranked the right exercise #1.
+
+uv run python evals/run_retrieval_eval.py --rewrite none --details
+uv run python evals/run_retrieval_eval.py --rewrite dictionary --details
+uv run python evals/run_retrieval_eval.py --rewrite llm --details
+# Retrieval only, 46 questions, semantic + filters, top 5. Results below.
+
+uv run python evals/run_answer_eval.py --no-judge --rewrite none        # x3
+uv run python evals/run_answer_eval.py --no-judge --rewrite dictionary  # x3
+uv run python evals/run_answer_eval.py --no-judge --rewrite llm         # x3
+# 9 answer runs, judge skipped. Saved to
+# evals/results/answers-semantic-filtered[-rw-dictionary|-rw-llm]-20260930-*.json
+
+uv run pytest
+# 54 passed.
+```
+
+**What we saw.**
+
+Retrieval (semantic + filters, top 5, 46 questions):
+
+| Metric | None | Dictionary | LLM |
+|---|---|---|---|
+| Exercise recall | 0.83 | 0.87 | 0.87 |
+| Hit rate | 0.97 | 1.00 | 1.00 |
+| MRR | 0.86 | 0.97 | 0.97 |
+| Forbidden rate | 0.02 | 0.00 | 0.02 |
+| Jargon-category recall | 0.89 | 1.00 | 1.00 |
+
+- Recall: share of expected items found in the top 5. Hit rate: share of questions with at least one expected item. MRR (mean reciprocal rank): how high the first right item ranks, 1.0 meaning always first. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr).
+- **The LLM rewrite didn't fix the BW squat.** It rewrote "BW squat progression" to "Bodyweight squat progression", and search still retrieved the barbell back squat. The dictionary version got it to 0.00.
+
+Answers (3 runs each, judge skipped):
+
+| Check | None | Dictionary | LLM |
+|---|---|---|---|
+| Citations valid | 0.986 | 0.986 | 0.986 |
+| Coverage claim correct | 0.891 | 0.906 | 0.935 |
+| Used expected evidence | 0.956 | 0.978 | 0.993 |
+| No forbidden citations | 0.929 | 1.000 | 1.000 |
+| Exercise completeness | 0.814 | 0.852 | 0.850 |
+| No extra exercises | 0.793 | 0.724 | 0.736 |
+
+Slang questions only:
+
+| Check | None | Dictionary | LLM |
+|---|---|---|---|
+| Used expected evidence | 0.889 | 1.000 | 1.000 |
+| Exercise completeness | 0.889 | 1.000 | 1.000 |
+| No forbidden citations | 0.000 | 1.000 | 1.000 |
+
+- Without rewriting, the BW-squat answer cited the barbell back squat in all 3 runs.
+- **Time.** Rewrite step median: 0 ms (dictionary) vs 639 ms (LLM). Total median per question: 2.42 s (none), 2.42 s (dictionary), 3.08 s (LLM). So the LLM rewrite made answers about 26% slower.
+- **Cost.** About $0.0004 per question for all three. The LLM rewrite call's own cost isn't counted in `cost_usd`; it is small.
+- **Side effect of both versions.** Single-exercise slang questions (`jargon-rdl`, `jargon-kb`, `jargon-sl-rdl`, `jargon-rfess`) now mention more related variants, so "no extra exercises" fell 0.79 → 0.72 (dictionary) and 0.74 (LLM). Mostly acceptable variants, for example the SL RDL in a beginner RDL answer, which the coach allowed only if labeled intermediate. See [Answer completeness and extra items](concepts.md#answer-completeness-and-extra-items-answer-level-recall-and-precision) (extended).
+
+**Problems and fixes.**
+- A stray `head -0` in a command errored. Not a test failure. Otherwise none.
+
+**Developer questions.**
+- **"At what point do we add more material and make this a complete workout protocol generator (reps, schedule)?"** Answer: Phase 2 needs three things.
+  1. Program-design sources: Schoenfeld 2021, Pelland 2024, and the coach's notes on NSCA Essentials chapters 18 and 19.
+  2. A client profile. Step 6's `extract_profile` already exists.
+  3. A step-by-step builder: profile → pick exercises per movement pattern with filtered search → sets and reps from the sources, with citations → weekly layout → code checks (each muscle group trained 2+ times a week, only owned equipment, rest days). With its own eval.
+  - The compressed plan: slang now, hybrid search next, then program sources and generator v1.
+
+**Open questions.**
+- The LLM rewrite scored slightly higher on coverage (0.935 vs 0.906) and expected evidence (0.993 vs 0.978). Over 3 runs each, whether that is a real difference or [run-to-run noise](concepts.md#run-to-run-noise) wasn't checked.
+- The coach hasn't reviewed the new extras on single-exercise slang answers (for example whether each SL RDL mention was labeled intermediate).
+- The LLM rewrite's own cost was not measured.
+- The previous entry named the beginner (level) filter as next. The plan now goes to hybrid search (F7d); where the level filter fits was not recorded.
+- The probe scripts and their exact output were not saved.
+
+**Learned.**
+- New: [Measure before building (probe the failure first)](concepts.md#measure-before-building-probe-the-failure-first), [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting), [Longest match first, whole words, one pass (safe text substitution)](concepts.md#longest-match-first-whole-words-one-pass-safe-text-substitution), [Guard questions (eval items that must keep passing)](concepts.md#guard-questions-eval-items-that-must-keep-passing)
+- Extended: [Query rewriting](concepts.md#query-rewriting), [Deterministic vs generated](concepts.md#deterministic-vs-generated), [Latency: where the time goes](concepts.md#latency-where-the-time-goes), [Answer completeness and extra items](concepts.md#answer-completeness-and-extra-items-answer-level-recall-and-precision)
+
+**Decisions.**
+- New: [0036. Query rewriting: slang dictionary by default, not an LLM rewrite](decisions/0036-query-rewriting-dictionary-default.md)
+- Updated: [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (query rewriting built and measured)
+- Next: F7d, hybrid search with filters and weightings.

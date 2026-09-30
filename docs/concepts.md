@@ -112,7 +112,9 @@ Deterministic means the same input always gives the same, exactly correct output
 
 **In an interview (F7b):** "If a label is a fact in my database, like an exercise's level or whether it needs equipment, I shouldn't ask the model to remember to write it. The page can print it next to the citation, deterministically."
 
-*First seen: Step 6. Extended: Phase 1F F3 + F4, F7b.*
+*Phase 1F F7c update: a dictionary instead of a model.* Expanding "BW" to "bodyweight" is a lookup, not a language task, as long as the term is known. The dictionary version of query rewriting matched the LLM version on answer quality, at 0 ms instead of about 640 ms, and can be unit-tested exactly. See [Dictionary vs LLM query rewriting](#dictionary-vs-llm-query-rewriting).
+
+*First seen: Step 6. Extended: Phase 1F F3 + F4, F7b, F7c.*
 
 ### Output length cap (max_tokens)
 `max_tokens` is the most tokens the model may write in its reply. Always set it. In Step 6 the first call had none, and the host (GMICloud) defaulted to the model's whole context window (131,072 tokens) for the reply. With 170 input tokens that exceeded the model's limit, so the request failed with HTTP 400 (the server rejecting a bad request). Failed requests aren't charged. Set to 1000 now; a profile is about 200 tokens. It also caps cost, since output tokens are billed. If a reply hits the cap, `finish_reason` is `"length"`, and the code raises an error instead of using a cut-off answer.
@@ -415,7 +417,25 @@ Query rewriting means an LLM rewrites the user's question into better search ter
 
 *Step 15 update: keyword search doesn't replace it.* One argument for keyword search was exact abbreviations. The eval showed it doesn't help here: for "beginner RDL", keyword search missed both RDL exercises, because "RDL" never appears in the catalog text. Jargon recall was 0.83 for semantic and hybrid and 0.67 for keyword. The only fix that targets the problem is expanding the abbreviation before searching, which is what query rewriting does. Still planned for Phase 1F, measured against the Step 15 baseline.
 
-*First seen: between Steps 5 and 6. Extended: Steps 7 and 15.*
+*Phase 1F F7c update: built, measured, and not an LLM after all.* Two things changed from the plan. First, the probe: 16 of 20 slang questions already ranked the right exercise #1, so the embedding model knew most shorthand; the real failures were RFESS, "BW" read as barbell, and "DB row". Second, the winner: a plain dictionary (a fixed list of abbreviations and their full terms, applied by code) matched an LLM rewrite on answer quality, fixed the "BW squat" misread that the LLM rewrite didn't, and added 0 ms instead of about 640 ms. Retrieval MRR 0.86 → 0.97; slang answers with no forbidden citation 0/3 runs → 3/3. **Only the search sees the rewritten question**; the answer model still gets the coach's own words, so the answer isn't built on a paraphrase. See [Dictionary vs LLM query rewriting](#dictionary-vs-llm-query-rewriting) and [0036](decisions/0036-query-rewriting-dictionary-default.md).
+
+**In an interview (F7c):** "I planned an LLM to rewrite coach slang before search. Then I tested 20 slang questions and found the embedding model already got 16 right. For the rest, a small glossary did as well as the LLM, fixed one case the LLM didn't, and cost no time. The LLM would have added two-thirds of a second to every question."
+
+*First seen: between Steps 5 and 6. Extended: Steps 7, 15, and Phase 1F F7c.*
+
+### Dictionary vs LLM query rewriting
+Two ways to expand slang before search. **Dictionary:** a hand-written table ("BW" = bodyweight, "RFESS" = rear-foot-elevated split squat) applied by code. It is deterministic (same input, same output), free, instant, and easy to unit-test. But someone has to maintain the table, and slang that isn't in it passes through unchanged. **LLM rewrite:** a model call rewrites the question, guided by the same glossary. It can handle phrasing the table never saw, but it adds time (about 640 ms median here), another call that can fail, and answers that can vary. In F7c both reached the same answer quality on 46 questions; the LLM version rewrote "BW squat progression" to "Bodyweight squat progression" and search still pulled the barbell back squat, while the dictionary version didn't.
+
+**In an interview:** "A dictionary is the cheapest thing that could work, so I measured it against an LLM rewrite before deciding. Same quality, zero added latency, nothing extra to fail. I'd switch only if evals or real questions show slang my glossary doesn't know."
+
+*First seen: Phase 1F, F7c.*
+
+### Longest match first, whole words, one pass (safe text substitution)
+Three rules that keep a find-and-replace from mangling text. **Longest first:** try "SL RDL" before "RDL" and "SL", or "SL RDL" becomes two separate expansions and the single-leg meaning is split. The same rule puts "DBs" before "DB". **Whole words only:** match "SA" as a word, not inside "Sandbag" (in a regular expression, a text-matching pattern, `\b` marks a word boundary). **One pass:** replace everything in a single sweep, so the text you just inserted ("single-leg Romanian deadlift") is never scanned again and expanded a second time. `expand_slang()` in `src/ragmotion/rewrite.py` does all three with one pattern, case-insensitive, and keeps the original abbreviation next to its expansion.
+
+**In an interview:** "My slang expander matches the longest term first, whole words only, in one pass. Without that, 'SL RDL' would be split into two expansions, and 'SA' would fire inside 'Sandbag'. Each of those rules has a unit test."
+
+*First seen: Phase 1F, F7c.*
 
 ### Query decomposition (multi-intent questions)
 A multi-intent question asks for several things at once. "Explosive lower-body program to run faster" is really several searches: power training principles, jump exercises, single-leg strength, and how to progress. One embedding of the whole question blends those meanings together and may retrieve a bit of each and not enough of any. Query decomposition means splitting the question into sub-questions, searching for each one separately, and combining the results. This fits Phase 2, where an agent builds whole programs. Not built yet.
@@ -1427,7 +1447,9 @@ Two code checks added in F7a to judge the written answer, not the search. **Comp
 
 **In an interview:** "To test a bigger k I needed two numbers, not one: did the answer name more of the right exercises, and did wrong ones sneak in. k = 10 took completeness from 0.80 to 0.92 but dropped clean answers from 87% to 78%, and the extras were all on focused questions. I decided the completeness gain wasn't worth it and kept k at 5."
 
-*First seen: Phase 1F, F7a.*
+*Phase 1F F7c update: a fix can raise one and lower the other.* Query rewriting raised completeness (0.814 → 0.852 with the dictionary) and lowered "no extras" (0.793 → 0.724). The extras came from single-exercise slang questions: once "RDL" is spelled out, related variants rank higher and the answer mentions them. Mostly acceptable variants, for example the SL RDL in a beginner RDL answer, which the coach allows only if labeled intermediate.
+
+*First seen: Phase 1F, F7a. Extended: Phase 1F, F7c.*
 
 ### Proxy metrics (read what they flag, not just the number)
 A proxy metric measures something close to what you care about, because the real thing is hard to measure. `only_keyed_exercises` stands in for "did the answer include exercises a coach wouldn't want?". But it really measures "did the answer include anything not on our lists", and the acceptable lists were never meant to be complete. So some flagged extras may be good coaching choices (for example hammer curl for a grip question) and some are real noise. The habit: print what the metric flags, have the domain expert read it, and treat the number as a pointer, not a verdict. If the coach adds good extras to the acceptable lists, the metric gets closer to the real thing.
@@ -1442,6 +1464,20 @@ An experiment that finds "no improvement" is still worth recording. It stops an 
 **In an interview:** "One of my experiments shipped nothing. I tried three versions of formatting rules in the prompt and none beat the original, so I reverted and wrote down why. That cost under a dollar and stopped me shipping a change that made focused answers worse."
 
 *First seen: Phase 1F, F7b.*
+
+### Measure before building (probe the failure first)
+Before building a fix, run the questions it is meant to fix and see how many actually fail. A probe is a quick, throwaway test like that. In F7c, 20 slang questions went through search before any rewriting existed: 16 already ranked the right exercise first. That shrank the job from "the model doesn't understand coach shorthand" to four specific failures (RFESS twice, BW read as barbell, DB row), which became eval questions. It also showed the fix didn't need to be clever.
+
+**In an interview:** "Before building query rewriting I probed 20 slang questions. The embedding model already got 16 right, so I turned the four failures into eval questions and picked the simplest fix that passed them."
+
+*First seen: Phase 1F, F7c.*
+
+### Guard questions (eval items that must keep passing)
+A guard question is an eval question that already passes, added on purpose so a fix can't quietly break it. In F7c two were added next to the four failing slang questions: "SL RDL for hamstrings" and "KBS for hip power", both already ranked first. A careless dictionary that expanded "RDL" before "SL RDL" would have broken the first one. Coaches do the same thing: when you change a program to fix one weakness, you keep testing the lifts that were already fine.
+
+**In an interview:** "My eval has questions for what's broken and guard questions for what already works. If a fix raises one and drops the other, the eval shows both."
+
+*First seen: Phase 1F, F7c.*
 
 ## Testing
 
@@ -2262,7 +2298,9 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 
 **In an interview (Step 14):** "My trace showed retrieval was 0.99 seconds, and 0.95 of that was the embedding API call. The database search was nearly free. So if retrieval needed to be faster, I'd work on the network call before I'd ever tune Postgres."
 
-*First seen: Step 9. Extended: Steps 10 and 14.*
+*Phase 1F F7c update: what one extra model call costs in time.* With the answer eval now recording timings, the total median per question was 2.42 s with no rewriting and 2.42 s with the dictionary, but 3.08 s with the LLM rewrite (its own step: 639 ms median), about 26% slower. Every extra model call in front of search adds its full round trip to every question.
+
+*First seen: Step 9. Extended: Steps 10, 14, and Phase 1F F7c.*
 
 ### Retry on malformed structured output
 [Structured output](#structured-output-strict-json-schema) gives a valid shape only when the reply arrives complete. In the first eval v2 run, 2 of 31 answers crashed with "1 validation error for GroundedAnswer: Invalid JSON: EOF while parsing a string": the model's JSON was cut off mid-string. The code correctly refused to use half an answer, but it didn't try again, so those questions produced no answer and weren't scored (29 of 31). Fix: `llm.structured_completion()` now wraps `_structured_completion_once()` and retries once when pydantic raises a `ValidationError`. The final v2 run scored all 31. Tradeoffs: a retry costs another call and more time on those cases; retrying only once means a persistent problem still ends in an error instead of looping; and a retry can hide a systematic cause, so the crash rate is worth watching. Whether the cut-off came from the length cap (`max_tokens`) was not recorded.
