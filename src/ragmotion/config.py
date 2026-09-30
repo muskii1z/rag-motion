@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Every call to OpenRouter (LLM and embeddings) gives up after this many seconds, and is retried
     # at most this many times. Without a limit, a hung call would wait the library's default 10 minutes.
     # A normal answer takes 2-5 s, so 25 s with 1 retry means a clear error within about a minute.
+    # Phase 1F filters (equipment, age group). Only turned off to show the "before" behavior,
+    # e.g. for a demo recording: USE_FILTERS=false uv run uvicorn ragmotion.app:app ...
+    use_filters: bool = True
+
     api_timeout_seconds: float = 25.0
     api_max_retries: int = 1
 

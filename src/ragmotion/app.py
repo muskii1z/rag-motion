@@ -77,7 +77,7 @@ def ask(req: AskRequest) -> dict:
                                                     f"this one has {len(question)}. Please shorten it.")
     try:
         # Failures inside are also recorded on the answer_question trace in LangSmith.
-        r = answer_question(question, k_exercises=req.k, k_passages=req.k)
+        r = answer_question(question, k_exercises=req.k, k_passages=req.k, use_filters=settings.use_filters)
     except Exception as e:
         log.exception("Failed to answer %r", req.question)  # full details for debugging
         status, message = friendly_message(e)
