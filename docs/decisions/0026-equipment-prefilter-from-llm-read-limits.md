@@ -40,3 +40,6 @@ Same 40 questions as the F2 baseline ([build-log entry](../build-log.md#phase-1f
 
 ## Update (2026-09-28, F5)
 The "extend `QuestionLimits` rather than adding a second reading call" signal was followed: the population field was added to the same form and the same `extract_limits` call. That prompt needed one fix: it read "athletes" and "an intermediate lifter" as adults until told which words do not name a group. See [0027](0027-population-tags-from-structure-keep-general-filter.md).
+
+## Update (2026-10-01, going public)
+The first "Revisit when" signal fired: `jargon-bw-squat` ("BW squat progression") was not read as a limit, so the barbell back squat was retrieved and cited in 1 of 3 runs. The meaning of "limited" was widened by one prompt line (asking specifically for bodyweight exercises means no equipment) and narrowed by another (naming an exercise or its equipment is not a limit), after the first line alone over-filtered two questions. Re-checked on all 52 questions, twice: 8 equipment-limited questions. See [0042](0042-bodyweight-requests-are-a-no-equipment-limit.md). Also from the coach's review: Inverted Row now needs `barbell` + `rack`, so the `<@` filter drops it for anyone who doesn't list a rack ([0043](0043-coach-review-outcomes-original-20-and-program-design-notes.md)).

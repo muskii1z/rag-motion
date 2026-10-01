@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Pre-Phase 2, 2026-10-01 (three CC BY program-design papers, Pelland as a labeled preprint; draft program-design notes not attributed to NSCA; 6 program-design eval questions, 52 total, with an older-adult trap that held; prog-frequency key kept strict; plan to finish and go public after both coach reviews; secrets scan of all 85 commits clean; decisions 0038 to 0041).
+Last updated: going public, 2026-10-01 (both coach reviews done; evals now default to the app's slang rewriting; bodyweight requests read as a no-equipment limit after a first fix over-reached; final eval, 52 questions, 3 runs: no forbidden citations 45/45, citations 96.7%, expected evidence 94.6%, coverage 91.4%, 4 errored runs reported; README rewritten; pre-public checks clean on 90 commits; decisions 0042 to 0044).
 
 ---
 
@@ -73,6 +73,16 @@ Numbers behind it: [F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-
 
 ---
 
+## Final results in one paragraph (going public)
+
+**DRAFT by the scribe, for the developer to adapt into their own words. Not yet approved.** Every fact is from the [going-public build-log entry](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks) and the [README](../README.md).
+
+> The finished system answers coaching questions from 42 exercises I reviewed and 278 passages from openly licensed sources, with every claim cited. I measured it on 52 questions I set as a coach, three runs each. It never cited an exercise or passage that broke the person's equipment or age limits (45 of 45), 97% of citations pointed to retrieved evidence, 95% used the evidence I expected, and 91% were honest about how much the evidence covered. Two changes earned their place: filters in the database search, and a slang glossary. Four others I built, measured, and dropped: an LLM rewrite of slang, hybrid search, more exercises per question, and formatting rules in the prompt. The last fix before publishing is a good example of the process: a bodyweight-squat question was getting a barbell squat, my one-line fix broke two other questions, and I only caught that because I re-check every question after any prompt change. Four of 156 runs errored, mostly timeouts during a provider slowdown, and the README says so rather than re-running them.
+
+Numbers behind it: [going public](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks) (retrieval and answer tables, errored runs); [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md) (the limit-reading fix); [0044](decisions/0044-readme-reports-errors-and-rejected-changes.md) (why errors and rejected changes are reported).
+
+---
+
 ## LLM
 
 ### How did you structure your LLM outputs?
@@ -105,6 +115,9 @@ Evidence so far:
   - Point to make: "Structured output makes the model's reading checkable. I could see it defaulting 'athlete' to 'adult' on four questions, fix the prompt, and confirm all 40 were right before any filter used it."
 - [Phase 1F, F7b](build-log.md#phase-1f-f7b-experiment-with-the-coachs-presentation-rules-in-the-answer-prompt-reverted): **format rules in the prompt, measured and reverted.** Asking the small answer model (`google/gemini-2.5-flash-lite`) to group and label its prose made focused answers padded and coverage claims less accurate; none of three versions beat the plain prompt ([0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md), proposed). The labels are catalog facts, so the idea for later is to show them in code, next to each citation, rather than in the model's text. See [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) and [Deterministic vs generated](concepts.md#deterministic-vs-generated).
   - Point to make: "Structure I can check, like typed fields and citation ids, works well. Formatting I asked for in prose, like labels and headings, was followed unreliably by a cheap model and changed other behavior. Facts the database already has belong in code, not in the prompt."
+
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **a structured reading that over-reached.** One prompt line taught `extract_limits` that a request for bodyweight exercises means no equipment. Because its output is a typed form, a check over all 52 questions showed exactly which ones flipped: "KBS for hip power" and a band-pulling question became limited too. A second line fixed it; the check, run twice, showed 8 limited questions, as intended. See [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md).
+  - Point to make: "Structured output let me diff the model's reading across every question before and after a prompt change. That's how I saw my fix break two questions it wasn't meant for."
 
 ## RAG
 
@@ -322,6 +335,8 @@ Evidence so far:
   - Without filters, hybrid had ranked passages better than semantic (0.84 vs 0.79). The age-group filter removed the wrong-group passages that were pushing semantic's right passage down, which was the gap keyword search had been filling. See [Interaction effects](concepts.md#interaction-effects-re-test-old-decisions-after-big-changes) and [Hybrid search](concepts.md#hybrid-search) (extended).
   - Point to make: "Vector similarity wasn't enough on its own, but the fix turned out to be filters, not keyword search. Once the filters were in, adding keyword search on top no longer helped, so I kept one search path."
 - **[Pre-Phase 2](build-log.md#pre-phase-2-program-design-sources-six-eval-questions-and-the-plan-to-go-public): new sources need their own population rule.** The program-design papers studied healthy adults, so they're tagged `adults` as whole sources and filtered out of youth, older-adult, and pregnancy questions. The trap `prog-older-adult-sets` passed. One new side effect: on `pop-beginner-adult`, two passages from the unreviewed program-design notes now rank ahead of the Guidelines (recall still 1.0). See [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm) (extended) and [Draft content in the knowledge base](concepts.md#draft-content-in-the-knowledge-base-review-status).
+
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **two steps have to agree.** The slang dictionary turned "BW squat progression" into "bodyweight squat progression", but search still returned the barbell back squat, because the limit reader didn't count it as no equipment, so no filter ran. Fixed in the limit reader ([0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)). Final retrieval: every filtered setup has 0% questions with a forbidden item; every unfiltered one has 13–17%, whatever the search method.
 
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -548,6 +563,13 @@ Evidence so far:
   - Open: the saved run says the slang dictionary was off (`rewrite: none`), so it may not be comparable with the F7c and F7d runs. Final evals (3 runs with the judge) are planned before going public ([0041](decisions/0041-both-coach-reviews-before-going-public.md)).
   - Point to make: "When I added sources, I added questions that only those sources can answer, and one that they must not answer."
 
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **final numbers on the shipped system.**
+  - The open question above was answered: the evals had defaulted to no slang rewriting while the app used the dictionary. Defaults now follow the app's setting ([Evals measure the shipped configuration](concepts.md#evals-measure-the-shipped-configuration-defaults-follow-the-app)).
+  - Retrieval, default (semantic + filters + glossary): exercise recall 0.87, passage recall 0.95, passage MRR 0.84, 0% forbidden.
+  - Answers, 3 runs with the AI judge, 152 of 156 question-runs scored: no forbidden citations 45/45, citations valid 96.7%, expected evidence 94.6%, coverage claim 91.4%, completeness 0.853, no extras 80.7%. Judge: label level 3/3, label bodyweight 1/1, group by muscle 0/3 (a known failure).
+  - 4 errored question-runs reported and not re-run ([Reporting errored runs honestly](concepts.md#reporting-errored-runs-honestly-not-re-running-until-clean)).
+  - Point to make: "My final numbers come from the exact configuration the app ships with, averaged over three runs, with the errors listed. That's the version of the numbers I'd defend."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -575,6 +597,8 @@ Evidence so far:
 - **[Pre-Phase 2](build-log.md#pre-phase-2-program-design-sources-six-eval-questions-and-the-plan-to-go-public): not inventing a source.** Asked to write notes on NSCA *Essentials* chapters it couldn't access, Claude declined to label anything as NSCA-based and drafted general program-design notes labeled "not copied from or checked against any book; pending review". See [Attribution honesty](concepts.md#attribution-honesty-dont-cite-what-you-cant-read) and [0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md).
   - Point to make: "In RAG a made-up source label turns into a real-looking citation in every answer. So I only attribute notes to sources someone actually read."
 
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **coach review closed the last unchecked content.** All 42 exercises and the program-design notes are now coach-reviewed. The review changed facts (broad jump to beginner, inverted row needs a rack), and the answer keys were changed to match, so a correct answer isn't marked wrong ([0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md)).
+
 ### How do you test an LLM application? (interview material)
 Not a question from the project brief, but a common one. The developer asked for this answer to be recorded (their own recorded teach-back is still to come):
 
@@ -596,6 +620,8 @@ Evidence so far:
 - **[Eval resilience, 2026-09-30](build-log.md#eval-resilience-local-first-answer-eval-tracing-off-by-default-plus-filter-demo-recordings): the eval runner is tested too.** 3 offline tests in `tests/test_answer_eval_runner.py`: checks get the arguments they ask for, a broken check is reported not fatal, and a local run needs no LangSmith and records a failed question. 53 tests in total.
 
 - **[Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite): a unit test for each matching rule.** `tests/test_rewrite.py` checks longest first ("SL RDL" as one term), case-insensitive, plural before singular ("DBs"), whole words only ("Sandbag" untouched), and no-slang questions unchanged. Possible because the dictionary is deterministic; an LLM rewrite can only be checked by eval. 54 tests pass. See [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting).
+
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **a test for new glossary terms, and 55 tests passing before going public.** 1RM, RPE, and RIR each got a test in `tests/test_rewrite.py`. Prompt changes to the limit reader were checked by running it over all 52 eval questions twice, since a unit test can't show how a model reads phrasing.
 
 ## Agents
 
@@ -648,6 +674,9 @@ Evidence so far:
 - [Phase 1F, F6](build-log.md#phase-1f-f6-re-run-the-eval-compare-before-and-after-the-filters-update-the-readme): **the coach settled the coverage keys.** Asked whether equipment-limited "full workout" questions should be `partial` or `full`, the coach said `partial`: "only a few exercises fit this equipment, so a full workout isn't possible from our catalog." The reason is stored next to each key. Point to make: "The model was right and my key was wrong, and only a coach could decide that. The eval has a human in the loop too."
 - **[Pre-Phase 2](build-log.md#pre-phase-2-program-design-sources-six-eval-questions-and-the-plan-to-go-public): coach review as a release gate.** The AI-drafted program-design notes went live before review and already reach answers. The developer chose to have the coach review both the notes and the original 20 exercises before the repo goes public ([0041](decisions/0041-both-coach-reviews-before-going-public.md)). The coach also approved the 6 new eval questions and kept the `prog-frequency` key strict ([0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md)).
   - Point to make: "A 'draft' label doesn't stop retrieval. So expert review isn't a nice-to-have; it's a step before release."
+
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **the review gate held.** The coach reviewed the original 20 exercises ("beginner 11, 17 barbell + rack, 20 they are main muscles, it's really a full body workout") and the 11 program-design claims ("those look fine") before the repo went public. Three answer keys changed because of the broad jump call; it stays forbidden for older adults (no jumps). See [0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md).
+  - Point to make: "The AI drafted the content, but nothing went public until a coach had signed off on every exercise and every program-design claim, and the eval key was updated to match the coach's calls."
 
 ## Observability
 
@@ -782,6 +811,8 @@ Evidence so far:
 - [Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): **an outage in the middle of an eval.** OpenRouter stopped answering (connect timeouts) while google.com and LangSmith responded. The run stopped with the `SearchServiceUnavailable` message naming the search (embedding) service; it recovered within a minute and the run was repeated. See [Friendly error messages](concepts.md#friendly-error-messages) (extended).
   - Point to make: "The error named the service that was down, so I didn't waste time debugging my own code or my network. That's what the named-failure work was for."
 
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **timeouts doing their job.** Two eval runs hit OpenRouter at the same moment; 3 calls timed out at the 25 s limit and failed cleanly instead of hanging. One reply was unreadable twice in a row (about 1 in 150). Both are in the README's limitations. See [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls).
+
 ## Security
 
 ### Where are your API keys stored?
@@ -833,6 +864,8 @@ Evidence so far:
   - [Step 16 (revisited)](build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures): now enforced by a test through the web API. `test_unexpected_errors_dont_leak_internals` raises a made-up error inside the answer path and checks the reply is a 500 with no internals. Question length is also checked before any paid call: empty or over-500-character questions get a 400 and no service is called (tested). Unexpected errors show only their type and "Details are in the server log", so file paths and library messages stay server-side. Tests switch LangSmith tracing off, so test data never leaves the machine. See [Friendly error messages](concepts.md#friendly-error-messages).
 - **[Pre-Phase 2](build-log.md#pre-phase-2-program-design-sources-six-eval-questions-and-the-plan-to-go-public): pre-public check of the whole history.** Before making the repo public, all 85 commits were searched for `sk-or-`, `lsv2_`, `sk-ant-`, AWS keys, private keys, and `KEY=value` lines: none. `.env` was never tracked, and nothing in `data/raw/` was ever tracked. The repo stays private until the finish plan's step 7 (pre-public checks). See [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses).
   - Point to make: "Making a repo public publishes its history, so I scanned every commit, not just the current files."
+
+- [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **the final pre-public check.** 90 commits; full history plus README, docs, and results scanned for `sk-or-`, `lsv2_`, `sk-ant-`, AWS keys, private keys: 0. Committed `KEY=value` lines: 0. Tracked `.env`, `data/raw/`, `.pdf`, `.xml`: 0. 55 tests pass. Personal data: only the author email in `pyproject.toml` and commit metadata, flagged to the developer. See [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses).
 
 ### How do you decide what content your RAG system is allowed to ingest? (interview material)
 Not a question from the brief, but a strong one for RAG roles: data provenance (knowing where every piece of data came from) and licensing are part of RAG engineering, not an afterthought.
@@ -1065,3 +1098,5 @@ Evidence so far:
 - **Labeled general notes vs false NSCA notes vs no notes** ([0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md)): general notes, honestly labeled. Given up: an authority behind them until the coach reviews them; they already reach answers.
 - **Strict vs lenient eval key** ([0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md)): the coach kept `prog-frequency` strict. Given up: a passing score now. Gained: the eval keeps flagging answers that lean on unreviewed notes.
 - **Go public now vs review first** ([0041](decisions/0041-both-coach-reviews-before-going-public.md)): both coach reviews first. Given up: time to publish. Phase 2 (program generator) becomes a separate project.
+- **Bodyweight request vs named equipment** ([0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)): a request for bodyweight exercises filters out all equipment; naming an exercise or its equipment doesn't. Given up: barbell options for someone who asks for a bodyweight progression but owns a barbell. Gained: the forbidden barbell squat is gone (45/45).
+- **Honest numbers vs clean numbers** ([0044](decisions/0044-readme-reports-errors-and-rejected-changes.md)): the README reports 4 errored runs and every rejected change. Given up: tidier, slightly higher headline numbers. Gained: numbers a reviewer can trust.

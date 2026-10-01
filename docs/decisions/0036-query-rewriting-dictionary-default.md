@@ -34,3 +34,8 @@ The dictionary is the default: `settings.query_rewrite = "dictionary"` in `src/r
 ## Revisit when
 - New slang failures show up in evals or real use, especially slang the glossary can't reasonably list.
 - The catalog grows enough that keeping the glossary current becomes real work.
+
+## Update (2026-10-01, going public)
+- Three program-design terms added to the glossary: 1RM (one-repetition maximum), RPE (rating of perceived exertion), RIR (reps in reserve), with a test. Commit `c4ec5dc`.
+- The eval scripts had defaulted to `--rewrite none` while the app used the dictionary, so a plain eval run measured a pipeline users don't get. Both scripts now default to `settings.query_rewrite` (commit `c95bb0d`).
+- The dictionary alone didn't fully fix "BW squat progression": it expanded BW to bodyweight, but the limit reader didn't treat that as no equipment until [0042](0042-bodyweight-requests-are-a-no-equipment-limit.md).

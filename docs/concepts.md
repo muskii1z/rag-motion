@@ -197,7 +197,11 @@ The system prompt (the standing instructions sent with every question) is shared
 
 **In an interview:** "I added a 'group by muscle group' rule for list questions, and it changed my focused answers: a question about one overhead press came back with bench press and triceps extensions under headings. A prompt is global, so I evaluate a prompt change on every question, not just the ones it targets."
 
-*First seen: Phase 1F, F7b.*
+*Going-public update: an extraction prompt that over-reached.* The same thing happens with the small prompt that reads limits from a question (`extract_limits`). To fix "BW squat progression" (not read as a no-equipment request, so a barbell squat got through), one line was added: asking for bodyweight exercises means no equipment. Re-checking all 52 questions showed it also turned "KBS (kettlebell swing) for hip power" into kettlebell-only and a band-pulling question into band-only, which would have silently hidden good exercises. A second line fixed it: naming an exercise or its equipment is not a limit. The check was then run twice over all 52, because a model can read the same question differently on two runs. Result: exactly the 8 intended questions limited. See [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md).
+
+**In an interview (going public):** "My fix for one question broke two others: telling the limit reader that 'bodyweight' means no equipment made it treat 'kettlebell swing for hip power' as kettlebell-only. I only caught it because I re-check every question after any prompt change, and I run that check twice."
+
+*First seen: Phase 1F, F7b. Extended: going public (2026-10-01).*
 
 ---
 
@@ -446,7 +450,9 @@ Two ways to expand slang before search. **Dictionary:** a hand-written table ("B
 
 **In an interview:** "A dictionary is the cheapest thing that could work, so I measured it against an LLM rewrite before deciding. Same quality, zero added latency, nothing extra to fail. I'd switch only if evals or real questions show slang my glossary doesn't know."
 
-*First seen: Phase 1F, F7c.*
+*Going-public update.* Three program-design terms joined the glossary: 1RM (one-repetition maximum, the most weight you can lift once), RPE (rating of perceived exertion, how hard a set felt), RIR (reps in reserve, how many more reps you could have done). Each has a test. Maintaining the dictionary by hand looked like this in practice: new sources brought new jargon, and three lines covered it.
+
+*First seen: Phase 1F, F7c. Extended: going public (2026-10-01).*
 
 ### Longest match first, whole words, one pass (safe text substitution)
 Three rules that keep a find-and-replace from mangling text. **Longest first:** try "SL RDL" before "RDL" and "SL", or "SL RDL" becomes two separate expansions and the single-leg meaning is split. The same rule puts "DBs" before "DB". **Whole words only:** match "SA" as a word, not inside "Sandbag" (in a regular expression, a text-matching pattern, `\b` marks a word boundary). **One pass:** replace everything in a single sweep, so the text you just inserted ("single-leg Romanian deadlift") is never scanned again and expanded a second time. `expand_slang()` in `src/ragmotion/rewrite.py` does all three with one pattern, case-insensitive, and keeps the original abbreviation next to its expansion.
@@ -775,7 +781,9 @@ Anything stored and embedded can be retrieved, whether or not anyone has checked
 
 **In an interview:** "A 'draft' label doesn't stop retrieval. My unreviewed notes started outranking government guidelines on one question, so expert review became a release gate before the repo went public."
 
-*First seen: Pre-Phase 2.*
+*Going-public update: the gate was passed.* The coach reviewed the program-design notes and approved them as written. The "pending review" wording came off the `author` line, the sources line, and the manifest entry, and the notes were re-chunked and re-embedded. The original 20 exercises were reviewed the same day, so both items that [0041](decisions/0041-both-coach-reviews-before-going-public.md) held back are now coach-reviewed.
+
+*First seen: Pre-Phase 2. Extended: going public (2026-10-01).*
 
 ### Why RAG beats a plain chatbot here
 A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 15 are where points 1 and 4 get real evidence (evaluation moved from Step 11 to Step 15 in Step 5).
@@ -912,7 +920,9 @@ Query understanding means turning the words of a question into structured inform
 
 *Phase 1F F5 update: population added to the same form.* `QuestionLimits` gained `population` (adults, older-adults, youth, pregnancy, or null), filled by the same `extract_limits` call, so no extra cost. An age decides it ("a 70-year-old" → older-adults, "a 10-year-old" → youth; "high school soccer player" → youth). The first version wrongly read "athletes" and "an intermediate lifter" as adults on 4 questions, even though the prompt said athletes → null. After a sharper prompt, correct on all 40: 12 questions name a group, 28 don't. A misread here is a silent over-filter, so the by-eye check of all 40 matters ([Saying what not to infer](#saying-what-not-to-infer-default-assumptions-in-extraction-prompts)).
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+*Going-public update: bodyweight requests.* "BW squat progression" was expanded to "bodyweight squat progression" by the slang dictionary, but the reader didn't count that as a limit. Now a request specifically for bodyweight exercises means no equipment, while naming an exercise or its equipment still doesn't. 8 of 52 questions are equipment-limited: the 7 constraint questions and `jargon-bw-squat` ([0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)). Expanding slang and reading limits are separate steps, and both have to get it right.
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, going public (2026-10-01).*
 
 ### Pre-filtering vs prompt rules vs post-filtering
 Three places to enforce a rule like "only what I own". **Prompt rules:** tell the model to respect it; it can still slip (in the F2 baseline, 5 of 13 limit questions cited a forbidden item). **Post-filtering:** let the model answer, then remove or reject forbidden items afterward; the answer may then be built around something that has to be cut. **Pre-filtering:** remove unusable items in the database query before similarity ranking, so the model never sees them. This project pre-filters: it is deterministic and cheap, and it frees the top-5 slots for usable items. Its risk: if the limit is read wrong, good items vanish silently, so over-filtering needs its own test ([Over-filtering trap question](#over-filtering-trap-question)).
@@ -1361,7 +1371,9 @@ Seven questions' lists changed; four gained acceptable lists; the rest were conf
 
 *Phase 1F F1 update: the same review for catalog data.* Claude drafted 22 new exercises, and the coach reviewed them from a table of level, type, equipment, and main muscles, answering four specific questions. Changes: Turkish get-up to intermediate with a technique warning; the Nordic curl needs a new equipment value (`anchor`). Confirmed with a reason: back squat and deadlift intermediate, power clean a hinge, deadlift full body. Reviewed rows are marked "reviewed by M. Saraswat" in their `source` field; the original 20 still say "pending coach review".
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F1.*
+*Going-public update: the original 20 reviewed, and keys followed.* The last 20 unreviewed exercises (from Step 5) went to the coach. Three calls: Broad Jump intermediate → beginner; Inverted Row needs barbell + rack, not just a barbell; Farmer Carry keeps glutes as a main muscle ("it's really a full body workout"). The other 17 were confirmed. All 42 are now "reviewed by M. Saraswat". The coach also approved the 11 claims in the AI-drafted program-design notes ("those look fine"). See [0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F1, going public (2026-10-01).*
 
 ### When the answer key changes, the scores change
 Scores can move with no change to the system, just because the ruler changed. During the review, semantic exercise recall went 0.89 → 0.90 → 0.91 → 0.90 → 0.91 across re-runs, and hybrid passage recall rose from 0.89 to 0.95 when one question's key was revised. A better key can even change which search mode looks best. So compare only runs graded against the same version of the key. When the key must change (new material changes what's correct, or an expert finds an error), change specific keys deliberately, write down why, and treat that version as the new baseline. The LangSmith dataset name includes a hash of the file, so the reviewed key automatically became a new dataset (`rag-motion-eval-a2d30357`). See also [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
@@ -1370,7 +1382,9 @@ Scores can move with no change to the system, just because the ruler changed. Du
 
 *Phase 1F F6 update: a key change in the middle of a before/after.* The coach changed three coverage keys after F5. That made the F2 "before" numbers (coverage 36/40) incomparable. The fix was to re-run the "before" (`--no-filters`) on the new key, so before and after were graded by the same ruler. The new file hash gave a new LangSmith dataset, `rag-motion-eval-23e1f7fa`. The frozen-test rule bends here, on purpose: the key was fixed for a stated reason, and then both sides were re-measured.
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6.*
+*Going-public update: a data change rippled into the keys.* When the coach made the broad jump a beginner exercise, three keys had to change with it: it moved from forbidden to acceptable for "beginner at home", and became acceptable for the beginner-adult and youth-start questions. It stays forbidden for older adults (the coach's rule: no jumps). Otherwise a correct answer would have been marked as a forbidden citation. The final eval was run after the change, so all reported final numbers use one key.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01).*
 
 ### Source-anchored vs judgment-based keys
 Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
@@ -1538,6 +1552,20 @@ An interaction effect is when one change alters what another change does. In rag
 **In an interview:** "Results from before a big change aren't permanent. Hybrid search beat semantic on my passages until I added an age-group filter; after that, semantic won. I only knew because I re-ran the comparison instead of trusting the old table."
 
 *First seen: Phase 1F, F7d.*
+
+### Evals measure the shipped configuration (defaults follow the app)
+An eval only tells you about the system it actually ran. If the eval script has its own defaults, they can drift from the app's, and then a plain eval run measures a pipeline no user gets. In rag-motion the app rewrote slang with the dictionary by default, but both eval scripts defaulted to `--rewrite none`. The 2026-10-01 single run was therefore a no-rewrite run, found only because the saved file's metadata said `"rewrite": "none"`. The fix: the eval scripts read the same setting as the app (`settings.query_rewrite`), so changing the app changes the eval with it. Flags still allow other setups for experiments. The habit: save the settings with every result, and check them before reading the numbers.
+
+**In an interview:** "I once caught my eval testing a different pipeline from the app: the app expanded slang, the eval didn't. The script had its own default. Now the eval takes its defaults from the app's config, and every results file records the settings, so I can check what was measured."
+
+*First seen: going public (2026-10-01).*
+
+### Reporting errored runs honestly (not re-running until clean)
+When a question fails with an error during an eval (a timeout, an unreadable reply), there are two temptations: count it as a pass, or re-run it until it works and report only the clean run. Both make the numbers describe a system that doesn't exist. Re-running until clean is a form of cherry-picking (choosing only the results you like). The honest version: leave errored question-runs out of the totals, say how many there were and why, and keep the denominators visible (here 152 of 156 scored). In the final eval, 4 of 156 question-runs errored: 3 timeouts while two runs hit the provider together, and 1 unreadable reply. They were reported in the README and not re-run. An earlier run set before the last fix had no errors and scored about a point higher on some checks; the README reports the final set because it is the shipped system.
+
+**In an interview:** "In my final eval, 4 of 156 question-runs failed: three timeouts and one unreadable reply. I could have re-run them until they passed. I reported them instead, with the cause, because a user would hit those failures too, and I'd rather a reviewer trust my numbers than admire them."
+
+*First seen: going public (2026-10-01).*
 
 ## Testing
 
@@ -2185,7 +2213,11 @@ Making a private repo public publishes every past commit, not just the current f
 
 **In an interview:** "Before making the repo public I scanned all 85 commits for key patterns, not just the current files, because history ships too. I also confirmed that no .env and none of the downloaded source files had ever been committed."
 
-*First seen: Pre-Phase 2.*
+*Going-public update: the final check.* Run after the README rewrite, on 90 commits: full history plus README, docs, and eval results searched for `sk-or-`, `lsv2_`, `sk-ant-`, AWS keys, and private keys (0 hits); committed `KEY=value` lines (0); tracked `.env`, `data/raw/`, `.pdf`, or `.xml` files (0); `uv run pytest` 55 passed. One more item belongs on the list: **personal data**. The only email in tracked files is the author email in `pyproject.toml` (also in every commit's metadata). That's normal for a public repo, but it's the developer's call, so it was pointed out.
+
+**In an interview (going public):** "My pre-public check had four parts: secrets in the whole history, files that should never have been tracked, licenses for every source, and personal data. The only personal data was my author email, which is normal in a public repo."
+
+*First seen: Pre-Phase 2. Extended: going public (2026-10-01).*
 
 ### Binding the database to localhost only
 A network interface is one of the ways a computer is connected (for example, the Wi-Fi connection, or the internal "this computer only" connection called 127.0.0.1). When Docker publishes a port without saying which interface, it listens on all of them (written 0.0.0.0), so other devices on the same network can try to connect. Writing the port as `"127.0.0.1:5434:5432"` limits it to programs on this Mac. That is also why the plain-text password `postgres` in `docker-compose.yml` is acceptable: it is a local development credential for a database no other device can reach. A deployed database would get its password from a secret manager (a service that stores and hands out secrets), never from a committed file. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
@@ -2378,14 +2410,18 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 
 *Step 16 revisit update: what happens when the retry fails too.* Before, the second failure surfaced as "Unexpected error (ValidationError)". Now `structured_completion()` raises `ModelOutputError`: "The AI sent back an unreadable answer 2 times in a row. Please ask again.", returned as HTTP 502. A test fakes only the model call to return bad JSON, so the real retry runs: 2 attempts, then the message. This retry is separate from the network retry in the OpenRouter client ([Timeouts and retries on outside calls](#timeouts-and-retries-on-outside-calls)). That one repeats a call that got no usable reply; this one repeats a call whose reply arrived but couldn't be read.
 
-*First seen: after Step 15. Extended: Step 16 revisit.*
+*Going-public update: the rate, measured.* In the final 3-run eval (156 question-runs), one reply (`jargon-kb`) was unreadable twice in a row and ended as `ModelOutputError`. The README states it as about 1 in 150. That rests on one event, so it's a rough figure.
+
+*First seen: after Step 15. Extended: Step 16 revisit, going public (2026-10-01).*
 
 ### Timeouts and retries on outside calls
 A timeout is the longest the app waits for a reply before giving up. A retry is trying the same call again after a failure. Every call to an outside service needs a time limit, or one slow provider can hang a request for minutes. Until the Step 16 revisit, no limit was set, so the `openai` library's defaults applied: 10 minutes per call and 2 retries. Now `config.py` sets `api_timeout_seconds = 25.0` and `api_max_retries = 1`. `get_client()` passes them to the one OpenRouter client that the LLM and the embeddings share. The worst case for one call is about timeout × (retries + 1) = 25 × 2 ≈ 50 s. A normal answer takes 2–5 s, so 25 s leaves plenty of room. The tradeoff: a legitimately slow, long answer could be cut off. See [0031](decisions/0031-openrouter-timeout-25s-one-retry.md).
 
 **In an interview:** "Every outside call has a 25-second limit and one retry, so the worst case is about 50 seconds instead of the library's 10-minute default. Normal answers take 2 to 5 seconds. If timeouts start showing up in my traces, that's the signal to revisit the number."
 
-*First seen: Step 16 revisit.*
+*Going-public update: seen working.* In the final eval, two answer runs went at the same moment, and 3 question-runs hit `APITimeoutError` (two on `jargon-kbs`, one on `jargon-db-row`), consistent with a provider slowdown. The 25-second limit meant each failed cleanly and the runs finished, instead of hanging for minutes. The errors were reported, not hidden ([Reporting errored runs honestly](#reporting-errored-runs-honestly-not-re-running-until-clean)).
+
+*First seen: Step 16 revisit. Extended: going public (2026-10-01).*
 
 ### Exception hierarchy order (check the child before the parent)
 In Python, error types form a family tree. A child type is a more specific kind of its parent. In the `openai` library, `APITimeoutError` is a child of `APIConnectionError`. A check like `isinstance(exc, APIConnectionError)` is also true for a timeout. So in a chain of checks, the first match wins. If the parent comes first, the child's specific message is never reached. `friendly_message()` in `errors.py` checks `APITimeoutError` first, with a comment saying why. The same rule applies to `try`/`except` blocks: list the specific error before the general one.
@@ -2584,7 +2620,9 @@ The README is the first file anyone sees on GitHub, so it is the project's front
 
 *Pre-Phase 2 update: check the README's claims against the code.* The developer's to-do list said the README still claims the app uses Claude. Checking showed it already says Gemini, so that item was out of date; but its counts (questions, passages) are stale. A README rewrite is step 6 of the finish plan ([0041](decisions/0041-both-coach-reviews-before-going-public.md)).
 
-*First seen: Step 16. Extended: Phase 1F, F6, Pre-Phase 2.*
+*Going-public update: the rewrite.* For the public version the README got the current pipeline (with the slang-glossary step and 42 exercises · 278 passages), every source with its license and passage count (Pelland labeled as a preprint, not peer reviewed), a 52-question evaluation section, and a "what changed the numbers" table that lists rejected changes (LLM rewrite, hybrid search, 10 exercises, prompt formatting rules) next to the kept ones. It also states the 4 errored question-runs. A README that shows what didn't work makes the claims that did work easier to believe ([0044](decisions/0044-readme-reports-errors-and-rejected-changes.md)).
+
+*First seen: Step 16. Extended: Phase 1F, F6, Pre-Phase 2, going public (2026-10-01).*
 
 ---
 

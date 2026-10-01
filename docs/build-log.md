@@ -4443,3 +4443,183 @@ The answer-eval command is as recorded in the brief. It has no `--rewrite` flag,
 - New: [0041. Both coach reviews before going public; Phase 2 as a separate project](decisions/0041-both-coach-reviews-before-going-public.md)
 - Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (three more group A sources; general notes not attributed to NSCA), [0027](decisions/0027-population-tags-from-structure-keep-general-filter.md) (source-level `adults` tag for research)
 - Next: coach reviews the program-design notes, then the original 20 exercises.
+
+## Finishing Phase 1F for a public portfolio: coach reviews, final evals, README rewrite, pre-public checks
+**Date:** 2026-10-01 · **Commits:** `c4ec5dc` feat: slang dictionary covers 1RM, RPE and RIR; `c95bb0d` fix: evals default to the app's slang rewriting; docs for program-design sources; `1afba83` data: coach reviewed the original 20 exercises; `201aae4` data: coach reviewed the program-design notes; `5587712` docs: README rewrite for going public; final eval and limit-reading fix
+
+**Goal.** Finish the approved plan ([0041](decisions/0041-both-coach-reviews-before-going-public.md)) so the repo can be made public: everything coach-reviewed, final measured numbers, an accurate README, and clean security checks.
+
+**What we did.**
+
+*1. Fixed an eval that measured the wrong pipeline* (commit `c95bb0d`).
+- The previous build-log entry raised an open question: was the slang dictionary on in the 2026-10-01 answer run? It wasn't. `run_answer_eval.py` and `run_retrieval_eval.py` defaulted to `--rewrite none`, while the app defaults to the dictionary. So a plain `uv run python evals/run_answer_eval.py` measured a pipeline no user ever gets.
+- Fix: both scripts now default to `settings.query_rewrite`, the same setting the app reads. Change the app, and the eval follows. See [Evals measure the shipped configuration](concepts.md#evals-measure-the-shipped-configuration-defaults-follow-the-app).
+- That earlier single run was therefore a no-rewrite run. In it, `prog-rest-intervals` errored with an unreadable model reply, twice in a row.
+
+*2. Glossary: 1RM, RPE, RIR* (commit `c4ec5dc`). Three entries added to `GLOSSARY` in `src/ragmotion/rewrite.py`: 1RM → one-repetition maximum, RPE → rating of perceived exertion, RIR → reps in reserve. A test was added in `tests/test_rewrite.py`. These are program-design terms, needed now that the program-design sources are in.
+
+*3. Coach review of the original 20 exercises* (commit `1afba83`). These had said "pending coach review" since Step 5. The coach's answers, in their words: "beginner 11, 17 barbell + rack, 20 they are main muscles, it's really a full body workout".
+
+| Exercise | Change | Reason |
+|---|---|---|
+| Broad Jump | intermediate → **beginner** | Coach's call |
+| Inverted Row | equipment `barbell` → **`barbell` + `rack`** | The bar has to be set in a rack |
+| Farmer Carry | No change: glutes stay a main muscle | "It's really a full body workout"; its `body_region` was already full |
+| The other 17 | No change | Confirmed |
+
+- All 42 exercises now say "reviewed by M. Saraswat". Re-seeded and re-embedded (42/42).
+- **Answer keys followed the data.** Now that the broad jump is beginner, it moved from *forbidden* to *acceptable* in `constraint-beginner-home`, and was added to *acceptable* in `pop-beginner-adult` and `pop-youth-start`. It stays forbidden for older adults: the coach's rule is no jumps for that group. See [Domain-expert review](concepts.md#domain-expert-review-of-an-answer-key) (extended).
+- Inverted Row needing a rack matters to the equipment filter: it now drops out for anyone who doesn't list a rack.
+
+*4. Coach review of the program-design notes* (commit `201aae4`). Claude listed the 11 claims in `data/notes/program-design.md` for the coach:
+- strength: 1–6 reps, 2–5 min rest;
+- hypertrophy: about 6–12 reps, but a wide range works when sets are taken near failure; 1–3 min rest;
+- endurance: 15+ reps, 30–60 s rest;
+- power: 1–5 fast reps, full rest;
+- beginners: 1–3 sets;
+- each muscle trained 2+ days a week; beginners 2–3 full-body days;
+- splits;
+- session order;
+- progression: add load after about 2 extra reps on two sessions in a row, in 2–10% jumps;
+- deloads;
+- exercise progressions.
+
+The coach: "those look fine". The notes' `author` line now reads "Drafted with AI assistance from widely taught program-design principles (not copied from any book); reviewed by M. Saraswat, 2026-10-01". The sources line and the manifest title and attribution in `data/sources.toml` dropped "draft, pending coach review". Re-chunked and re-embedded (278/278 passages). This closes the "unreviewed text reaches answers" risk from [0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md). See [Draft content in the knowledge base](concepts.md#draft-content-in-the-knowledge-base-review-status) (extended).
+
+*5. First final eval: a BW squat failure, and a fix that went too far.*
+- The first final eval (52 questions, filters + dictionary) found `jargon-bw-squat` ("BW squat progression") retrieving the barbell back squat, which is forbidden for it. In 1 of 3 answer runs (run 2) the answer cited it. Forbidden retrieval rate: 0.02 (1 question).
+- **Cause.** The dictionary did its job: it expanded "BW" to "bodyweight". But `extract_limits` didn't treat "bodyweight squat progression" as an equipment limit, so no filter ran, and the barbell squat could rank.
+- **Fix 1** in `LIMITS_SYSTEM_PROMPT` (`src/ragmotion/llm.py`): asking specifically for bodyweight exercises means no equipment ("bodyweight squat progression", "BW leg exercises" → `equipment_limited` true, `equipment_owned` empty).
+- **Fix 1 over-reached.** Re-checking every question showed it now also limited questions that only *name* equipment: `jargon-kbs` ("KBS (kettlebell swing) for hip power") was read as kettlebell-only, and `ex-band-pull` as band-only. Those would have silently filtered out good exercises.
+- **Fix 2:** one more line: naming an exercise or the equipment for an exercise ("kettlebell swing for hip power", "band pulling exercises") is not a limit.
+- **Verified on all 52 questions, twice:** exactly the 7 constraint questions plus `jargon-bw-squat` are equipment-limited; the 12 population readings are unchanged. Running it twice checks that the reading is stable, not a one-off. See [Prompt changes have side effects](concepts.md#prompt-changes-have-side-effects-one-instruction-many-answers) (extended) and [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md).
+
+*6. Final evals* (52 questions, filters + dictionary, the app's defaults): retrieval once; answers 3 runs with the AI judge.
+
+*7. README rewritten for going public* (commit `5587712`).
+- Status: Phase 1 and 1F complete; next is Phase 2, the program generator.
+- A "understands coach slang" bullet; the pipeline diagram now includes the slang-glossary step and the counts (42 exercises · 278 passages).
+- A design-choice row: glossary vs LLM rewrite.
+- Knowledge base table with every source and its passage count: Schoenfeld 28, Singer 18, Pelland 29 (labeled preprint, not peer reviewed), program-design notes 3, NSCA notes 14, Physical Activity Guidelines 133, Kons 25, Haugen 28. Plus a sentence on population tags.
+- Evaluation section: what the 52 questions cover, the two trap questions, an "answers today" table, the 4 errored runs stated plainly, a "what changed the numbers" table (kept: filters, glossary; not kept: LLM rewrite, hybrid and split, 10 exercises, prompt formatting rules), a "retrieval today" table, a paragraph on the AI judge, and lessons.
+- Run-locally commands: extract Pelland too; tracing off by default; evals don't need LangSmith; 55 tests.
+- Layout lists the rewrite and judge modules. Limitations: level is not a filter; thin areas; one preprint; about 1 in 150 replies unreadable.
+- See [README as the project's front page](concepts.md#readme-as-the-projects-front-page) (extended) and [0044](decisions/0044-readme-reports-errors-and-rejected-changes.md).
+
+*8. CLAUDE.md:* the Pre-Phase 2 row marked done; "Where we are (2026-10-01)" rewritten.
+
+*9. Pre-public checks.*
+- 90 commits at the time of the scan. Full history plus README, docs, and eval results searched for `sk-or-` (OpenRouter), `lsv2_` (LangSmith), `sk-ant-` (Anthropic), AWS keys, and private keys: 0 hits. Committed `KEY=value` lines: 0.
+- Tracked `.env`, `data/raw/`, `.pdf`, `.xml` files: 0.
+- `uv run pytest`: 55 passed.
+- The only email address in tracked files is the author email in `pyproject.toml` (also in every commit's metadata). That is standard for a public repo; Claude pointed it out to the developer.
+- See [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses) (extended).
+
+**Commands.**
+
+```bash
+uv run python scripts/seed_exercises.py
+uv run python scripts/embed_exercises.py
+# After the coach's exercise review. 42/42 embedded.
+
+uv run python scripts/chunk_documents.py notes-program-design
+uv run python scripts/embed_chunks.py
+# After the notes review. 278/278 passages embedded.
+
+# extract_limits over all 52 eval questions, run twice (exact command not recorded)
+# After fix 2: exactly 8 equipment-limited questions; 12 population readings unchanged.
+
+uv run python evals/run_retrieval_eval.py
+# Search only, 52 questions, now defaults to the dictionary.
+# Saved: evals/results/retrieval-20261001-113706-179252.json (before the limit fix),
+#        evals/results/retrieval-20261001-114039-566527.json (final)
+
+uv run python evals/run_answer_eval.py    # 3 times
+# First set (before the limit fix): answers-semantic-filtered-rw-dictionary-20261001-1136*.json
+# Final set: answers-semantic-filtered-rw-dictionary-20261001-1139*.json (3 files)
+
+# git history scans for key patterns and tracked files: 0 hits
+
+uv run pytest
+# 55 passed.
+```
+
+**What we saw.**
+
+*Retrieval, final (top 5, 52 questions):*
+
+| Search setup | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
+|---|---|---|---|---|
+| Keyword | 0.64 | 0.55 | 0.45 | 13% |
+| Hybrid | 0.75 | 0.90 | 0.83 | 17% |
+| Semantic | 0.81 | 0.95 | 0.81 | 15% |
+| Split (no filters) | 0.81 | 0.90 | 0.83 | 15% |
+| **Semantic + filters + glossary (default)** | **0.87** | **0.95** | **0.84** | **0%** |
+| Hybrid + filters | 0.81 | 0.90 | 0.81 | 0% |
+| Split + filters | 0.87 | 0.90 | 0.81 | 0% |
+
+- Exercise MRR for the default: 0.97.
+- Recall: share of expected items found in the top 5. MRR (mean reciprocal rank): how high the first right item ranks; 1.0 means always first. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr).
+- Every filtered setup reaches 0% forbidden; every unfiltered one is at 13–17%. The filters, not the search method, are what keep wrong items out.
+
+*Answers, final (3 runs, AI judge on, 152 of 156 question-runs scored):*
+
+| Check | Result |
+|---|---|
+| No forbidden citations | 45/45 = 100% |
+| Citations valid | 147/152 = 96.7% |
+| Used expected evidence | 141/149 = 94.6% |
+| Coverage claim correct | 139/152 = 91.4% |
+| Exercise completeness (mean) | 0.853 (83 question-runs) |
+| No extra exercises | 67/83 = 80.7% |
+| Judge: label intermediate (level) | 3/3 |
+| Judge: label bodyweight | 1/1 |
+| Judge: group by muscle group | 0/3 |
+
+*The 4 errored question-runs* (from the saved files):
+- `jargon-kb`: `ModelOutputError`, the model's reply was unreadable twice in a row (the retry also failed).
+- `jargon-kbs`: `APITimeoutError`, in two of the three runs.
+- `jargon-db-row`: `APITimeoutError`, in one run.
+- All 4 errors are in the two result files with the same timestamp second (`...-113954-644020` and `...-113954-905889`): those two runs went at the same moment. The timeouts point to a provider slowdown. The 25-second limit ([0031](decisions/0031-openrouter-timeout-25s-one-retry.md)) did its job: the calls failed cleanly instead of hanging.
+- These were reported and left out of the totals. They were **not** re-run to make the table look clean. See [Reporting errored runs honestly](concepts.md#reporting-errored-runs-honestly-not-re-running-until-clean).
+
+*Before vs after the limit fix* (the scribe totaled the saved first set, files `...-1136*.json`, against the final set):
+
+| Check | First set (before fix) | Final set |
+|---|---|---|
+| No forbidden citations | 44/45 | 45/45 |
+| Citations valid | 150/156 | 147/152 |
+| Used expected evidence | 147/153 | 141/149 |
+| Coverage claim correct | 144/156 | 139/152 |
+| Completeness (mean) | 0.841 (87) | 0.853 (83) |
+| No extra exercises | 68/87 | 67/83 |
+| Errored question-runs | 0 | 4 |
+
+- The fix closed the one forbidden citation. The other checks moved by about a point either way, within the run-to-run range seen before ([Run-to-run noise](concepts.md#run-to-run-noise)). The README reports the final set, the slightly lower one, because it measures the system as shipped.
+
+**Problems and fixes.**
+- **Eval default mismatch.** The evals defaulted to no rewriting while the app used the dictionary. Fixed: eval defaults follow `settings.query_rewrite` (`c95bb0d`).
+- **BW squat limit not read.** "Bodyweight squat progression" wasn't treated as a no-equipment request, so the barbell back squat could be retrieved and was cited in 1 of 3 runs. Fixed with a prompt line in `LIMITS_SYSTEM_PROMPT`.
+- **The fix over-reached.** It made "KBS for hip power" kettlebell-only and `ex-band-pull` band-only. Caught by re-checking all 52 questions; fixed with a second line (naming an exercise or its equipment is not a limit), then verified twice.
+- **4 errored question-runs** in the final set (3 timeouts, 1 unreadable reply). Reported, not hidden or re-run.
+
+**Developer questions.**
+- The coach's review answers were the main input this round: "beginner 11, 17 barbell + rack, 20 they are main muscles, it's really a full body workout" for the exercises, and "those look fine" for the 11 program-design claims.
+
+**Open questions.**
+- The 4 errors all hit `jargon-` questions. The timeouts are explained by the two runs starting together. Whether `jargon-kb`'s unreadable reply is connected to the question itself is unknown. The README's "about 1 in 150" is 1 unreadable reply in 156 question-runs, so a single event.
+- The "group by muscle group" judge rule is still 0/3. The README says it needs more than 5 exercises in view; per [0029](decisions/0029-exercise-k-stays-5-for-all-questions.md) and [0030](decisions/0030-answer-prompt-stays-without-presentation-rules.md), k stays 5 and the prompt has no formatting rules, so this stays a known failure.
+- The exact command used for the two `extract_limits` checks over 52 questions was not recorded.
+- The brief doesn't say whether the author email in `pyproject.toml` will be kept or changed before going public.
+- Remaining: the developer makes the repo public and pins it (their action). Then Phase 2.
+
+**Learned.**
+- New: [Evals measure the shipped configuration (defaults follow the app)](concepts.md#evals-measure-the-shipped-configuration-defaults-follow-the-app), [Reporting errored runs honestly (not re-running until clean)](concepts.md#reporting-errored-runs-honestly-not-re-running-until-clean)
+- Extended: [Prompt changes have side effects](concepts.md#prompt-changes-have-side-effects-one-instruction-many-answers) (an extraction-prompt fix that over-reached), [Query understanding](concepts.md#query-understanding-reading-limits-from-the-question) (bodyweight requests), [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting) (1RM, RPE, RIR), [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key) (original 20 reviewed), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change) (broad jump), [Draft content in the knowledge base](concepts.md#draft-content-in-the-knowledge-base-review-status) (notes reviewed), [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls) and [Retry on malformed structured output](concepts.md#retry-on-malformed-structured-output) (seen in the final eval), [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses) (final scan), [README as the project's front page](concepts.md#readme-as-the-projects-front-page) (rewrite)
+
+**Decisions.**
+- New: [0042. A request for bodyweight exercises is a no-equipment limit; naming an exercise or its equipment is not](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)
+- New: [0043. Coach review outcomes: original 20 exercises and program-design notes](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md)
+- New: [0044. README reports errored runs and rejected changes, not only the best numbers](decisions/0044-readme-reports-errors-and-rejected-changes.md)
+- Updated: [0026](decisions/0026-equipment-prefilter-from-llm-read-limits.md) (bodyweight rule), [0036](decisions/0036-query-rewriting-dictionary-default.md) (glossary terms; evals now default to it), [0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md) (notes reviewed), [0041](decisions/0041-both-coach-reviews-before-going-public.md) (steps 1–7 done)
+- Next: the developer makes the repo public and pins it; then Phase 2 (program generator).

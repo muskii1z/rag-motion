@@ -20,3 +20,6 @@ The developer chose both reviews before going public. Approved order: (1) commit
 ## Revisit when
 - A review finds errors that change eval keys: re-run the final evals after fixing them.
 - The reviews stall and a public version is needed sooner.
+
+## Update (2026-10-01): steps 1–7 done
+Both reviews done ([0043](0043-coach-review-outcomes-original-20-and-program-design-notes.md)); glossary terms added; final evals run (52 questions, 3 answer runs with the judge: no forbidden citations 45/45, citations 96.7%, expected evidence 94.6%, coverage 91.4%); README rewritten; pre-public checks clean (90 commits, 0 key patterns, no tracked `.env` or raw sources, 55 tests pass). The first "Revisit when" signal fired: the broad jump review changed three answer keys, and the final evals were run after that change. Step 8 (make the repo public and pin it) is the developer's action.

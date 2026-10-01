@@ -21,3 +21,6 @@ Claude drafted `data/notes/program-design.md` from widely taught program-design 
 - The coach reviews the notes (planned before going public, [0041](0041-both-coach-reviews-before-going-public.md)): update the `author` line, fix errors, and decide whether any eval key should accept them.
 - The coach writes notes from the NSCA chapters themselves: those can cite NSCA.
 - The draft notes keep outranking primary sources on questions they shouldn't answer.
+
+## Update (2026-10-01): reviewed
+The coach reviewed the 11 claims in the notes ("those look fine"). The `author` line now reads "Drafted with AI assistance from widely taught program-design principles (not copied from any book); reviewed by M. Saraswat, 2026-10-01"; the manifest title and attribution no longer say draft. Re-chunked and re-embedded. Still not attributed to NSCA. The `prog-frequency` key stays strict ([0040](0040-prog-frequency-key-strict-research-or-guidelines-only.md)). See [0043](0043-coach-review-outcomes-original-20-and-program-design-notes.md).
