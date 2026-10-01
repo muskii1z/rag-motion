@@ -134,7 +134,9 @@ Temperature controls how random the model's word choices are. Higher values give
 
 *Step 10 update: 0.2 for answers.* The RAG answer step uses `temperature=0.2`: a little variety in wording, while the facts still have to come from the evidence. Extraction (Step 6) stays at 0. Even so, answers varied between runs in ways that matter: the coverage label for the same question came back "partial" on one run and "full" on another (the prompt had also changed in between). So eval questions should be run more than once.
 
-*First seen: Step 6. Extended: Step 10.*
+*Phase 2, step 2 fixes update: temperature 0 still varied.* The profile reader runs at temperature 0. Reading the same sentence ("i am a beginner to the gym, i want a full exercise routine") 3 times gave equipment `['bodyweight']` once and empty twice. Temperature 0 makes output more repeatable, not guaranteed identical, and a rare wrong reading is enough to let a guardrail through. So readings that feed a guardrail get checked by repeating them (here 3 reads before the fix, 6 after). See [A guardrail is only as good as its inputs](#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too).
+
+*First seen: Step 6. Extended: Step 10, Phase 2 step 2 fixes.*
 
 ### Tokens and cost per call
 A token is a small chunk of text, roughly part of a word. APIs charge separately for input tokens (what you send: instructions plus data) and output tokens (what the model writes), and output usually costs more. Different models split text differently (different tokenizers) and add their own overhead: the same Step 6 prompt was about 364 input tokens on Qwen and about 1,440 on Claude Haiku 4.5. A longer prompt costs more input tokens: the brief example went from 170 to 364 after the prompt rules were added. OpenRouter's usage accounting reports dollars per call, and `extract_profile.py` prints model, input tokens, output tokens, and cost for every run. Measured examples: Qwen about $0.0001 per call; Haiku 4.5 about $0.002; Kimi K2.5 about $0.003 to $0.005.
@@ -151,7 +153,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 *Phase 2, step 2 follow-up update: 0.6 cents in context.* The developer read Gemini 2.5 Flash's $0.006 per program as "0.6" and called it a lot. It is 0.6 of a cent: about $6 per 1,000 programs. Small units are easy to misread, so say the unit and scale it to a round number of uses. The cheaper agent model found afterwards, Qwen3.5 Flash, costs $0.0013–0.0015 per program, about $1.40 per 1,000.
 
-*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2, step 2 follow-up.*
+*Phase 2, step 2 fixes update: a cost spike from retries.* One live run cost $0.0142, about 10x a normal run (about $0.0014 on Qwen3.5 Flash). The extra came from 3 program submissions: each rejection adds a long program and the checker's feedback to the message list, and every later call re-sends all of it. Retries with long contexts are where agent costs jump.
+
+*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2, step 2 follow-up, step 2 fixes.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -204,7 +208,9 @@ When a model fills in a form, it tends to fill gaps with a likely default. In F5
 
 **In an interview:** "My question reader kept assuming 'athlete' meant adult, which would have quietly filtered out passages. Telling it what not to infer, with example words, fixed all four misses. I trust that because I re-checked all 40 questions, not because the prompt sounds firm."
 
-*First seen: Phase 1F, F5.*
+*Phase 2, step 2 fixes update: the same habit, on equipment.* The profile reader guessed `['bodyweight']` for "beginner to the gym" in 1 of 3 reads. The prompt now says: record only equipment the text mentions; never default to bodyweight; "new to the gym" says nothing about equipment. Because the guess was rare, the prompt line alone wasn't trusted: a code guard also resets a bodyweight-only reading unless the client's own words say no equipment ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
+
+*First seen: Phase 1F, F5. Extended: Phase 2, step 2 fixes.*
 
 ### Prompt changes have side effects (one instruction, many answers)
 The system prompt (the standing instructions sent with every question) is shared by every answer. So a rule written with one kind of question in mind also reaches all the others, and the model may apply it where it doesn't fit. In F7b, a rule to group exercises under muscle-group headings was meant for list questions like "a full-body routine for a beginner". It also changed focused questions: "an overhead pressing exercise" got bench press, push-up, triceps extension, and band pull-apart, as if the model needed several groups to fill. Narrowing the rule to list questions (v2) stopped it firing on the beginner list it was written for. Coverage claims also got less accurate in every version, though the rules never mentioned coverage. The habit: after any prompt change, check the questions the rule was *not* for, not only the ones it was for.
@@ -1037,7 +1043,9 @@ A guardrail is a rule in code that stops the system from doing something it shou
 
 **In an interview:** "My agent has guardrails on both sides. Before: it can't search or submit until it knows the client's goal, days, equipment, and level. After: every program goes through 16 checks in code. The first stops it guessing; the second stops it being wrong."
 
-*First seen: Phase 2, step 2.*
+*Phase 2, step 2 fixes update: the input guardrail was bypassed.* The refusal checks that equipment is *known*, not that it is *true*. When the profile reader guessed bodyweight, equipment was "known" and the agent built a bodyweight-only program without asking. The output guardrail then caught part of the damage (pull missing on 2+ days) but passed a program that repeated the same exercises every day. See [A guardrail is only as good as its inputs](#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too).
+
+*First seen: Phase 2, step 2. Extended: step 2 fixes.*
 
 ### Actionable feedback (exact fix instructions)
 When a check fails, what you tell the model decides whether it can fix it. At first the checker sent back only the failed rules ("4–6 exercises per day for beginners"). Gemini 2.5 Flash-Lite resubmitted the same mistakes 3 times. Then each check got a `fix` field with an exact instruction: "'Day 1' has 7 exercises: remove 1", or "change reps to a time such as '20-30 s' on every day". After that, 2 of 3 Flash-Lite runs passed after one rejection. Small models are better at following a specific instruction than at working out what a rule implies.
@@ -1067,14 +1075,20 @@ A false positive is a check that fires when nothing is wrong. The referral check
 
 *Phase 2, step 2 follow-up update: the predicted false alarm, fixed.* `HEALTH_WORDS` was replaced by `HEALTH_PATTERN`: whole words only, and "back" only in health phrases (bad back, lower/upper back, back pain/injury/problem/issue). Tested: "bad knee", "lower back pain", "had shoulder surgery" trigger; "coming back to lifting after a break" and "little lifting experience" don't. Tightening a trigger has a cost in the other direction; see [False negatives vs false positives in a safety check](#false-negatives-vs-false-positives-in-a-safety-check).
 
-*First seen: Phase 2, step 2. Extended: step 2 follow-up.*
+*Phase 2, step 2 fixes update:* the narrow whole-word pattern was replaced by a deliberately broad backup plus an AI-read `health_issues` field, because the narrow one missed real complaints. False alarms on exercise names are now accepted on purpose. See [Two-layer safety check](#two-layer-safety-check-ai-reading-plus-broad-backup).
+
+*First seen: Phase 2, step 2. Extended: step 2 follow-up, step 2 fixes.*
 
 ### False negatives vs false positives in a safety check
 A false positive is a check that fires when nothing is wrong. A false negative is a check that stays silent when it should fire. Tightening a rule to remove false positives usually adds false negatives, so the two have to be weighed. For a safety reminder ("check with a health professional"), a false negative is worse: a client with a bad back gets no reminder. A probe of the new `HEALTH_PATTERN`, run while documenting the step, found both kinds: no referral for "hurt my back", "my back hurts", "tweaked my back", "strained my hamstring", or "herniated disc"; a referral for "wants to do hip thrusts", "likes the shoulder press", and "knee-friendly please". The back phrases are a regression (something that used to work and now doesn't): under the old part-of-word matching, any note with "back" triggered, so "my back hurts" got a reminder before the fix and doesn't now. A word list will always have gaps like these. Not fixed yet.
 
 **In an interview:** "Fixing a false alarm in my referral check made it miss 'my back hurts'. For a safety rule I'd rather over-warn than under-warn, so I test both directions with real phrasings, and a word list may not be the final answer."
 
-*First seen: Phase 2, step 2 follow-up.*
+*Phase 2, step 2 fixes update: choosing the cheaper error.* The choice was made explicitly: for the referral reminder, a false alarm costs one extra sentence or one retry; a miss leaves an injured client without a reminder. So the word pattern was made deliberately broad again, and an AI reading was added in front of it. All 8 complaint phrases now match; "coming back to lifting", "little lifting experience", and "getting back into training" don't. The accepted cost: a scribe probe found the broad pattern matches exercise names such as "hip thrusts", "shoulder press", and "back squats" if they appear in a context note. See [Two-layer safety check](#two-layer-safety-check-ai-reading-plus-broad-backup) and [0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md).
+
+**In an interview (follow-up):** "I decided which error I could live with. For a safety reminder, an unneeded reminder is cheap and a missed injury isn't, so I made the backup check broad on purpose and tested both lists of phrases."
+
+*First seen: Phase 2, step 2 follow-up. Extended: step 2 fixes.*
 
 ### Cost per correct result (model capability vs price per token)
 Price per token isn't the whole cost. An agent that fails needs retries, and each retry is more calls, more time, and sometimes still a failed result. The fair comparison is cost and time per *correct* result. On the same conversation, 3 runs each: Gemini 2.5 Flash-Lite passed 2/3, none on the first submission, 15–21 s, $0.0021–0.0026 per run. Gemini 2.5 Flash passed 3/3 on the first submission, 11–13 s, $0.0060–0.0067. The bigger model was **faster** because it needed no retries. By these numbers it still cost more per passing program (about $0.006 vs about $0.003–0.004), so the gain was reliability and speed, at about 0.6 cents a program.
@@ -1093,6 +1107,27 @@ Choosing a model by its price list, its size, or its brand is guessing. Choosing
 **In an interview:** "I don't pick models by brand or price. My program checker scores every output in code, so I replayed the same conversation on six models and compared pass rate, first-try rate, time, and cost per program. A model I'd skipped on price ended up matching the more expensive one at a quarter of the cost."
 
 *First seen: Phase 2, step 2 follow-up.*
+
+### A guardrail is only as good as its inputs (guard the reader too)
+A code guardrail checks data; it can't tell if the data is wrong. The agent's building tools refuse until equipment is known ([Input guardrails vs output guardrails](#input-guardrails-vs-output-guardrails)). But "known" comes from the profile reader, which is itself an LLM. In a live run it guessed `['bodyweight']` for "beginner to the gym" (1 of 3 reads), so the refusal let the agent build a bodyweight-only program without asking. The fix was to guard the reader as well: its prompt says never to default to bodyweight, and code resets a bodyweight-only reading unless the client's own messages say something like "no equipment" ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)). After the fix, 6 of 6 reads reported equipment missing and the agent asked in 2 of 2 runs. Found by reading the profile several times, not by looking at the agent.
+
+**In an interview:** "My guardrail worked exactly as written and still let a bad program through, because the LLM feeding it had guessed 'bodyweight'. So I put a check on the reader too: bodyweight only counts if the client actually said it."
+
+*First seen: Phase 2, step 2 fixes.*
+
+### Two-layer safety check (AI reading plus broad backup)
+One way to catch something important is two independent checks with different weaknesses. Here, health issues are caught twice: the profile AI records them in `health_issues` in the client's words (it understands "tweaked my back", but can miss or vary), and a broad word pattern scans the context notes as a backup (it never varies, but over-matches). Either one triggers the referral reminder. The two layers fail in different ways, so a miss needs both to miss. Same idea as [Defense in depth](#defense-in-depth-filters-plus-the-models-own-judgment).
+
+**In an interview:** "For health mentions I don't rely on one detector. The AI reads them in context, and a deliberately broad word check backs it up. A false alarm costs one sentence; a miss costs a client their reminder."
+
+*First seen: Phase 2, step 2 fixes.*
+
+### Rules must be satisfiable (every valid input must be able to pass)
+A check has to be passable for every input it can see; otherwise it fails forever and burns every retry. The checker required pull exercises on 2+ days, but the catalog has no pull exercise usable without equipment. For a bodyweight client, all 3 submissions failed that check whatever the agent did. The fix: a main pattern with no usable exercises for this client isn't required; the check passes with "no exercises available with this equipment", and the agent is told to say which equipment would add it (pull-up bar or bands) ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)). The rule now depends on what is actually possible.
+
+**In an interview:** "One of my checks could never pass for a client with no equipment, because the catalog has no bodyweight pull exercise. The agent burned all its retries on it. A rule has to be satisfiable, so now it only requires what the catalog can deliver, and the program says what equipment would fill the gap."
+
+*First seen: Phase 2, step 2 fixes.*
 
 ---
 
@@ -1725,7 +1760,9 @@ A regression is an old bug coming back after a later change. A regression test r
 
 *Phase 2, step 2 follow-up update:* the false alarm the build log predicted ("coming back to lifting" contains "back") became a test before the fix: `test_referral_triggers_on_health_words_only` checks three phrases that must trigger and two that must not. 66 tests.
 
-*First seen: Step 16. Extended: Phase 2, step 2 and its follow-up.*
+*Phase 2, step 2 fixes update:* the misses found in the docs probe became tests (all 8 complaint phrases must match the backup pattern; three ordinary phrases must not), and so did the developer's live run: a guessed bodyweight is ignored unless the client said it, and a pattern with no usable exercises isn't required. 69 tests.
+
+*First seen: Step 16. Extended: Phase 2, step 2, its follow-up, and step 2 fixes.*
 
 ### Integration tests that skip gracefully
 An integration test checks that parts work together with a real outside system, here the Postgres database. They catch problems unit tests can't (for example, that the "only needs what I own" SQL query really excludes the step-up and hip thrust, or that every chunk has a vector). But they need that system running. Step 16's three database tests carry an `integration` marker (a label pytest can select or skip by), and `conftest.py` skips them automatically when Postgres can't be reached, instead of failing. So the unit tests still run anywhere, and a stopped Docker container doesn't look like broken code.

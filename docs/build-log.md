@@ -4892,3 +4892,83 @@ Results are under Open questions.
 - New: [0053. The agent runs on Qwen3.5 Flash after a 6-model test](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (supersedes [0050](decisions/0050-agent-model-gemini-2-5-flash.md))
 - Updated: [0050](decisions/0050-agent-model-gemini-2-5-flash.md) marked superseded.
 - Next: Phase 2, step 3, the program page.
+
+## Phase 2, step 2 fixes: health issues read by the profile AI, and no guessed bodyweight
+**Date:** 2026-10-01 · **Commit:** `f0576aa` fix: health issues read by the profile AI, broad word check as backup · `61bb353` fix: the profile reader can't guess bodyweight; impossible patterns aren't required
+
+**Goal.** Close two gaps found after step 2: injuries the referral check missed, and the agent building a program without asking for equipment.
+
+**What we did.**
+
+*Fix A: health issues (`f0576aa`).*
+- **The gap.** The previous docs entry found that the whole-word `HEALTH_PATTERN` (commit `d5050cb`) missed "hurt my back", "my back hurts", "tweaked my back", "strained my hamstring", and "herniated disc", and still false-alarmed on "hip thrusts" and "shoulder press". The referral check is a safety reminder (see a health professional). For a safety reminder a miss is worse than a false alarm. See [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check).
+- **Layer 1, the AI reads health issues.** `ClientProfile` (`src/ragmotion/models.py`) gained `health_issues: list[str]`: injuries, pain, conditions, surgeries, or pregnancy, in the client's own words, never a diagnosis. The `extract_profile` prompt (`src/ragmotion/llm.py`) tells the profile reader to record casual mentions too ("tweaked my back").
+- **Layer 2, a broad word pattern as backup.** `HEALTH_PATTERN` in `src/ragmotion/program.py` is now deliberately broad: pain, hurt, ache, injur, sore, strain, sprain, tweak, "pulled a/my …", tear, torn, disc, hernia, surgery, operation, condition, arthritis, diabet, asthma, blood pressure, hypertension, heart, pregnan, rehab, physio, osteo, and body parts (knee, shoulder, hip, ankle, wrist, neck, elbow, hamstring, back). "back" doesn't count after "coming/getting/come/get" or before "to/into/in".
+- **The checker** now takes health items from `profile.health_issues` plus any context note matching the backup pattern. The pregnancy guard in `agent.py` (no program, referral instead) checks `health_issues` too.
+
+*Fix B: the guessed bodyweight (`61bb353`).*
+- **The developer's live transcript.**
+  - *"i am a beginner to the gym, i want a full exercise routine"* → the agent asked for goal and days via `ask_user` (good).
+  - Reply: *"build muscle and get stronger, 4 times a week, some lifting experience"* → the agent did **not** ask for equipment. It made 3 searches; `find_exercises` returned bodyweight only (squat 0, lunge split-squat, hinge glute-bridge, push push-up, pull 0, core 2, carry 0).
+  - 3 submissions: rejected for pull not on 2+ days and for 4–6 exercises a day; then rejected for pull again. Shown with 1 failed check (14/15). The same 4–5 exercises repeated across all 4 days, and the "Upper" days contained a glute bridge.
+  - Cost $0.0142, about 10x a normal run, because of 3 long submissions.
+  - Developer: *"it didn't ask me for equipment again... it should have asked."*
+- **Root cause, found by reading the profile 3 times.** The guardrail from [0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md) refuses to build until equipment is known. But the profile reader (`extract_profile`, itself an LLM) guessed equipment `['bodyweight']` for "beginner to the gym" in 1 of 3 reads. The other 2 reads left equipment empty, so equipment counted as missing. With the guess, equipment counted as known and the guardrail let the agent build. See [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too).
+- **Fix 1, the reader's prompt.** Record only equipment the text actually mentions. Never default to bodyweight. "New to the gym" says nothing about equipment.
+- **Fix 2, a code guard on the reader.** In `agent.read_profile`: if equipment is exactly `['bodyweight']` and the client's own messages don't match `NO_EQUIPMENT` (no equipment, without equipment, bodyweight, body weight, no weights, nothing at home, don't have (any) equipment/weights, own body), equipment is reset to `[]`. Unknown means the agent must ask.
+- **Fix 3, the agent's equipment question.** The prompt now offers only equipment the catalog has exercises for: dumbbells, barbell and rack, bench, kettlebell, resistance bands, plyo box, pull-up bar, or no equipment. It had offered "machines".
+- **Fix 4, a rule no client could pass.** A main pattern with no usable catalog exercises for this client (for example, pull with no equipment) is no longer required. That check passes with the detail "no exercises available with this equipment". The prompt tells the agent to say in the rationale which equipment would add it (pull-up bar or bands). Before, a bodyweight client could never pass the pull check. See [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass).
+- **Tests.** A guessed bodyweight is ignored unless the client said it; an impossible pattern isn't required; all 8 complaint phrases match the backup pattern; "coming back to lifting", "little lifting experience", and "getting back into training" don't; an AI-read `health_issues` entry triggers the referral check. 67 tests after `f0576aa`, 69 after `61bb353`.
+
+**Commands.**
+```bash
+uv run python scripts/program_chat.py   # the developer's live run that showed fix B's problem
+uv run pytest                           # 67 tests pass after f0576aa, 69 after 61bb353
+```
+The exact commands for the live checks (profile read on single sentences, 3 and then 6 repeated reads, 2 full agent runs) weren't in the brief.
+
+Scribe check, run while writing these docs (not part of the step), probing the new backup pattern:
+```bash
+uv run python -c "from ragmotion.program import HEALTH_PATTERN as P; print(bool(P.search('wants to do hip thrusts')))"
+```
+Results are under Open questions.
+
+**What we saw.**
+
+| Check | Result |
+|---|---|
+| Profile read of "...I tweaked my back last week" | `health_issues` = `['tweaked my back last week']` |
+| "coming back to lifting after a break" | no health issue (kept as a context note only) |
+| "I want to do hip thrusts" | no health issue |
+| Profile reads of "beginner to the gym" before fix B | 1 of 3 guessed `['bodyweight']`; 2 of 3 left equipment empty |
+| Profile reads after fix B | 6 of 6 report equipment missing |
+| Full agent after fix B | asked "What equipment do you have available...?" in 2 of 2 runs, $0.0002 each |
+| Live run before fix B | $0.0142 for a program shown with 14/15 checks passed |
+
+- The live run's cost was about 10x a normal run (about 0.14 cents, from the Qwen3.5 Flash test in the follow-up). The extra came from 3 submissions, each a long program sent with a growing message list. See [Tokens and cost per call](concepts.md#tokens-and-cost-per-call).
+- The run passed 14 of 15 checks and was still a poor program: the same few exercises every day, a glute bridge on "Upper" days. Code checks catch only the rules someone wrote.
+
+**Problems and fixes.**
+- **Referral check missed common ways people describe injuries.** Fixed with two layers: the AI reads `health_issues`, a broad word pattern backs it up ([0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md)).
+- **The profile reader guessed bodyweight, which let the agent skip the equipment question.** Fixed in the prompt and in code ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)). A repeat of step 2's live-test problem, through a different door: step 2 closed "unknown equipment read as bodyweight"; this time the reader *said* bodyweight.
+- **The pull check could never pass for a client with no equipment.** Fixed: patterns with no usable exercises aren't required ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)).
+- **The agent offered "machines"**, which the catalog doesn't have. Fixed in the prompt.
+
+**Open questions.**
+- **The backup pattern still fires on exercise names in context notes.** The scribe check found `HEALTH_PATTERN` matches "wants to do hip thrusts", "likes the shoulder press", "knee-friendly please", "back squats are my favorite", "wants a stronger back", and "heart rate training". The live "hip thrusts" check gave no health issue, likely because the reader didn't put that sentence in a context note; that wasn't checked. This is the chosen tradeoff (false alarm over miss), but how often it happens is unknown until step 4's test clients.
+- **The bodyweight guard only covers one guess.** It resets equipment only when it is exactly `['bodyweight']`. A reader guess like `['bodyweight', 'dumbbells']`, or "dumbbells" guessed from "the gym", isn't caught. Untested.
+- **`NO_EQUIPMENT` matches the word anywhere in the client's messages.** For example, "I don't want bodyweight exercises" contains "bodyweight", so a guessed bodyweight would be kept. Untested.
+- **The "say which equipment would add it" instruction is prompt-only.** No check confirms the rationale says it.
+- **After fix B, was a full program built from the developer's transcript?** The brief records that the agent asked for equipment in 2 of 2 runs, not what program followed or whether it passed.
+- **`health_issues` relies on the profile reader**, which was just shown to guess in 1 of 3 reads on equipment. How often it misses or invents a health issue hasn't been measured beyond the single-sentence checks above.
+
+**Learned.**
+- New: [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too), [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass), [Two-layer safety check](concepts.md#two-layer-safety-check-ai-reading-plus-broad-backup)
+- Extended: [Temperature](concepts.md#temperature) (1 of 3 reads differed at temperature 0), [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check) (choose the cheaper error), [Saying what not to infer](concepts.md#saying-what-not-to-infer-default-assumptions-in-extraction-prompts) (never default to bodyweight), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (retries with long contexts), [Input guardrails vs output guardrails](concepts.md#input-guardrails-vs-output-guardrails) (the input guardrail was bypassed), [Regression tests from real failures](concepts.md#regression-tests-from-real-failures) (69 tests)
+
+**Decisions.**
+- New: [0054. Health issues are read by the profile AI, with a broad word pattern as backup](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md)
+- New: [0055. Bodyweight counts only when the client says so, enforced in code](decisions/0055-bodyweight-only-when-the-client-says-so.md)
+- New: [0056. Movement patterns with no usable exercises aren't required](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)
+- Updated: [0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md) (the refusal was bypassed by the reader's guess), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (referral trigger and impossible patterns)
+- Next: Phase 2, step 3, the program page.

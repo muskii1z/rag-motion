@@ -20,3 +20,6 @@ Refuse in code. The refusal names the missing fields, so the agent's natural nex
 ## Revisit when
 - Test clients get stuck in a loop of refusals without being asked the right question.
 - Sensible defaults exist for a field (for example, "no equipment mentioned, client says they train at home") that the coach agrees with.
+
+## Update 2026-10-01 (step 2 fixes): bypassed by the profile reader's guess
+In the developer's next live run the refusal didn't fire: the profile reader guessed `['bodyweight']` for "beginner to the gym" (1 of 3 reads), so equipment counted as known. The refusal is only as good as the profile it reads. Fixed in [0055](0055-bodyweight-only-when-the-client-says-so.md): bodyweight counts only when the client says so.

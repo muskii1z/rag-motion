@@ -23,3 +23,7 @@ Step 1's first finished program passed the schema check and still broke coaching
 - Step 4's test clients show programs passing all checks that a coach would still reject: add the missing rule.
 - A check fires falsely on test clients.
 - The coach approval step (human review) is built; decide whether a failed program should be withheld instead of shown.
+
+## Update 2026-10-01 (step 2 fixes)
+- The referral check now uses `profile.health_issues` (read by the profile AI) plus a broad backup word pattern on context notes ([0054](0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md)).
+- A main pattern with no usable exercises for the client isn't required ([0056](0056-patterns-with-no-usable-exercises-are-not-required.md)). The pull check could never pass for a bodyweight client.

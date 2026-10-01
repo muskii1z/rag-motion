@@ -62,6 +62,8 @@ class ScriptedModel:
 
     def create(self, **kwargs):
         self.seen.append(kwargs["messages"][-1])
+        assert not isinstance(kwargs.get("tool_choice"), dict), "named tool_choice isn't supported by every provider"
+        self.tools_offered = getattr(self, "tools_offered", []) + [[t["function"]["name"] for t in kwargs["tools"]]]
         step = self.script.pop(0)
         msg = SimpleNamespace(content=step if isinstance(step, str) else "", tool_calls=None if isinstance(step, str) else step)
         return SimpleNamespace(choices=[SimpleNamespace(message=msg)], usage=None)
@@ -129,3 +131,13 @@ def test_a_pattern_with_no_usable_exercises_isnt_required():
     checks = check_program(ProgramDraft.model_validate(draft), profile(equipment=["bodyweight"]), {"notes-program-design-1"})
     pull = next(c for c in checks if c.name.startswith("pull"))
     assert pull.passed and "no exercises available" in pull.detail
+
+
+def test_forcing_a_submission_offers_only_the_submit_tool(monkeypatch):
+    too_big = json.loads(json.dumps(GOOD))
+    too_big["days"][0]["exercises"] += [x("dumbbell-reverse-lunge"), x("dumbbell-hip-thrust")]
+    script = [[call("search_sources", query="sets and reps for muscle")],
+              [call("submit_program", **too_big)], "Could you remove an exercise?", [call("submit_program", **GOOD)]]
+    turn, model = run(monkeypatch, script, profile())
+    assert model.tools_offered[2] == ["submit_program"]  # after the rejection: submit only, chatting nudged away
+    assert turn.kind == "program" and turn.passed_checks

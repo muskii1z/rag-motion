@@ -97,6 +97,9 @@ TOOLS = [
 ]
 
 
+SUBMIT_TOOL = next(t for t in TOOLS if t["function"]["name"] == "submit_program")
+
+
 @dataclass
 class AgentTurn:
     kind: str  # "question", "program", "message" or "error"
@@ -164,19 +167,26 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
     empty_replies = 0
     submissions = 0
     rejected = False
+    forced_nudged = False
     client = get_client()
 
     for step in range(MAX_STEPS):
         # Guardrail: after FORCE_SUBMIT_AFTER tool calls the model may only submit what it has.
         # ...and after the checker rejects a program, the next move must be a corrected submission.
+        # Forcing works by offering ONLY the submit tool, not by naming a tool in tool_choice: some providers
+        # (Qwen3.5 Flash's, 2026-10-01) reject a named tool_choice with a 404.
         forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected
-        tool_choice = {"type": "function", "function": {"name": "submit_program"}} if forced else "auto"
         response = client.chat.completions.create(
-            model=settings.agent_model or settings.llm_model, messages=messages, tools=TOOLS, tool_choice=tool_choice, temperature=0.2,
+            model=settings.agent_model or settings.llm_model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
+            tool_choice="auto", temperature=0.2,
             max_tokens=3000, extra_body={"provider": {"require_parameters": True}, "usage": {"include": True}},
         )
         turn.cost_usd += ((response.usage.model_extra or {}).get("cost") or 0) if response.usage else 0
         msg = response.choices[0].message
+        if not msg.tool_calls and forced and not forced_nudged:  # it must submit, not chat
+            forced_nudged = True
+            messages.append({"role": "system", "content": "Call submit_program now with the complete, corrected program."})
+            continue
         if not msg.tool_calls:  # plain text: the model is talking to the client
             if (msg.content or "").strip():
                 turn.kind, turn.text = "message", msg.content

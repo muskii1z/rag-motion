@@ -38,7 +38,13 @@ def main() -> None:
         if not text:
             return
         conversation.append({"role": "user", "content": text})
-        turn = run_turn(conversation)
+        try:
+            turn = run_turn(conversation)
+        except Exception as e:  # one clear line instead of a traceback
+            from ragmotion.errors import friendly_message
+            print(f"\nError: {friendly_message(e)[1]}\n")
+            conversation.pop()
+            continue
         show(turn)
         conversation.append({"role": "assistant", "content": turn.text})
 

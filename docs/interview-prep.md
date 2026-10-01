@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 2, step 2 follow-up, 2026-10-01 (6-model agent test: Qwen3.5 Flash matches Gemini 2.5 Flash's 3/3 first try at about a quarter of the cost; referral check uses whole words; 66 tests; decision 0053 supersedes 0050).
+Last updated: Phase 2, step 2 fixes, 2026-10-01 (health issues read by the profile AI with a broad backup pattern; the profile reader's bodyweight guess blocked in code; patterns with no usable exercises not required; 69 tests; decisions 0054–0056).
 
 ---
 
@@ -122,6 +122,9 @@ Evidence so far:
 
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **structured checks, not just structured outputs.** Each program check returns a `Check` (name, passed, detail, fix). The failed ones go back to the agent as data, with `exactly_what_to_change` listing each fix. The same structure prints as "Program checks: X/Y passed" in the terminal.
   - Point to make: "I structure my code's feedback to the model the same way I structure the model's output to me: typed fields, so nothing has to be parsed out of prose."
+
+- [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **a new field instead of a word list, and a reader that guessed.** `ClientProfile` gained `health_issues` (injuries, pain, conditions, surgeries, pregnancy, in the client's words, never a diagnosis), because a word list missed "tweaked my back". The same reader guessed equipment `['bodyweight']` for "beginner to the gym" in 1 of 3 reads at temperature 0. The prompt now says never to default to bodyweight, and code resets that guess unless the client said it ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
+  - Point to make: "Structured output gives me fields I can check in code, so when the reader guessed a value, I could write a rule against that exact guess. A typed field is only trustworthy if something checks how it got filled."
 
 ## RAG
 
@@ -635,6 +638,9 @@ Evidence so far:
   - **A test written from a predicted bug.** The step-2 build log flagged that "coming back to lifting" would trigger a referral; it became `test_referral_triggers_on_health_words_only` with the fix. A later probe found the narrower rule misses "my back hurts" (not yet tested or fixed). See [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check).
   - Point to make: "Because my quality checks are code, swapping a model is an experiment, not a guess: one environment variable, three replays, and a table."
 
+- [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **repeat the reading, not just the test.** The cause of a bad live run only showed up when the profile was read 3 times: 1 of 3 reads guessed bodyweight. After the fix, 6 of 6 reads reported equipment missing and the agent asked in 2 of 2 runs. The misses found by a docs probe ("my back hurts", "herniated disc") and the developer's run became tests; 69 pass. See [Temperature](concepts.md#temperature) and [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too).
+  - Point to make: "A unit test can check my guard against a guessed value. Only repeated real reads tell me how often the model guesses, so for anything feeding a guardrail I run it several times, not once."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -682,6 +688,9 @@ Evidence so far (partial: no program generation yet):
   - **What the runs showed.** Failed rules alone: Flash-Lite repeated the same mistakes 3 times (14/16 passed, shown with 2 failures). With exact fixes: 2 of 3 Flash-Lite runs passed after one rejection. Gemini 2.5 Flash: 3 of 3 accepted first time ([0050](decisions/0050-agent-model-gemini-2-5-flash.md)). Follow-up: Qwen3.5 Flash also 3 of 3 first time, at about a quarter of the cost; now the agent's model ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md)). See [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) and [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure).
   - Point to make: "A failed program goes back to the agent with exact instructions, three tries at most, and then the person sees the program with its failures listed. No silent pass, no endless loop."
 
+- [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **a rule that could never pass.** Pull on 2+ days was required, but no pull exercise in the catalog works without equipment, so a bodyweight client's program failed all 3 submissions and cost $0.0142, about 10x normal. Now a pattern with no usable exercises isn't required, and the agent says what equipment would add it ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md), [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass)).
+  - Point to make: "Before I blame the model for failing a check, I ask whether the check was passable. One of mine wasn't, for a whole group of clients."
+
 ## Human-in-the-loop
 
 ### Why does a human approve the program?
@@ -723,6 +732,9 @@ Evidence so far:
 
 - [Phase 2, step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix): **a word list can't spot every health issue.** The referral check now uses whole words, which fixed "coming back to lifting", but a probe showed it says nothing for "my back hurts" or "herniated disc" and fires on "shoulder press". See [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check).
   - Point to make: "My safety rule in code misses some ways people describe pain. That's one more reason a coach reads the client's notes before a program is used."
+
+- [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **two layers for health mentions, and checks still aren't judgment.** The referral reminder now fires on the AI-read `health_issues` or a deliberately broad word pattern; a false alarm was chosen over a miss ([0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md), [Two-layer safety check](concepts.md#two-layer-safety-check-ai-reading-plus-broad-backup)). And the developer's live run passed 14 of 15 checks with the same few exercises every day and a glute bridge on "Upper" days. It was the developer, reading as a coach, who said "it should have asked" about equipment.
+  - Point to make: "My checker passed 14 of 15 rules on a program I'd never give a client. The person in the loop caught what the rules didn't, and the cause turned out to be a wrong guess two steps upstream."
 
 ## Observability
 
@@ -773,6 +785,9 @@ Evidence so far:
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **debugging the developer's live test.** The developer asked "what happened here exactly" after the agent printed `Agent: ` with nothing after it. Reading the turn backwards: an empty reply ← `find_exercises` returned squat 0, pull 0, carry 0 ← owned equipment was bodyweight only ← equipment was empty in the profile ← the agent never asked about equipment. Every tool did its job on incomplete information; the bad decision was skipping a question, and nothing in code stopped it. Fixes went in code at both ends: refuse to build until the details are known, and never print an empty reply.
   - The step log now shows rejected programs as title and day count only, and the terminal prints each failed check.
   - Point to make: "The tools weren't broken. Walking back through the step log showed the bad decision was three steps earlier: it never asked about equipment. So I fixed the precondition, not the tool."
+
+- [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **the bug was upstream of the agent.** The developer reported the agent built without asking for equipment, again. The step log showed what the agent did; the reason was in its input. Reading the profile 3 times showed the profile reader guessed `['bodyweight']` once, which made the refusal guardrail think equipment was known. Fixed in the reader's prompt and with a code guard ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
+  - Point to make: "The agent followed its rules. The profile it was given was wrong. When an agent misbehaves, I check what it was told before I change how it thinks."
 
 ## Production
 
@@ -1173,3 +1188,6 @@ Evidence so far:
 - **Whole-word referral trigger** ([step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix)): given up: complaints that used to trigger through the word "back" alone ("my back hurts", "hurt my back", "tweaked my back") no longer do, found by a later probe. Gained: no referral for "coming back to lifting". Not settled.
 - **Checks in code with exact fixes and a retry budget** ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)): given up: only written rules are checked, and a failing program can still reach the person after 3 tries (labeled). Gained: no program is silently wrong on a rule we know.
 - **Refuse until complete vs build with defaults** ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)): given up: no program for a client who won't give all four details. Gained: no program silently built from bodyweight only.
+- **One word list vs AI reading plus a broad backup for health mentions** ([0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md), [step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight)): both layers. Given up: false alarms on exercise names in context notes ("hip thrusts", "back squats", found by a docs probe), and partial reliance on an LLM read. Gained: "tweaked my back", "my back hurts", "herniated disc" now trigger the reminder. This settles the "whole-word referral trigger" item above.
+- **Trust the reader vs guard the reader** ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)): a code guard. Given up: a client who means "no equipment" in words the guard doesn't know gets asked once more. Gained: no bodyweight-only program from a guess (6/6 reads report equipment missing).
+- **Strict pattern rule vs satisfiable rule** ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)): satisfiable. Given up: a program can pass without a pull movement when nothing in the catalog fits. Gained: no retries burned on an impossible check; the program says what equipment would add it.
