@@ -321,7 +321,7 @@ def embed_text_for(source: Source, chunk: Chunk) -> str:
 POPULATIONS = ("adults", "older-adults", "youth", "pregnancy")
 
 # Program-design research studied healthy adults; keep it out of youth, older-adult and pregnancy answers.
-ADULT_RESEARCH = {"schoenfeld2021-loading", "singer2024-rest", "pelland2024-volume"}
+ADULT_RESEARCH = {"schoenfeld2021-loading", "singer2024-rest", "pelland2024-volume", "notes-program-design"}
 
 # The Guidelines' summary lists every group's key guidelines, several per chunk.
 _SUMMARY_MARKERS = {
