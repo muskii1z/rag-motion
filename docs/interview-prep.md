@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: going public, 2026-10-01 (both coach reviews done; evals now default to the app's slang rewriting; bodyweight requests read as a no-equipment limit after a first fix over-reached; final eval, 52 questions, 3 runs: no forbidden citations 45/45, citations 96.7%, expected evidence 94.6%, coverage 91.4%, 4 errored runs reported; README rewritten; pre-public checks clean on 90 commits; decisions 0042 to 0044).
+Last updated: Phase 2, step 2, 2026-10-01 (program checker in code with exact fixes and up to 3 submissions; building tools refuse until goal, days, equipment, and level are known; empty replies and checker rejections handled in code; agent model Gemini 2.5 Flash after a 3-run comparison; 65 tests; decisions 0050 to 0052).
 
 ---
 
@@ -119,6 +119,9 @@ Evidence so far:
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **a structured reading that over-reached.** One prompt line taught `extract_limits` that a request for bodyweight exercises means no equipment. Because its output is a typed form, a check over all 52 questions showed exactly which ones flipped: "KBS for hip power" and a band-pulling question became limited too. A second line fixed it; the check, run twice, showed 8 limited questions, as intended. See [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md).
   - Point to make: "Structured output let me diff the model's reading across every question before and after a prompt change. That's how I saw my fix break two questions it wasn't meant for."
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **a structured output as a tool.** The program agent returns its program by calling `submit_program`, whose input schema is built from the `ProgramDraft` Pydantic model (days, exercises with sets, reps, rest; progression; rationale; cited ids; safety notes). Nested definitions are written out in place (`_inline_refs`), a test checks for leftover `$ref`, and a program that fails validation goes back to the agent as the tool result. See [Structured output](concepts.md#structured-output-strict-json-schema) (extended) and [Tool calling](concepts.md#tool-calling-function-calling).
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **structured checks, not just structured outputs.** Each program check returns a `Check` (name, passed, detail, fix). The failed ones go back to the agent as data, with `exactly_what_to_change` listing each fix. The same structure prints as "Program checks: X/Y passed" in the terminal.
+  - Point to make: "I structure my code's feedback to the model the same way I structure the model's output to me: typed fields, so nothing has to be parsed out of prose."
 
 ## RAG
 
@@ -624,6 +627,10 @@ Evidence so far:
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **a test for new glossary terms, and 55 tests passing before going public.** 1RM, RPE, and RIR each got a test in `tests/test_rewrite.py`. Prompt changes to the limit reader were checked by running it over all 52 eval questions twice, since a unit test can't show how a model reads phrasing.
 
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **testing an agent loop without a real model.** `tests/test_program_checker.py` uses a [scripted fake model](concepts.md#scripted-fake-model-testing-an-agent-loop) that returns real `ChatCompletionMessageToolCall` objects in a fixed order. Tested: building refused until the details are known; empty reply → nudge → clear error; rejected program → corrected resubmission accepted. Plus checker tests built from step 1's real problems (7 exercises a day, a carry in reps, a barbell squat for a dumbbell client, an invented citation) and the referral false alarm. 65 tests pass.
+  - **Model behavior is tested separately, by replaying a real conversation.** The developer's conversation was replayed 3 times per model, and the checker's verdict was the score.
+  - Point to make: "The fake model proves my guardrails work. Only replays with the real model show whether the agent actually produces programs that pass."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -634,12 +641,18 @@ Evidence so far:
 - **The model has no memory.** The message list (prompt, profile, conversation, every tool call and result) is its memory, and the server keeps no state; the client sends the whole conversation each turn. See [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server).
   - Point to make: "It's an agent because the model chooses its own tool calls and can stop to ask the client for missing details. It's a guided one because the prompt sets the order and code decides what the tools are allowed to return."
 
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **an agent that has to finish its own job.** When code rejects its program, the agent must fix it and resubmit; it isn't allowed to hand the problem back to the client ([Role confusion](concepts.md#role-confusion-the-agent-hands-its-job-to-the-user)). And it can't start building until it has asked for what's missing ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)).
+  - Point to make: "A chatbot replies. My agent works toward a result that has to pass checks, and code decides both when it may start and when it's done."
+
 ## LangGraph
 
 ### Why did you use LangGraph?
 Evidence so far (partial: LangGraph is not used):
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): the agent loop is plain Python in `src/ragmotion/agent.py` (`run_turn`): call the model with tools, run the tool it asks for, append the result, repeat, with loop guardrails in code ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The project rule is not to add frameworks before a step needs them. [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) names the signal for a graph framework: the loop gaining branches (checker feedback, coach approval) that are hard to follow in plain Python.
   - Point to make: "I wrote the agent loop by hand first, so I know exactly what a framework like LangGraph would be doing for me before I adopt one."
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **the loop gained its first branch, still in plain Python.** [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) named "the loop gains branches (checker feedback, coach approval) that are hard to follow in plain Python" as the signal to consider a graph framework. Checker feedback now exists: a rejection, a forced resubmit, up to 3 submissions, an empty-reply nudge, and refusals until the profile is complete. All of it is in `run_turn` in `src/ragmotion/agent.py`. Whether it is now "hard to follow" hasn't been judged; the coach approval branch isn't built yet.
+  - Point to make: "I've now hand-written the branches a graph framework would model: reject, retry, give up visibly. When coach approval adds a pause-and-resume step, that's when I'd weigh LangGraph seriously."
 
 ## Workflows
 
@@ -656,6 +669,14 @@ Evidence so far (partial: no program generation yet):
 
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **two kinds of validation in the agent.** Shape: if `submit_program`'s arguments don't match `ProgramDraft`, the validation error goes back to the agent as the tool result ("invalid shape, sent back") so it can try again, inside the step limits. Content: not checked yet. Run 2's program passed the shape and still had 7 exercises a day for a beginner (the prompt says 4–6) and a plank in reps. Step 2 adds a checker in code (exercises per day, patterns on 2+ days, equipment, level and age, real citations, timed holds, safety notes) whose failures go back to the agent to fix.
   - Point to make: "Schema validation catches a malformed program; it can't catch a well-formed program a coach would reject. That's what the code checker is for, and its failures go back to the agent, with a limit on how many tries."
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **this now exists, end to end.** ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md))
+  1. `submit_program` → shape check (`ProgramDraft`) → content check: `check_program()`, up to 16 checks (days, catalog, equipment, level, excluded movements, patterns on 2+ days, core or carry, exercises per day, repeats, sets/reps/rest, timed planks and carries, citations from its own searches, a health-professional reminder when health words appear).
+  2. Any failure → sent back to the agent with the failed checks and `exactly_what_to_change`, e.g. "'Day 1' has 7 exercises: remove 1".
+  3. The next call is forced to be `submit_program`, because the agent once asked the client to fix the program.
+  4. Up to 3 submissions. After that, the program is returned with its checks and `passed_checks = False`; the terminal prints "Program checks: X/Y passed" and each failure.
+  - **What the runs showed.** Failed rules alone: Flash-Lite repeated the same mistakes 3 times (14/16 passed, shown with 2 failures). With exact fixes: 2 of 3 Flash-Lite runs passed after one rejection. Gemini 2.5 Flash: 3 of 3 accepted first time ([0050](decisions/0050-agent-model-gemini-2-5-flash.md)). See [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) and [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure).
+  - Point to make: "A failed program goes back to the agent with exact instructions, three tries at most, and then the person sees the program with its failures listed. No silent pass, no endless loop."
 
 ## Human-in-the-loop
 
@@ -692,6 +713,9 @@ Evidence so far:
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **the agent asks the human for missing details.** Code computes what's missing (goal, days per week, equipment, experience level) and the agent is told to ask once for all of it via `ask_user`. In run 1 it asked one question covering goal, equipment, and days (as plain text rather than through the tool). Not built yet: a coach approving the finished program.
 - **A coach's eye on the first program.** Run 2 looked complete and cited sources, yet a coach would flag 7 exercises a day for a beginner, a plank prescribed in reps, and youth notes cited for an adult (fixed: [0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)). Those three became the checker's first rules.
 - **Some cases skip the agent entirely.** A pregnancy mention gets no program, a referral to a health professional, and an offer of the Guidelines' pregnancy section, decided in code.
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **the checker can't replace the coach.** The 16 checks catch only rules someone wrote down. After 3 failed submissions the program is still shown, with failures listed, for a person to judge ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)). Health mentions (pain, injury, surgery, conditions, joints) must come with a reminder to see a health professional. And the agent must now ask the human for equipment before building; in the live test it skipped that question and built from bodyweight only ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)). No coach approval step is built yet.
+  - Point to make: "Code checks what can be written as a rule. Everything else, including a program that fails its checks three times, goes in front of a person rather than being hidden or silently accepted."
 
 ## Observability
 
@@ -738,6 +762,10 @@ Evidence so far:
 
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **the first agent debugging, from a step log.** Every turn returns a list of every tool call with its arguments and a short result, printed by `scripts/program_chat.py`. That is how run 1's failure was found: 7 `find_exercises` calls, then 8 `search_sources` calls including exact repeats, and no submit before the 15-step cap. The fix was in code ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The step log also showed which passages fed the program, which exposed youth notes cited for an adult. `run_turn` is traced in LangSmith as `program_agent` when tracing is on.
   - Point to make: "To debug an agent I need every decision it made, in order: which tool, which arguments, what came back. My first run's log showed it searching the same thing over and over, so I fixed the loop in code rather than guessing at the prompt."
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **debugging the developer's live test.** The developer asked "what happened here exactly" after the agent printed `Agent: ` with nothing after it. Reading the turn backwards: an empty reply ← `find_exercises` returned squat 0, pull 0, carry 0 ← owned equipment was bodyweight only ← equipment was empty in the profile ← the agent never asked about equipment. Every tool did its job on incomplete information; the bad decision was skipping a question, and nothing in code stopped it. Fixes went in code at both ends: refuse to build until the details are known, and never print an empty reply.
+  - The step log now shows rejected programs as title and day count only, and the terminal prints each failed check.
+  - Point to make: "The tools weren't broken. Walking back through the step log showed the bad decision was three steps earlier: it never asked about equipment. So I fixed the precondition, not the tool."
 
 ## Production
 
@@ -832,6 +860,9 @@ Evidence so far:
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **timeouts doing their job.** Two eval runs hit OpenRouter at the same moment; 3 calls timed out at the 25 s limit and failed cleanly instead of hanging. One reply was unreadable twice in a row (about 1 in 150). Both are in the README's limitations. See [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls).
 
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **stateless agent turns.** `run_turn(conversation)` takes the whole conversation each time and keeps nothing between turns, so any server process can handle any turn. See [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server). Cost per program turn: $0.0012 in run 2, $0.0025 in the looping run 1, against about $0.0004 per RAG answer.
+
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **production behavior for the agent.** No blank replies (one nudge, then "The program builder didn't respond. Please try again."). A bounded number of tries (3 submissions, 18 steps). Separate model settings for the agent (`agent_model`, Gemini 2.5 Flash) and the Q&A app (Flash-Lite), so each can change on its own. Measured per program: 11–13 s and $0.0060–0.0067 on Flash.
+  - Point to make: "Every way the agent can stall ends in a message the user can act on, and the agent's model is its own setting, so I can change it without touching the Q&A app."
 
 ## Security
 
@@ -1004,6 +1035,8 @@ Evidence so far:
 
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **a program request is a loop, not a line.** Client message → `read_profile` (`extract_profile` over the whole conversation) → limits computed in code → pregnancy check → model call with system prompt, profile note, conversation, and 4 tools → for each tool call: `find_exercises` (catalog filtered by equipment, level, age) or `search_sources` (`search_all` filtered by age group) → results appended → model again → ends at `ask_user` (a question back to the client) or `submit_program` (validated against `ProgramDraft`, enriched with catalog names) → step log, cost, and cited ids returned. Repeats refused, a nudge after 3 searches, submit forced after 10 tool calls ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)).
 
+- [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **the program loop gained a gate at each end.** Before: the building tools refuse until goal, days, equipment, and level are known. After: `submit_program` → `ProgramDraft` shape check → `check_program()` → if anything fails, back to the agent with exact fixes and a forced resubmit (up to 3 submissions) → program returned with its checks and `passed_checks`. Empty replies get one nudge, then a clear error. The agent runs on `agent_model` (Gemini 2.5 Flash).
+
 ## Tradeoffs
 
 ### What would you change if this system had 100,000 users?
@@ -1126,3 +1159,7 @@ Evidence so far:
 - **Prompt rules vs code guardrails in the agent loop** ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)): code. Given up: the chance that a forced submit comes before every pattern was searched. Gained: every turn ends.
 - **Cheaper Qwen models vs keeping Gemini 2.5 Flash-Lite** ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)): kept Gemini. Given up: up to about 3x lower cost per token. Gained: a model already proven in this app; reliability matters more than fractions of a cent in an agent.
 - **Unknown age: no filter vs adults** ([0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)): adults. Given up: correct sources for a youth or older client who doesn't state their age. Gained: no youth or older-adult passages in a typical adult's program.
+
+- **Cheaper model vs reliable model for the agent** ([0050](decisions/0050-agent-model-gemini-2-5-flash.md), [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice)): Gemini 2.5 Flash over Flash-Lite. Given up: about 2.5x cost per run (about 0.6 cents a program), and by the recorded numbers more per passing program too. Gained: 3/3 programs passed first time, and faster (11–13 s vs 15–21 s). At 100,000 users the cost difference becomes real money; it would be weighed against retries and coach time. See [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token).
+- **Checks in code with exact fixes and a retry budget** ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)): given up: only written rules are checked, and a failing program can still reach the person after 3 tries (labeled). Gained: no program is silently wrong on a rule we know.
+- **Refuse until complete vs build with defaults** ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)): given up: no program for a client who won't give all four details. Gained: no program silently built from bodyweight only.

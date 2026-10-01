@@ -26,3 +26,10 @@ Run 2 after the change: 7 + 3 tool calls, then submit, $0.0012, a complete 3-day
 ## Revisit when
 - The step 4 test set shows forced submits with missing patterns: raise `FORCE_SUBMIT_AFTER`, or let `find_exercises` take several patterns per call.
 - A model change makes the agent finish on its own reliably.
+
+## Update 2026-10-01 (Phase 2, step 2): more loop guardrails
+- `MAX_STEPS` raised from 15 to 18 (the reason isn't recorded). New `MAX_SUBMISSIONS = 3`: the checker can send a program back up to 3 times ([0051](0051-program-checker-in-code-exact-fixes-three-submissions.md)).
+- `tool_choice` now also forces `submit_program` right after a checker rejection, because the agent had asked the client to fix its program.
+- An empty model reply gets one nudge ("Your last reply was empty. Call a tool, or answer the client."), then the turn ends with "The program builder didn't respond. Please try again."
+- Building tools refuse until the client's details are known ([0052](0052-agent-building-tools-refuse-until-profile-complete.md)).
+- Not recorded: whether the 10-call forced submit fired in any Gemini 2.5 Flash run.

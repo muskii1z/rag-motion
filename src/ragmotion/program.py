@@ -7,6 +7,7 @@ reads the conversation separately from the agent.
 """
 
 import json
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -110,9 +111,12 @@ def search_sources(query: str, profile: ClientProfile, k: int = 5) -> list[dict]
 MAIN_PATTERNS = {"squat or lunge": {"squat", "lunge"}, "hinge": {"hinge"}, "push": {"push"}, "pull": {"pull"}}
 CORE_PATTERNS = {"core", "carry"}
 TIMED = {"front-plank", "farmer-carry"}  # prescribed in seconds or metres, not reps
-# Only notes about health need a referral reminder ("little lifting experience" doesn't).
-HEALTH_WORDS = ("pain", "injur", "sore", "surgery", "condition", "arthritis", "diabet", "asthma", "blood pressure",
-                "hypertension", "heart", "knee", "back", "shoulder", "hip", "ankle", "wrist", "neck", "rehab", "osteo")
+# Only notes about health need a referral reminder ("little lifting experience" doesn't). Whole words only,
+# and "back" only in health phrases, so "coming back to lifting" doesn't trigger it.
+HEALTH_PATTERN = re.compile(
+    r"\b(pain|painful|injur\w*|sore|surgery|condition|arthritis|diabet\w*|asthma|blood pressure|hypertension|heart|"
+    r"knee|shoulder|hip|ankle|wrist|neck|rehab|osteo\w*|bad back|lower back|upper back|back (pain|injury|problem|issue)s?)\b",
+    re.IGNORECASE)
 
 
 class Check(BaseModel):
@@ -166,7 +170,7 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
     invented = sorted(cited - retrieved_ids)
     checks.append(Check(name="citations come from the agent's own searches", passed=bool(cited) and not invented,
                         detail=", ".join(invented) if invented else ("" if cited else "no citations")))
-    health = [n for n in profile.context_notes if any(w in n.lower() for w in HEALTH_WORDS)]
+    health = [n for n in profile.context_notes if HEALTH_PATTERN.search(n)]
     if health:
         ok = "professional" in (draft.safety_notes or "").lower()
         checks.append(Check(name="client's conditions acknowledged, with a reminder to see a health professional",

@@ -147,7 +147,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 *Phase 2, step 1 update: an agent turn is many calls.* One RAG answer is about $0.0004. One program-agent turn makes a model call per round of tool calls, and every call re-sends the growing message list, so costs add up per turn: run 2 (11 tool calls) cost $0.0012; run 1, which looped without finishing, cost $0.0025. `run_turn` sums OpenRouter's reported cost across all calls.
 
-*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 step 1.*
+*Phase 2, step 2 update: cost per program, by model.* Replaying one conversation 3 times per model: Gemini 2.5 Flash-Lite cost $0.0021–0.0026 per program, Gemini 2.5 Flash $0.0060–0.0067. Retries add calls: a Flash-Lite run that resubmitted 3 times cost $0.0043. See [Cost per correct result](#cost-per-correct-result-model-capability-vs-price-per-token).
+
+*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -189,7 +191,9 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 *Phase 2, step 1 update: the ceiling in an agent.* The program agent's prompt says beginners get 4–6 exercises a day. In the first finished run it gave a beginner 7 a day, and it prescribed the plank in reps instead of a timed hold. Neither will be fixed with firmer wording: the next step is a program checker in code that finds these and sends them back to the agent to fix.
 
-*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a, F7b, Phase 2 step 1.*
+*Phase 2, step 2 update: the agent skipped a step its prompt required.* The prompt says to ask the client for everything missing. In the developer's live test, the agent asked for goal and days but not equipment, then built from bodyweight only. Both this and step 1's 7-exercise days are now handled in code: a refusal until the details are known, and a checker that sends the program back with exact fixes.
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a, F7b, Phase 2 steps 1 and 2.*
 
 ### Saying what not to infer (default assumptions in extraction prompts)
 When a model fills in a form, it tends to fill gaps with a likely default. In F5, the limit reader tagged questions about "athletes" and "an intermediate lifter" as `adults`, even though the prompt said athletes → null. The fix was to spell out what does *not* count, with examples: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Then all 40 were right. This worked where the Step 13 answer rule didn't because it's a small, narrow job with one field, and the result was checked on every eval question.
@@ -986,7 +990,9 @@ Tool calling is how an API lets a model request a function call. You send the to
 
 **In an interview:** "Tool calling is just structured output with a choice. The model returns a function name and JSON arguments, my code runs it, and I can switch `tool_choice` from auto to a specific tool when I need it to finish."
 
-*First seen: Phase 2, step 1.*
+*Phase 2, step 2 update: forcing a tool after a rejection.* When the checker rejected a program, the agent replied to the *client*, asking them to fix it. Now the call right after a rejection uses `tool_choice` to force `submit_program`, so the only possible move is a corrected program. The same forcing keeps an agent on task whenever there is exactly one right next step. See [Role confusion](#role-confusion-the-agent-hands-its-job-to-the-user).
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
 
 ### Workflow vs guided agent vs autonomous agent
 A **workflow** is a fixed sequence written in code: step 1, then step 2, every time. The model fills in parts but never chooses the order. An **agent** lets the model choose which step comes next. A **fully autonomous agent** gets a goal and broad tools and decides almost everything. A **guided agent** (this project's choice) sits in between: a prompt gives the order of work, the tools are narrow, and code enforces the limits and checks the result. Agents are more flexible (they can ask the user, skip what's known, search again), but less predictable, harder to test, slower and costlier per decision, and they can "decide" that a check passed when it didn't.
@@ -1000,14 +1006,18 @@ A guardrail is anything that stops the system from doing something it shouldn't.
 
 **In an interview:** "The agent can ask for any movement pattern, but it can't get an exercise the client can't do, because the filter lives inside the tool. Prompts guide the agent; code is what it can't get around."
 
-*First seen: Phase 2, step 1.*
+*Phase 2, step 2 update: a tool that says no.* The prompt told the agent to ask for everything missing; it asked for goal and days but not equipment, and built a program from bodyweight only. Now the building tools refuse with "Not enough information yet. Ask the client about: ..." until goal, days, equipment, and level are known. A filter controls *what* a tool returns; a refusal controls *when* it can be used. See [Input guardrails vs output guardrails](#input-guardrails-vs-output-guardrails).
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
 
 ### Loop guardrails (step budget, repeat refusal, forced finish)
 An agent runs in a loop, and a small model can get stuck in it. In run 1 the agent made 7 exercise searches, then 8 source searches including exact repeats, and never submitted; it stopped only at the 15-step cap. Loop guardrails are code rules that keep the loop moving toward an end: a **step budget** (a hard cap, here `MAX_STEPS = 15`), **repeat refusal** (an identical search gets "Already searched; use the earlier results"), a **nudge** (after 3 different searches, a system message says to submit), and a **forced finish** (after 10 tool calls, `tool_choice` allows only `submit_program`). With them, run 2 finished in 11 calls for $0.0012.
 
 **In an interview:** "My first agent run looped on the same searches and never finished. I didn't just add 'don't repeat' to the prompt; I made repeats return a refusal, nudged after three searches, and after ten tool calls the API only lets it call submit."
 
-*First seen: Phase 2, step 1.*
+*Phase 2, step 2 update: more limits.* `MAX_STEPS` is now 18. `MAX_SUBMISSIONS = 3` caps how often the checker can send a program back. An empty model reply gets one nudge, then a clear error instead of a blank answer. After a rejection, only `submit_program` is allowed. Each limit came from a real failure in a run, not from planning ahead.
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
 
 ### The message list is the memory (stateless model, stateless server)
 The model remembers nothing between calls. Each call sends the whole message list: the system prompt, the profile note, every client message, every tool call and result. That list is the agent's only memory, and it grows with every tool call, which is why each call in a turn costs more input tokens than the one before. The server is stateless too: it keeps no conversation. The client (here, `scripts/program_chat.py`) holds the conversation and sends all of it every turn; `run_turn` rebuilds the profile from it each time.
@@ -1015,6 +1025,48 @@ The model remembers nothing between calls. Each call sends the whole message lis
 **In an interview:** "The model has no memory; the message list is the memory. My server doesn't store conversations either. The client sends the whole conversation each turn, which keeps the server simple, at the cost of re-sending and re-reading it every time."
 
 *First seen: Phase 2, step 1.*
+
+### Input guardrails vs output guardrails
+A guardrail is a rule in code that stops the system from doing something it shouldn't. An **input guardrail** works before the action: it checks that conditions are met before a tool may run. Here, the building tools refuse until goal, days per week, equipment, and experience level are known. An **output guardrail** works after: it checks the result. Here, `check_program()` runs up to 16 checks on every submitted program. The two catch different failures. The input guardrail stops the agent from building on missing information (the live test built from bodyweight only because equipment was never asked). The output guardrail catches a wrong program built on complete information (7 exercises a day for a beginner).
+
+**In an interview:** "My agent has guardrails on both sides. Before: it can't search or submit until it knows the client's goal, days, equipment, and level. After: every program goes through 16 checks in code. The first stops it guessing; the second stops it being wrong."
+
+*First seen: Phase 2, step 2.*
+
+### Actionable feedback (exact fix instructions)
+When a check fails, what you tell the model decides whether it can fix it. At first the checker sent back only the failed rules ("4–6 exercises per day for beginners"). Gemini 2.5 Flash-Lite resubmitted the same mistakes 3 times. Then each check got a `fix` field with an exact instruction: "'Day 1' has 7 exercises: remove 1", or "change reps to a time such as '20-30 s' on every day". After that, 2 of 3 Flash-Lite runs passed after one rejection. Small models are better at following a specific instruction than at working out what a rule implies.
+
+**In an interview:** "Telling the model which rule it broke wasn't enough; it made the same mistake three times. Telling it exactly what to change, like 'Day 1 has 7 exercises: remove 1', is what got programs through."
+
+*First seen: Phase 2, step 2.*
+
+### Role confusion (the agent hands its job to the user)
+An agent sees several voices in its message list: the system prompt, the client, and tool results. It can mix them up. When the checker rejected a program, the agent read the feedback as something for the client and asked the *client* to fix the program. Two fixes: the prompt says "fix it yourself, never ask the client to fix the program", and code forces the next call to be `submit_program` ([forced tool choice](#tool-calling-function-calling)), so replying to the client isn't possible at that moment.
+
+**In an interview:** "My agent once took the checker's feedback and asked the client to fix the program. Now, after a rejection, the API only lets it call submit, so it has to do the fixing itself."
+
+*First seen: Phase 2, step 2.*
+
+### Fail visibly (retry budget, then show the failure)
+Two ways an agent can fail badly: silently, or forever. In the live test the agent returned an empty reply, printed as "Agent: " with nothing after it. Failing visibly means the user always gets something they can act on. Here: an empty reply gets one nudge, then "The program builder didn't respond. Please try again." A program gets at most 3 submissions (a **retry budget**: a fixed number of attempts). If it still fails, it is returned with its checks attached and `passed_checks = False`, and the terminal prints "Program checks: X/Y passed" and each failure. Nothing is hidden, and nothing loops forever.
+
+**In an interview:** "If my agent can't produce a program that passes after three tries, it shows the program with the failed checks listed. A visible failure a coach can judge is better than a silent one or an endless retry."
+
+*First seen: Phase 2, step 2.*
+
+### False-positive checks (tie a rule to its trigger)
+A false positive is a check that fires when nothing is wrong. The referral check (a reminder to see a health professional) first fired whenever the client had any context note, so "little lifting experience" triggered it. Fixed by tying the rule to its real trigger: it now fires only when a note contains a health word (`HEALTH_WORDS`, such as pain, injur, surgery, arthritis, knee, back). False alarms matter: a checker that cries wolf costs retries and teaches people to ignore it. The same idea as [not_applicable verdicts](#not_applicable-verdicts-rules-with-a-trigger) in the eval. One known risk: the words are matched as parts of the text, so a note like "coming back to lifting" contains "back" (untested).
+
+**In an interview:** "My referral rule fired on 'little lifting experience', which isn't a health issue. A check needs the right trigger, not just the right rule, so I tied it to a list of health words and added a test that ordinary notes don't trigger it."
+
+*First seen: Phase 2, step 2.*
+
+### Cost per correct result (model capability vs price per token)
+Price per token isn't the whole cost. An agent that fails needs retries, and each retry is more calls, more time, and sometimes still a failed result. The fair comparison is cost and time per *correct* result. On the same conversation, 3 runs each: Gemini 2.5 Flash-Lite passed 2/3, none on the first submission, 15–21 s, $0.0021–0.0026 per run. Gemini 2.5 Flash passed 3/3 on the first submission, 11–13 s, $0.0060–0.0067. The bigger model was **faster** because it needed no retries. By these numbers it still cost more per passing program (about $0.006 vs about $0.003–0.004), so the gain was reliability and speed, at about 0.6 cents a program.
+
+**In an interview:** "I measured models on the same conversation. The cheaper one needed retries and still failed one in three; the slightly bigger one passed every time on the first try and was faster. It cost about 0.6 cents a program, which is nothing next to a program a coach has to fix."
+
+*First seen: Phase 2, step 2.*
 
 ---
 
@@ -1643,7 +1695,9 @@ A regression is an old bug coming back after a later change. A regression test r
 
 **In an interview:** "My tests include the actual bugs I hit: an invented citation id and a typo'd one. Each became a test, so if a prompt or parser change lets them through again, I find out in a second instead of in a user's answer."
 
-*First seen: Step 16.*
+*Phase 2, step 2 update: a coach's eye, turned into tests.* The problems a coach spotted in step 1's first program (7 exercises a day, a carry in reps) plus two the checker must also catch (a barbell squat for a dumbbell client, an invented citation) are tests in `tests/test_program_checker.py`. So is the referral false alarm: a non-health note must not trigger it.
+
+*First seen: Step 16. Extended: Phase 2, step 2.*
 
 ### Integration tests that skip gracefully
 An integration test checks that parts work together with a real outside system, here the Postgres database. They catch problems unit tests can't (for example, that the "only needs what I own" SQL query really excludes the step-up and hip thrust, or that every chunk has a vector). But they need that system running. Step 16's three database tests carry an `integration` marker (a label pytest can select or skip by), and `conftest.py` skips them automatically when Postgres can't be reached, instead of failing. So the unit tests still run anywhere, and a stopped Docker container doesn't look like broken code.
@@ -1679,7 +1733,16 @@ Mocking means replacing a real outside call (Gemini, Voyage, the database) with 
 
 **In an interview:** "I mock the model, the embedding service, and the database in my API tests, so I can make each one time out or fail on command and check the user gets the right message. Those tests are free and take under a second. The evals cover the real services."
 
-*First seen: Step 16 revisit.*
+*Phase 2, step 2 update: faking a whole conversation.* Testing an agent needs a fake that answers differently on each call. See [Scripted fake model](#scripted-fake-model-testing-an-agent-loop).
+
+*First seen: Step 16 revisit. Extended: Phase 2, step 2.*
+
+### Scripted fake model (testing an agent loop)
+A [fake](#mocking-outside-services-fakes) for an agent has to play a whole conversation, not one answer. `ScriptedModel` in `tests/test_program_checker.py` returns a fixed list of replies in order: first a tool call, then another, then a submission. Its tool calls are real `ChatCompletionMessageToolCall` objects (the same type the OpenAI SDK returns), so the real loop code handles them exactly as it would a live reply. This makes agent behavior testable deterministically (same result every run, no cost): building is refused until details are known; an empty reply gets a nudge, then a clear error; a rejected program is followed by a corrected one that is accepted. What it can't test is whether the real model makes good choices; that's what replays and evals are for.
+
+**In an interview:** "I test the agent loop with a scripted fake model that returns the exact tool calls I want, in order. So I can prove the guardrails work, like refusing to build before it knows the equipment, in milliseconds and for free."
+
+*First seen: Phase 2, step 2.*
 
 ### Web API tests with TestClient
 A web API test checks the app the way its user sees it. It sends a request to an endpoint (see [Endpoint (web API)](#endpoint-web-api)) and checks the status code and the reply. FastAPI's `TestClient` calls the app directly inside the test, as a browser would, with no server running and no port opened. `tests/test_api.py` has 12 such tests on `POST /api/ask`:

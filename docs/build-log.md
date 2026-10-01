@@ -4728,3 +4728,96 @@ uv run pytest                           # 58 tests pass
 - New: [0048. The agent keeps Gemini 2.5 Flash-Lite; compare models in step 4](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)
 - New: [0049. Program clients with no stated age count as adults](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)
 - Next: Phase 2, step 2, the program checker in code (exercises per day, patterns on 2+ days, equipment, level and age, real citations, timed holds, safety notes), with the agent fixing what fails.
+
+## Phase 2, step 2: Program checker in code, agent guardrails, and the agent model choice
+**Date:** 2026-10-01 · **Commit:** `ed465e7` feat: program checker and agent guardrails (Phase 2, step 2)
+
+**Goal.** Make the agent's programs trustworthy: code checks every submitted program and the agent must fix what fails; close the gaps the developer found in a live test.
+
+**How the step started: the developer's live test.** The developer ran the agent in the terminal and asked, *"what happened here exactly"*:
+- Turn 1, *"I am a beginner, give me an exercise routine"*. The agent asked for goal and days per week, but **not equipment**, although its instructions say to ask for everything missing.
+- Turn 2, *"build muscle primarily and get stronger, little lifting experience, 4 times a week"*. Equipment was still unknown, so `profile.equipment` was empty, so the client's owned equipment came out as bodyweight only. `find_exercises` then returned: squat 0, lunge split-squat, hinge glute-bridge, push push-up, pull 0, core 2, carry 0.
+- The agent then returned an **empty reply**, printed as `Agent: ` (cost $0.0001).
+- Explanation given: the tools worked correctly from incomplete information. The agent skipped a step (asking for equipment), nothing in code stopped it from building anyway, and then it gave up silently. Developer: *"ok go"* for the fixes plus the checker.
+- Developer question: *"so I can ask the localhost?"* No. The web page still does Q&A only. The agent runs in the terminal (`scripts/program_chat.py`) until step 3. Claude recommended building the checker before the page.
+
+**What we did.**
+- **Guardrails in `src/ragmotion/agent.py`:**
+  1. **Refuse to build until the details are known.** `find_exercises`, `search_sources`, and `submit_program` return "Not enough information yet. Ask the client about: ..." until goal, sessions per week, equipment, and experience level are all known. Unknown equipment can no longer be treated as bodyweight only. This is an [input guardrail](concepts.md#input-guardrails-vs-output-guardrails).
+  2. **No silent empty replies.** An empty model reply gets one system nudge ("Your last reply was empty. Call a tool, or answer the client."). A second empty reply ends the turn with "The program builder didn't respond. Please try again."
+  3. **After a rejection, only `submit_program` is allowed** (`tool_choice` forces it). Reason: in a run, the agent answered the checker's feedback by asking the *client* to fix the program. The prompt also now says to fix problems itself and never ask the client to fix the program. See [Role confusion](concepts.md#role-confusion-the-agent-hands-its-job-to-the-user).
+  4. `MAX_STEPS` raised from 15 to 18; new `MAX_SUBMISSIONS = 3`. Rejected programs appear in the step log as title and day count only.
+  5. The rejection message lists the failed checks plus `exactly_what_to_change`: one concrete fix instruction per failed check.
+- **The checker in `src/ragmotion/program.py`:** a `Check` model (name, passed, detail, fix) and `check_program(draft, profile, retrieved_ids)` with 16 possible checks:
+  - days match the number the client asked for;
+  - every exercise is in the catalog;
+  - only equipment the client owns;
+  - nothing above the client's maximum level;
+  - no excluded movements (the jumps and sprints rules);
+  - squat or lunge, hinge, push, and pull each on min(2, days) days;
+  - core or carry on at least 1 day;
+  - exercises per day: 4–6 for beginners, 3–8 otherwise (example fix: "'Day 1' has 7 exercises: remove 1");
+  - no exercise repeated within a day;
+  - sets, reps, and rest present;
+  - front plank and farmer carry prescribed as time or distance (fix: change reps to a time such as '20-30 s' on every day);
+  - citations exist and all come from the agent's own searches;
+  - a reminder to see a health professional, **only** when the context notes contain a health word (`HEALTH_WORDS`: pain, injur, sore, surgery, condition, arthritis, diabet, asthma, blood pressure, hypertension, heart, knee, back, shoulder, hip, ankle, wrist, neck, rehab, osteo). The word list was added after a false alarm (below).
+  - A `failed()` helper returns the failing checks.
+- **After 3 submissions** the program is returned with its checks attached and `passed_checks = False`. Failures are shown, never hidden. See [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure).
+- **Model setting:** `config.agent_model`, default `google/gemini-2.5-flash` (`None` falls back to `llm_model`). The Q&A app stays on Flash-Lite.
+- **`scripts/program_chat.py`** prints "Program checks: X/Y passed" and each failure.
+- **Tests, `tests/test_program_checker.py`:**
+  - A good program passes.
+  - The checker catches step 1's real problems: 7 exercises a day, a carry in reps, a barbell squat for a dumbbell client, an invented citation. See [Regression tests from real failures](concepts.md#regression-tests-from-real-failures).
+  - Injuries need a referral; non-health notes don't.
+  - A **scripted fake model** (`ScriptedModel`, returning real `ChatCompletionMessageToolCall` objects) tests the loop: building is refused until details are known; empty reply → nudge → clear error; rejected program → corrected resubmission accepted. See [Scripted fake model](concepts.md#scripted-fake-model-testing-an-agent-loop).
+  - 65 tests pass.
+
+**Commands.**
+```bash
+uv run python scripts/program_chat.py   # the terminal agent; the developer's conversation was replayed, answering equipment with "dumbbells, a bench and resistance bands"
+uv run pytest                           # 65 tests pass
+```
+The exact command lines used for the replays and the model comparison weren't in the brief; the script is the terminal agent named above.
+
+**What we saw.** All runs replay the developer's conversation, with equipment answered as "dumbbells, a bench and resistance bands". The agent was on Gemini 2.5 Flash-Lite until the model comparison.
+
+| Stage | What happened |
+|---|---|
+| After fixes 1–2 (refusal, empty-reply nudge) | The agent now asked "What equipment do you have available?", then built a 4-day program. The checker rejected it (4–6 exercises a day; plank in reps). The agent then **asked the client to fix it** → fix 3. |
+| After fix 3 (forced resubmit) | The agent resubmitted on its own but repeated the same mistakes 3 times. Shown with 2 failed checks (14/16 passed), $0.0043. |
+| After exact fix instructions, Flash-Lite, 3 runs | Passed, passed (each rejected once, then accepted), failed (exercise count still wrong after 3 tries). One run raised the referral check on "little lifting experience" → `HEALTH_WORDS` fix. |
+
+**Model comparison** (same conversation, 3 runs each):
+
+| Model | Passed checks | Accepted on first submission | Time per program | Cost per program |
+|---|---|---|---|---|
+| Gemini 2.5 Flash-Lite | 2/3 | 0/3 | 15–21 s | $0.0021–0.0026 |
+| Gemini 2.5 Flash | 3/3 | 3/3 | 11–13 s | $0.0060–0.0067 |
+
+Agent model set to Gemini 2.5 Flash, staying with Gemini as the developer asked ("keep Gemini"). See [0050](decisions/0050-agent-model-gemini-2-5-flash.md).
+
+**Problems and fixes.**
+- **Agent skipped asking for equipment, built from bodyweight only, then replied with nothing.** Fixed in code: building tools refuse until the four details are known ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)); an empty reply gets one nudge, then a clear error.
+- **Agent asked the client to fix its program.** Fixed: after a rejection, `tool_choice` forces `submit_program`; the prompt says to fix it itself.
+- **Agent repeated the same mistakes 3 times** when told only which rules failed. Fixed: each failed check now carries an exact fix instruction ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)). See [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions).
+- **Referral check fired on "little lifting experience".** The rule first triggered on any context note. Fixed: it triggers only on health words. See [False-positive checks](concepts.md#false-positive-checks-tie-a-rule-to-its-trigger).
+- **Flash-Lite still failed 1 of 3 runs** on exercises per day after 3 tries. Addressed by the model choice, not more code.
+
+**Open questions.**
+- `HEALTH_WORDS` matches parts of words in the notes (for example "injur" catches "injury" and "injured"). By the same rule, a note like "coming back to lifting" would contain "back" and trigger a referral. Not tested in this step.
+- Whether the forced-submit rule from step 1 (after 10 tool calls) fired in any of the Flash runs isn't recorded. [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) says to revisit it when a model change makes the agent finish on its own.
+- The reason `MAX_STEPS` went from 15 to 18 isn't in the brief.
+- **Cost per correct program.** The brief's lesson says the bigger model was cheaper per correct program because it needed fewer retries. The recorded numbers don't show that: Flash-Lite's 3 runs cost $0.0063–0.0078 in total for 2 passing programs, about $0.0032–0.0039 per passing program, against $0.0060–0.0067 for Flash. Flash was faster and more reliable, and cost roughly 1.5–2x more per passing program. Worth checking before using the "cheaper" claim in an interview.
+- All model numbers come from one conversation, 3 runs each. Step 4's test set (about 10 fictional clients) is where they get checked more widely.
+
+**Learned.**
+- New: [Input guardrails vs output guardrails](concepts.md#input-guardrails-vs-output-guardrails), [Actionable feedback (exact fix instructions)](concepts.md#actionable-feedback-exact-fix-instructions), [Role confusion](concepts.md#role-confusion-the-agent-hands-its-job-to-the-user), [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure), [False-positive checks](concepts.md#false-positive-checks-tie-a-rule-to-its-trigger), [Scripted fake model](concepts.md#scripted-fake-model-testing-an-agent-loop), [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token)
+- Extended: [Tool calling](concepts.md#tool-calling-function-calling) (forced after a rejection), [Loop guardrails](concepts.md#loop-guardrails-step-budget-repeat-refusal-forced-finish) (new limits), [Guardrails in tools vs in prompts](concepts.md#guardrails-in-tools-vs-in-prompts) (refusal until details are known), [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) (skipped equipment question), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (cost per program), [Regression tests from real failures](concepts.md#regression-tests-from-real-failures), [Mocking outside services](concepts.md#mocking-outside-services-fakes)
+
+**Decisions.**
+- New: [0050. The agent uses Gemini 2.5 Flash; the Q&A app stays on Flash-Lite](decisions/0050-agent-model-gemini-2-5-flash.md) (supersedes [0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md))
+- New: [0051. Program checks in code, with exact fixes, up to 3 submissions, failures shown](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)
+- New: [0052. Building tools refuse until goal, days, equipment, and level are known](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)
+- Updated: [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (step cap 18, forced submit after a rejection, empty-reply nudge)
+- Next: Phase 2, step 3, the program page (chat plus program table) on localhost.

@@ -100,3 +100,10 @@ def test_the_checker_sends_a_bad_program_back_and_accepts_the_fix(monkeypatch):
 def test_non_health_notes_dont_demand_a_referral():
     checks = check_program(ProgramDraft.model_validate(GOOD), profile(context_notes=["little lifting experience"]), {"notes-program-design-1"})
     assert failed(checks) == []
+
+
+def test_referral_triggers_on_health_words_only():
+    from ragmotion.program import HEALTH_PATTERN
+    assert HEALTH_PATTERN.search("bad knee") and HEALTH_PATTERN.search("lower back pain") and HEALTH_PATTERN.search("had shoulder surgery")
+    assert not HEALTH_PATTERN.search("coming back to lifting after a break")
+    assert not HEALTH_PATTERN.search("little lifting experience")
