@@ -505,24 +505,27 @@ questions:
 - id: prog-weekly-sets
   question: "How many sets per week per muscle for hypertrophy?"
   category: program-design
-  expected_passages: [{source: pelland2024-volume}]
+  expected_passages: [{source: pelland2024-volume}, {source: iversen2021-time-efficient}]
   expected_coverage: full
   reviewed: true
+  # Coach (2026-10-01): Iversen 2021 (broad review) also counts as correct evidence.
 
 - id: prog-rest-intervals
   question: "How long should I rest between sets to build muscle?"
   category: program-design
-  expected_passages: [{source: singer2024-rest}]
+  expected_passages: [{source: singer2024-rest}, {source: iversen2021-time-efficient}]
   expected_coverage: full
   reviewed: true
   notes: "Before this was added, the answer claimed 'partial'; coach set full because the meta-analysis answers it directly."
+  # Coach (2026-10-01): Iversen 2021 (broad review) also counts as correct evidence.
 
 - id: prog-rep-ranges
   question: "What rep range is best for strength versus hypertrophy?"
   category: program-design
-  expected_passages: [{source: schoenfeld2021-loading}]
+  expected_passages: [{source: schoenfeld2021-loading}, {source: iversen2021-time-efficient}]
   expected_coverage: full
   reviewed: true
+  # Coach (2026-10-01): Iversen 2021 (broad review) also counts as correct evidence.
 
 - id: prog-light-vs-heavy
   question: "Can light weights build muscle as well as heavy weights?"
@@ -534,10 +537,11 @@ questions:
 - id: prog-frequency
   question: "How many days a week should I train each muscle group?"
   category: program-design
-  expected_passages: [{source: pelland2024-volume}, {source: pag2, chapter: "Chapter 4"}, {source: pag2, pages: [8]}]
+  expected_passages: [{source: pelland2024-volume}, {source: pag2, chapter: "Chapter 4"}, {source: pag2, pages: [8]}, {source: iversen2021-time-efficient}]
   expected_coverage: full
   reviewed: true
   notes: "Coach decision (2026-10-01): research or guidelines only; citing the program-design notes alone does not count."
+  # Coach (2026-10-01): Iversen 2021 (broad review) also counts as correct evidence.
 
 - id: prog-older-adult-sets
   question: "How many sets per week should a 70-year-old do?"
