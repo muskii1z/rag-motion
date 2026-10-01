@@ -1,10 +1,10 @@
 ---
 title: Resistance Training Program Design
 type: coaching-notes
-author: Drafted with AI assistance from widely taught program-design principles; not copied from or checked against any book; pending review by M. Saraswat
+author: Drafted with AI assistance from widely taught program-design principles (not copied from any book); reviewed by M. Saraswat, 2026-10-01
 license: Original notes (project-owned). No text, tables, or figures copied from any source.
 sources:
-  - title: General strength and conditioning practice (to be checked by the coach against their program-design textbook)
+  - title: General strength and conditioning practice, reviewed by the coach
 ---
 
 # Resistance Training Program Design
@@ -60,4 +60,4 @@ A program starts with a needs analysis: what the goal demands (strength, muscle 
 
 ## Sources
 
-- Drafted from general strength and conditioning practice. The coach checks every number above against their program-design textbook before these notes are marked reviewed.
+- Drafted from general strength and conditioning practice; every guideline above was reviewed by the coach (M. Saraswat) on 2026-10-01.
