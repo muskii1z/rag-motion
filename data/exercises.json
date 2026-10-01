@@ -16,7 +16,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-romanian-deadlift",
@@ -35,7 +35,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "glute-bridge",
@@ -53,7 +53,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-hip-thrust",
@@ -72,7 +72,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-reverse-lunge",
@@ -91,7 +91,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "bulgarian-split-squat",
@@ -111,7 +111,7 @@
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-step-up",
@@ -130,7 +130,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "single-leg-romanian-deadlift",
@@ -148,7 +148,7 @@
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "kettlebell-swing",
@@ -167,7 +167,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "box-jump",
@@ -186,7 +186,7 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "broad-jump",
@@ -203,10 +203,10 @@
     "equipment": [
       "bodyweight"
     ],
-    "difficulty": "intermediate",
+    "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "lateral-bound",
@@ -226,7 +226,7 @@
     "difficulty": "intermediate",
     "laterality": "unilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "push-up",
@@ -245,7 +245,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-overhead-press",
@@ -264,7 +264,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "one-arm-dumbbell-row",
@@ -285,7 +285,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "band-pull-apart",
@@ -304,7 +304,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "inverted-row",
@@ -318,12 +318,13 @@
     ],
     "movement_pattern": "pull",
     "equipment": [
-      "barbell"
+      "barbell",
+      "rack"
     ],
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dead-bug",
@@ -342,7 +343,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "core",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "pallof-press",
@@ -360,7 +361,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "core",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "farmer-carry",
@@ -380,7 +381,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "dumbbell-biceps-curl",
