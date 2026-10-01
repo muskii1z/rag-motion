@@ -45,6 +45,8 @@ Rules:
   unmapped_equipment in the coach's words.
 - experience_level only when stated or clearly implied ("advanced lifter" -> advanced,
   "never lifted" -> beginner). Otherwise null.
+- health_issues: any injury, pain, medical condition, surgery or pregnancy mentioned, in the text's words.
+  Record it even if it's casual ("tweaked my back"). Don't diagnose or add anything not stated.
 - context_notes: short facts from the text that fit no other field. Do not repeat facts already
   captured in other fields. No inferences, recommendations, or diagnoses.
 """

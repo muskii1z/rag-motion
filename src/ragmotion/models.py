@@ -57,6 +57,10 @@ class ClientProfile(BaseModel):
     )
     experience_level: Difficulty | None = Field(description="beginner, intermediate, or advanced. Null unless clearly stated or implied.")
     age: int | None = Field(description="Client age in years. Null if not stated.")
+    health_issues: list[str] = Field(
+        description="Injuries, pain, medical conditions, surgeries or pregnancy the text mentions, in its words, "
+        "e.g. 'tweaked my back last week', 'type 2 diabetes'. Empty if none. Never guess or diagnose."
+    )
     context_notes: list[str] = Field(
         description="Short facts stated in the text that fit no other field, e.g. 'recreational runner', 'age given as early 30s'. No inferences, advice, or diagnoses."
     )

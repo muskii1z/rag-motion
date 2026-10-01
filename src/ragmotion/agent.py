@@ -137,7 +137,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
     """One turn of the program conversation. conversation: [{"role": "user"|"assistant", "content": str}, ...]"""
     profile = read_profile(conversation)
     turn = AgentTurn(kind="error", profile=profile.model_dump())
-    if any("pregnan" in n.lower() for n in profile.context_notes):
+    if any("pregnan" in n.lower() for n in profile.context_notes + profile.health_issues):
         turn.kind, turn.text = "message", ("Programs during pregnancy should be planned with a health professional, "
                                            "so I won't build one here. The Physical Activity Guidelines have a section on "
                                            "activity during pregnancy you can ask me about.")

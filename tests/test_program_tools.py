@@ -7,7 +7,7 @@ from ragmotion.program import find_exercises, missing_for_program, population
 
 def profile(**kw) -> ClientProfile:
     base = dict(goal=None, sessions_per_week=None, session_duration_minutes=None, equipment=[], unmapped_equipment=[],
-                experience_level=None, age=None, context_notes=[])
+                experience_level=None, age=None, health_issues=[], context_notes=[])
     return ClientProfile(**{**base, **kw})
 
 

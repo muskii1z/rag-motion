@@ -12,7 +12,7 @@ from ragmotion.program import ProgramDraft, check_program, failed
 
 def profile(**kw) -> ClientProfile:
     base = dict(goal="build muscle", sessions_per_week=2, session_duration_minutes=None, equipment=["dumbbell", "bench"],
-                unmapped_equipment=[], experience_level="beginner", age=None, context_notes=[])
+                unmapped_equipment=[], experience_level="beginner", age=None, health_issues=[], context_notes=[])
     return ClientProfile(**{**base, **kw})
 
 
@@ -102,8 +102,15 @@ def test_non_health_notes_dont_demand_a_referral():
     assert failed(checks) == []
 
 
-def test_referral_triggers_on_health_words_only():
+def test_backup_word_check_catches_casual_complaints_but_not_coming_back():
     from ragmotion.program import HEALTH_PATTERN
-    assert HEALTH_PATTERN.search("bad knee") and HEALTH_PATTERN.search("lower back pain") and HEALTH_PATTERN.search("had shoulder surgery")
-    assert not HEALTH_PATTERN.search("coming back to lifting after a break")
-    assert not HEALTH_PATTERN.search("little lifting experience")
+    for complaint in ["bad knee", "lower back pain", "had shoulder surgery", "hurt my back", "my back hurts",
+                      "tweaked my back", "strained my hamstring", "herniated disc"]:
+        assert HEALTH_PATTERN.search(complaint), complaint
+    for fine in ["coming back to lifting after a break", "little lifting experience", "getting back into training"]:
+        assert not HEALTH_PATTERN.search(fine), fine
+
+
+def test_ai_read_health_issues_trigger_the_referral():
+    checks = check_program(ProgramDraft.model_validate(GOOD), profile(health_issues=["type 2 diabetes"]), {"notes-program-design-1"})
+    assert [c.name for c in failed(checks)] == ["client's conditions acknowledged, with a reminder to see a health professional"]

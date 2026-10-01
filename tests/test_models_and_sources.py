@@ -21,7 +21,7 @@ def test_exercise_rejects_a_bad_slug():
 
 def test_missing_fields_are_computed_not_generated():
     p = ClientProfile(goal="strength", sessions_per_week=3, session_duration_minutes=None, equipment=[],
-                      unmapped_equipment=[], experience_level=None, age=42, context_notes=[])
+                      unmapped_equipment=[], experience_level=None, age=42, health_issues=[], context_notes=[])
     assert p.missing_fields() == ["session_duration_minutes", "equipment", "experience_level"]
 
 
