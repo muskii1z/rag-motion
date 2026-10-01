@@ -177,6 +177,10 @@ Rules:
 - equipment_limited is true only when the question says what the person has (so everything else is
   unavailable) or that they have none. "Dumbbell exercises for glutes" names equipment but does not
   say it's all they have: false. "I only have dumbbells": true. "Full gym": false.
+  Asking specifically for bodyweight exercises ("bodyweight squat progression", "BW leg exercises")
+  means no equipment: true, with equipment_owned empty.
+  Naming an exercise or the equipment for an exercise ("kettlebell swing for hip power", "band pulling
+  exercises") is not a limit: false.
 - Map equipment to the allowed names only: bodyweight, dumbbell, band, kettlebell, barbell, bench, box,
   rack, pullup-bar, anchor. Leave out equipment that has no allowed name.
 - population: set it only when the question names an age or one of these groups: adults, older adults,

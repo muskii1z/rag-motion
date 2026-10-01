@@ -4,7 +4,7 @@ A retrieval-augmented assistant for strength coaches. Ask a training question in
 
 Built step by step as an AI-engineering portfolio project, with every decision and lesson documented in [`docs/`](docs/).
 
-**Status:** Phase 1 (production RAG fundamentals) complete. Phase 1F: equipment and age-group filters done; answers that broke a limit went from 4 in 13 to 0 in 13 on the eval. Next: retrieval improvements for "list everything" questions, then a program-design agent (Phase 2).
+**Status:** Phase 1 (production RAG fundamentals) and Phase 1F (better retrieval, measured) complete. Answers that broke a client's equipment or age-group limits went from 31% to 0%. Next: Phase 2, a program generator (sets, reps and a weekly schedule) built on this retrieval.
 
 ---
 
@@ -14,15 +14,17 @@ Built step by step as an AI-engineering portfolio project, with every decision a
 - **Shows its work.** The web page color-codes citations (guidelines, research, notes, catalog) and opens the exact source passage on click. General training knowledge, when useful, is shown separately and labeled "not from your sources".
 - **Respects limits.** It reads the person's equipment and age group from the question and filters the search, so someone with only dumbbells never gets a bench exercise, and a beginner adult never gets older-adult numbers.
 - **Checks itself.** Python verifies that every citation points to retrieved evidence, catching invented or mistyped sources before the user trusts them.
-- **Is measured.** A 46-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
+- **Understands coach slang.** "RFESS", "BW squat", "SL RDL" and "KBS" are expanded before search by a small, tested glossary.
+- **Is measured.** A 52-question evaluation set, with an answer key reviewed by a coach, scores both retrieval and answers. Every change is judged against it.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    Q[Coach's question] --> F[Read limits<br/>equipment · age group<br/>small LLM call]
+    Q[Coach's question] --> G[Expand slang<br/>RFESS, BW, DB…<br/>glossary]
+    G --> F[Read limits<br/>equipment · age group<br/>small LLM call]
     F --> E[Embed question<br/>Voyage voyage-4-lite]
-    E --> S[(Postgres + pgvector<br/>42 exercises · 200 passages<br/>filtered in SQL)]
+    E --> S[(Postgres + pgvector<br/>42 exercises · 278 passages<br/>filtered in SQL)]
     S --> R[Top 5 usable exercises +<br/>top 5 passages for that group]
     R --> L[LLM via OpenRouter<br/>Gemini 2.5 Flash-Lite<br/>structured output]
     L --> C[Citation checks<br/>in Python]
@@ -53,6 +55,7 @@ Key design choices (full reasoning in [`docs/decisions/`](docs/decisions/README.
 | Evidence-only answers with separately labeled general guidance | The coach can always tell what's verified from what isn't |
 | Limits enforced by filters in the database search, not prompt rules | With prompt rules alone, 5 of 13 constrained answers still broke a limit; the model can't suggest what it never sees |
 | Age-group tags on passages from the source's own structure | The guidelines are organized by population, so rules tag every passage for free, testably, with no model guessing |
+| Slang expanded by a glossary, not an LLM rewrite | Same quality as an LLM rewrite in testing, no added time, deterministic and unit-tested |
 | Code checks for facts; an AI judge only for the coach's labeling rules | Facts (real citation? forbidden item?) stay deterministic. Rules that need reading ("is it labeled intermediate?") go to a stronger model from a different family, never the one that wrote the answer |
 
 ## Knowledge base
@@ -62,49 +65,58 @@ Key design choices (full reasoning in [`docs/decisions/`](docs/decisions/README.
 | Physical Activity Guidelines for Americans, 2nd ed. (HHS, 2018) | Guideline document (PDF) | Public domain | 133 |
 | Kons et al. 2023, *Effects of Plyometric Training on Physical Performance: An Umbrella Review* | Research article (XML) | CC BY 4.0 | 25 |
 | Haugen et al. 2019, *The Training and Development of Elite Sprint Performance* | Research article (XML) | CC BY 4.0 | 28 |
+| Schoenfeld et al. 2021, *Loading Recommendations for Muscle Strength, Hypertrophy, and Local Endurance* | Research article (XML) | CC BY 4.0 | 28 |
+| Singer et al. 2024, *Give it a rest: inter-set rest intervals and muscle hypertrophy* | Research article (XML) | CC BY 4.0 | 18 |
+| Pelland et al. 2024, *The Resistance Training Dose-Response* (weekly volume and frequency) | Research **preprint, not peer reviewed** (PDF; the peer-reviewed version is paywalled) | CC BY 4.0 | 29 |
 | Notes on NSCA position statements: weightlifting, older adults, youth/LTAD | Original project notes | Project-owned; cite NSCA | 14 |
-| Exercise catalog | 42 original exercises (22 coach-reviewed) | Project-owned | – |
+| Program-design notes (load, reps, rest, sets, frequency, splits, progression) | Original project notes, coach-reviewed | Project-owned | 3 |
+| Exercise catalog | 42 original exercises, all coach-reviewed | Project-owned | – |
 
-Sources are chosen under a written [licensing policy](docs/decisions/0017-knowledge-source-licensing-policy.md): copyrighted material (for example NSCA publications) is never ingested; it enters only as original notes that cite it. Downloaded files stay out of git; [`data/sources.toml`](data/sources.toml) records each source's URL, license, attribution, and file hash.
+Sources are chosen under a written [licensing policy](docs/decisions/0017-knowledge-source-licensing-policy.md): copyrighted material (for example NSCA publications) is never ingested; it enters only as original notes that cite it. Every passage is tagged with the group it's about (adults, older adults, youth, pregnancy, or general), so the program-design research on healthy adults never answers a question about a 70-year-old. Downloaded files stay out of git; [`data/sources.toml`](data/sources.toml) records each source's URL, license, attribution, and file hash.
 
 ## Evaluation
 
-46 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach slang (RDL, RFESS, BW, DB), equipment limits (bands only, one kettlebell, no equipment, a full gym), guideline dosage, specific groups (beginner adults, older adults, kids, pregnancy), research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **set question by question by the coach**. One question is a trap: with a full gym nothing should be removed, so it catches a filter that's too strict.
+52 questions in [`evals/eval_set.yaml`](evals/eval_set.yaml): exercise selection, coach slang (RDL, RFESS, BW, DB, KBS), equipment limits (bands only, one kettlebell, no equipment, a full gym), guideline dosage, specific groups (beginner adults, older adults, kids, pregnancy), program design (weekly sets, rest, rep ranges, frequency), research questions, and deliberately unanswerable ones. The answer key was drafted by the model and **set question by question by the coach**. Two questions are traps: with a full gym nothing should be filtered out, and a 70-year-old's "how many sets" must not be answered from research on younger adults.
 
-**Retrieval** (top 5, all 46 questions; each row adds one change):
+**Answers today** (full pipeline, 52 questions, 3 runs, scored in code; results in `evals/results/`):
+
+| Check | Result |
+|---|---|
+| **No forbidden advice** (wrong equipment or age group) | **100%** (45 / 45) |
+| Every citation points to retrieved evidence | 97% |
+| Used the expected evidence | 95% |
+| Honest coverage claim (full / partial / none) | 91% |
+| Expected exercises named (list questions) | 85% |
+
+4 of 156 question-runs failed with a clear error and are left out of the totals: 3 timeouts during a provider slowdown (each call has a 25-second limit) and 1 unreadable model reply after a retry.
+
+**What changed the numbers.** Each change was measured on the same questions before it was kept.
+
+| Change | Measured effect | Kept? |
+|---|---|---|
+| Equipment and age-group **filters in the SQL search** (prompt instructions had failed) | Forbidden advice 31% → 0% of limit questions (3 runs each, 40-question version); recall 0.80 → 0.83 | ✅ |
+| **Slang glossary** before search | Slang questions found the expected exercise 89% → 100%; forbidden-free 93% → 100% | ✅ |
+| LLM rewrite of slang instead of the glossary | Same quality, +0.6 s per question | ❌ |
+| **Hybrid search** (keyword + semantic, weighted 1:1 to 3:1), or hybrid only for passages | With filters on, semantic ranked passages best (MRR 0.84 vs 0.81–0.83); split answers had a worse coverage claim | ❌ |
+| 10 exercises per question instead of 5 | Lists 12% more complete, but more unasked-for exercises in focused answers | ❌ |
+| The coach's formatting rules added to the answer prompt | No version beat the plain prompt; padded focused answers | ❌ |
+
+**Retrieval** today (top 5, 52 questions):
 
 | Search setup | Exercise recall | Passage recall | Passage MRR | Questions with a forbidden item |
 |---|---|---|---|---|
-| Keyword (Postgres full-text) | 0.64 | 0.66 | 0.50 | 15% |
-| Hybrid, keyword + semantic merged (reciprocal rank fusion) | 0.77 | 0.93 | 0.84 | 22% |
-| Semantic | 0.81 | 0.97 | 0.79 | 17% |
-| Semantic + equipment and age-group filters | 0.83 | 0.97 | 0.86 | 2% |
-| **+ slang dictionary (default)** | **0.87** | **0.97** | **0.86** | **0%** |
-| *Tried:* hybrid + filters + slang, semantic weighted 2:1 | 0.83 | 0.96 | 0.84 | 0% |
-| *Tried:* semantic for exercises, hybrid for passages | 0.87 | 0.96 | 0.84 | 0% |
+| Keyword (Postgres full-text) | 0.64 | 0.55 | 0.45 | 13% |
+| Hybrid (reciprocal rank fusion) | 0.75 | 0.90 | 0.83 | 17% |
+| Semantic | 0.81 | 0.95 | 0.81 | 15% |
+| **Semantic + filters + slang glossary (default)** | **0.87** | **0.95** | **0.84** | **0%** |
 
-Hybrid search used to rank passages better than semantic (0.84 vs 0.79). Once the age-group filter removed wrong-group passages, semantic ranked them best (0.86), so hybrid no longer earns its place. The split variant (the stronger of the two) was also checked on full answers (3 runs): no gain, and a worse coverage claim (0.855 vs 0.906), so semantic stays the default. Full hybrid wasn't run on answers, since it already trailed on exercise retrieval.
+The coach's labeling rules (label intermediate exercises for beginners, label bodyweight options and secondary muscles, group beginner exercises by muscle group) are graded by an AI judge: Claude Sonnet 5.5, a different model family from the one that writes answers, checked against the catalog's facts. The rule that still fails is grouping a full beginner list by muscle group, which needs more than 5 exercises in view.
 
-**Slang** ("RFESS", "BW squat", "DB row"): probing 20 slang questions showed the embedding model already understood 16. A small glossary, expanded before search (longest term first, whole words only), fixed the rest: the slang questions' expected exercise was found 89% → 100% of the time, with no added time. An LLM rewrite scored the same but added 0.6 s per question, so the dictionary won.
-
-**Answers**, before and after the filters (full pipeline, scored in code, averaged over 3 runs each, results saved in `evals/results/`):
-
-| Check | No filters | With filters |
-|---|---|---|
-| **No forbidden advice** (wrong equipment or age group) | **69%** (27 / 39) | **100%** (39 / 39) |
-| Every citation points to retrieved evidence | 98% | 98% |
-| Used the expected evidence | 98% | 98% |
-| Honest coverage claim (full / partial / none) | 88% | 91% |
-
-The coach's labeling rules (label intermediate exercises for beginners, label bodyweight options and secondary muscles, group beginner exercises by muscle group) are graded by an AI judge: Claude Sonnet 5.5, a different model family from the one that writes answers. It reads the answer against the catalog's facts and gives a verdict with a one-sentence reason for the coach to check.
-
-What the numbers say: before the filters, the system could still suggest bench exercises to someone with only dumbbells, or older-adult numbers to a beginner adult, even though the prompt told it not to. Moving the limit out of the prompt and into the search fixed that completely on this eval, without losing anything elsewhere. The trap question still passes, so nothing usable was filtered out. The remaining weakness is breadth: with only 5 exercises in view, it can't list "every beginner exercise by muscle group".
-
-Two lessons from the process: when the catalog grew from 20 to 42 exercises, recall "fell" only because the answer key was out of date, so the key was fixed before anything else was measured. And single runs are noisy (the coverage claim changes from run to run), so the before-and-after comparison uses averages.
+Lessons from the process: when the catalog grew from 20 to 42 exercises, recall "fell" only because the answer key was out of date, so keys are fixed before anything is measured. Single runs are noisy, so comparisons use 3-run averages. And an earlier change can remove the problem a later technique was meant to solve: the age-group filter is why hybrid search no longer helps.
 
 ## Run it locally
 
-**Prerequisites:** [Docker](https://www.docker.com/), [uv](https://docs.astral.sh/uv/), an [OpenRouter](https://openrouter.ai) API key (covers the LLM and embeddings). Optional: a [LangSmith](https://smith.langchain.com) key for tracing.
+**Prerequisites:** [Docker](https://www.docker.com/), [uv](https://docs.astral.sh/uv/), an [OpenRouter](https://openrouter.ai) API key (covers the LLM and embeddings). Optional: a [LangSmith](https://smith.langchain.com) key for tracing (off by default; set `LANGSMITH_TRACING=true` to debug a request).
 
 ```bash
 git clone https://github.com/muskii1z/rag-motion.git && cd rag-motion
@@ -117,7 +129,8 @@ docker compose exec -T db psql -U postgres -d ragmotion -v ON_ERROR_STOP=1 < db/
 uv run python scripts/seed_exercises.py        # load the exercise catalog
 uv run python scripts/embed_exercises.py       # embed it
 uv run python scripts/download_sources.py      # fetch source documents, verify hashes
-uv run python scripts/extract_document.py pag2 # extract the PDF
+uv run python scripts/extract_document.py pag2                # extract the PDFs
+uv run python scripts/extract_document.py pelland2024-volume
 uv run python scripts/chunk_documents.py       # chunk all sources
 uv run python scripts/embed_chunks.py          # embed the chunks
 ```
@@ -132,9 +145,9 @@ uv run python scripts/ask.py "How much strength training should a beginner adult
 Tests and evaluation:
 
 ```bash
-uv run pytest                                  # 54 tests, ~1 s, no API calls
+uv run pytest                                  # 55 tests, ~1 s, no API calls
 uv run python evals/run_retrieval_eval.py      # retrieval scores (free)
-uv run python evals/run_answer_eval.py         # answer scores + AI judge (~10 cents), saved to evals/results/
+uv run python evals/run_answer_eval.py         # answer scores + AI judge (~10 cents), saved to evals/results/ (LangSmith not needed)
 uv run python evals/run_answer_eval.py --langsmith   # also record it as a LangSmith experiment
 uv run python evals/run_answer_eval.py --no-filters   # the same, without the filters, for comparison
 ```
@@ -142,7 +155,7 @@ uv run python evals/run_answer_eval.py --no-filters   # the same, without the fi
 ## Project layout
 
 ```
-src/ragmotion/   config, db, models, llm, embeddings, retrieval, rag, ingestion, chunking, evaluation, errors, web app
+src/ragmotion/   config, db, models, llm, embeddings, retrieval, rewrite, rag, ingestion, chunking, evaluation, judge, errors, web app
 scripts/         seed, embed, download, extract, chunk, search, ask
 evals/           eval set (coach-reviewed) and saved results
 db/              schema and inspection queries
@@ -161,7 +174,9 @@ tests/           unit and integration tests
 ## Limitations
 
 - Top-5 retrieval is too small for "list everything" questions.
-- Limits are read from the current question only. The level (beginner, advanced) is read but not used as a filter yet.
-- The catalog has 42 exercises (the original 20 still await coach review); program-design sources (sets, reps, frequency) are still thin.
+- Limits are read from the current question only. Training level (beginner, advanced) isn't a filter yet; the answer model handles it from each exercise's level label.
+- The catalog has 42 exercises; some areas (e.g. beginner hamstring work) are thin.
+- One program-design source is a preprint (labeled as such); the program generator itself is Phase 2.
+- The answer model occasionally returns an unreadable reply even after a retry (about 1 in 150 in the final runs); the app shows a clear "please ask again" message.
 - Each question is answered on its own; there is no conversation memory.
 - Not medical advice. Built for coaches working with generally healthy people; demo data is fictional.
