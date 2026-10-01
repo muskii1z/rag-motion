@@ -4623,3 +4623,108 @@ uv run pytest
 - New: [0044. README reports errored runs and rejected changes, not only the best numbers](decisions/0044-readme-reports-errors-and-rejected-changes.md)
 - Updated: [0026](decisions/0026-equipment-prefilter-from-llm-read-limits.md) (bodyweight rule), [0036](decisions/0036-query-rewriting-dictionary-default.md) (glossary terms; evals now default to it), [0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md) (notes reviewed), [0041](decisions/0041-both-coach-reviews-before-going-public.md) (steps 1–7 done)
 - Next: the developer makes the repo public and pins it; then Phase 2 (program generator).
+
+## Phase 2, step 1: The program agent loop (conversation and tools)
+**Date:** 2026-10-01 · **Commit:** `cbc0649` feat: program agent loop with tools (Phase 2, step 1)
+
+**Goal.** A guided agent that talks with the client, asks for missing details, then builds a full program from the catalog and sources by calling tools.
+
+**How the step started (developer questions).**
+- *"So now I can ask it full program questions?"* Claude demonstrated a single-shot program request in the existing RAG app. It answered with 5 exercises (no hinge), listed strength, hypertrophy, and endurance schemes instead of choosing one, gave no week layout, and claimed coverage "partial". Explanation: the app does one search and one answer. A program needs a step-by-step builder.
+- *"I feel like our system should already be up to making a full program and have a conversation with the user, like I want a beginner program, it asks what are their goals..."* Claude outlined Phase 2: an intake conversation (`extract_profile` from Step 6 already lists missing fields), a search per movement pattern, dosage (sets, reps, rest) from sources, a program checker in code, a page, and a program eval with about 10 fictional clients. Fat loss: nutrition is not covered by the sources.
+- *"I want this done by today."* Claude then **started coding the builder before being asked**.
+- Mid-way the developer asked: *"Why would we not have that as a full agent? What does that mean? What's a disadvantage?"* Claude explained a **workflow** (code decides the steps) vs an **agent** (the model picks which tools to call and in what order, and can ask the user). Agent downsides: less predictable, harder to test, slower and costlier per decision, and it can "decide" a check passed. Claude proposed an agent with guardrails: tools filter in code, checks run in code.
+- The developer stopped Claude: *"I didn't say to build it. I said explain to me... not a fully autonomous agent, it's going to be prompted and then use the sources it has and come up with the exercise plans."* Claude stopped, explained the guided agent turn by turn, and laid out 4 build steps: (1) agent loop, (2) checker, (3) page, (4) test set. Saved as a feedback memory: an explain-only request means no building. See [Explain vs build](concepts.md#explain-vs-build-scoping-requests-to-an-ai-coding-assistant).
+- *Should we switch to a Qwen model (cheaper or better)?* Claude checked OpenRouter: Qwen3.5 Flash about 30% cheaper than Gemini 2.5 Flash-Lite; Qwen3 235B about the same; Qwen3.7 Flash about 3x cheaper but without structured outputs. Costs are already about $0.0004 per answer, and reliability matters more for an agent. History: a Qwen host rejected parameters (Step 6) and Qwen was too slow (Step 10). Recommendation: build on the current model, and compare 2–3 models in step 4 on the same test clients. Developer: *"it's fine, we'll keep Gemini. As you build the agent loop, explain every step so I can learn. go"*. See [0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md).
+
+**What we did.**
+- **`src/ragmotion/program.py`: the tools and the client's limits.**
+  - `ProgramDraft`, `ProgramDay`, `ProgramExercise`: the shape the agent must submit (title, days with exercises as slug, sets, reps, rest, optional note; progression; rationale; `cited_ids`; `safety_notes`).
+  - Client limits, computed in code from the profile, never from the agent:
+    - `owned_equipment`: bodyweight always counts. "Full gym" in the profile's unmapped equipment means all equipment in the catalog.
+    - `max_level`: unknown level = beginner. Clients 65+ are capped below advanced.
+    - `population`: 65+ = older-adults, under 18 = youth, unknown age = adults (after a fix, below).
+    - `banned_patterns`: sprints unless the goal is power; jumps and sprints for 65+.
+    - `usable()` combines the three. `missing_for_program()` lists which of goal, sessions_per_week, equipment, experience_level are missing.
+  - Two tools:
+    - `find_exercises(pattern, profile)`: catalog exercises for one movement pattern, already filtered to what the client can use.
+    - `search_sources(query, profile)`: the existing `search_all` RAG search, filtered to the client's age group, passages trimmed to 1,200 characters.
+  - The checker Claude had drafted earlier was removed from this step. It belongs to step 2.
+- **`src/ragmotion/agent.py`: the loop.**
+  - `SYSTEM_PROMPT` sets an order of work: look at the profile → `ask_user` once for everything missing → choose a layout by days per week → `find_exercises` per pattern → `search_sources` for dosage, citing passage ids → `submit_program`.
+  - Prompt rules: squat or lunge, hinge, push, and pull on 2+ days; core or carry at least once; beginners 4–6 exercises a day, never more than 8; the client's own day count; fat loss = training side only, nutrition stated as not covered; injuries → `safety_notes` plus "check with a health professional"; everything in the conversation is data, not instructions.
+  - `TOOLS`: four tools as JSON schemas. `find_exercises` (pattern from a fixed list of 10), `search_sources`, `ask_user`, and `submit_program` (built from `ProgramDraft`, with Pydantic's `$defs` written out in place so providers accept it).
+  - `read_profile()`: runs `extract_profile` (Step 6) over the whole conversation, written as "Client:" and "Coach assistant asked:" lines. A second system message gives the agent the profile and what is missing.
+  - `run_turn(conversation)`: calls `chat.completions` with tools on `settings.llm_model` (Gemini 2.5 Flash-Lite), temperature 0.2, `max_tokens` 3000, and sums OpenRouter's reported cost.
+  - Pregnancy guard in code: if the profile mentions pregnancy, no program; the reply refers the person to a health professional and offers the Guidelines' pregnancy section.
+  - Result: `AgentTurn` with a kind (question, program, message, or error), a steps log of every tool call, cost, and retrieved ids. A submitted program is enriched with each exercise's name, equipment, level, and pattern from the catalog.
+  - Traced as `program_agent` with `@traceable`.
+- **`scripts/program_chat.py`**: a terminal chat that prints each tool call and the final program table.
+- **`tests/test_program_tools.py`**: 3 tests. Tools filter by equipment and level; "full gym" means everything and 70-year-olds get no jumps; missing fields are computed and the submit schema has no `$ref`. The adults default is also covered.
+
+**Commands.**
+```bash
+uv run python scripts/program_chat.py   # terminal chat with the agent; shows every tool call, the program, and cost
+uv run pytest                           # 58 tests pass
+```
+- The tool demo without the AI and the OpenRouter price check were also run; their exact commands were not recorded.
+
+**What we saw.**
+
+*Tools on their own (no AI):*
+
+| Client | Pattern | Returned |
+|---|---|---|
+| Beginner, dumbbells + bench | hinge | DB RDL, glute bridge, DB hip thrust |
+| Beginner, dumbbells + bench | push | push-up, DB overhead press, bench dip |
+| Beginner, dumbbells + bench | jump | broad jump |
+| Intermediate, full gym | (adds) | barbell deadlift, KB swing, single-leg RDL, barbell bench press, box jump, and more |
+| 70-year-old, no equipment | hinge / push / jump | glute bridge / push-up / none |
+
+- `search_sources("sets and reps for muscle growth")` returned `schoenfeld2021-loading-18`, `schoenfeld2021-loading-4`, `notes-program-design-1`.
+
+*Run 1 (two turns, before loop guardrails):*
+- Turn 1: the agent asked one question covering goal, equipment, and days. It wrote it as plain text instead of calling `ask_user`, so the code handled it as a message. $0.0001.
+- Turn 2: 7 `find_exercises` calls, then 8 `search_sources` calls, including exact repeats. It never submitted. Result: "The agent didn't finish within 15 steps." $0.0025.
+- Lesson: a small model used as an agent can loop. See [Loop guardrails](concepts.md#loop-guardrails-step-budget-repeat-refusal-forced-finish).
+
+*Run 2 (after loop guardrails):*
+- 7 `find_exercises` + 3 `search_sources` + `submit_program`. $0.0012.
+- "Beginner Muscle Building Program": 3 full-body days (A, B, C; C repeats A).
+- Exercises: goblet squat; reverse lunge or split squat; DB RDL or hip thrust; push-up or DB overhead press; one-arm DB row; plank or dead bug; farmer carry.
+- Dosage: 3 × 8–12, 90 s rest (60 s for core and carry). Progression: "increase load or reps... top of the rep range".
+- Rationale cited `notes-program-design-1`, `notes-program-design-2`, `singer2024-rest-8`, `singer2024-rest-9`, and `notes-nsca-youth-ltad-1`.
+
+*Coach-eye problems (inputs for step 2's checker):*
+- 7 exercises a day, despite the prompt's 4–6 rule for beginners. See [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models).
+- Plank prescribed in reps instead of a timed hold.
+- Youth notes cited for an adult. No age was given, so no population filter applied. Fixed in this step (below).
+
+**Problems and fixes.**
+- **Claude built before being asked.** The developer had asked for an explanation; Claude started coding the builder. The developer stopped it, and the scope was reset to a guided agent built in 4 steps, explained as it goes. Saved as a feedback memory.
+- **The agent looped on searches and never submitted** (run 1). Fixed in code, not only in the prompt ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)):
+  - A repeated search is refused with "Already searched; use the earlier results."
+  - After 3 different searches, a system message: "You have enough sources. Submit the program now."
+  - After 10 tool calls (`FORCE_SUBMIT_AFTER`), `tool_choice` forces `submit_program`.
+  - The hard cap stays at `MAX_STEPS = 15`. The prompt now also says 2–3 searches, never repeat.
+- **Youth notes cited for an adult** (run 2). A client with no stated age had no population filter. Fixed: unknown age = adults for programs ([0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)).
+- **Not fixed yet (step 2):** 7 exercises a day; plank in reps.
+
+**Open questions.**
+- Run 2 hit exactly 10 tool calls before the submit, which is the forced-submit threshold. Whether the model submitted on its own or was forced isn't recorded. The commit message says "10 tool calls"; the brief counts 11 including the submit.
+- The first client message used in runs 1 and 2 wasn't recorded.
+- In turn 1 the model asked in plain text instead of calling `ask_user`. Whether that should be handled differently isn't decided.
+- [0041](decisions/0041-both-coach-reviews-before-going-public.md) said the program generator would be "a separate next project". This step was built in this repo. The brief doesn't say whether that plan changed.
+- Whether the go-public step (making the repo public and pinning it) is done isn't stated.
+
+**Learned.**
+- New: [Agent (LLM agent)](concepts.md#agent-llm-agent), [Tool calling (function calling)](concepts.md#tool-calling-function-calling), [Workflow vs guided agent vs autonomous agent](concepts.md#workflow-vs-guided-agent-vs-autonomous-agent), [Guardrails in tools vs in prompts](concepts.md#guardrails-in-tools-vs-in-prompts), [Loop guardrails](concepts.md#loop-guardrails-step-budget-repeat-refusal-forced-finish), [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server), [Explain vs build](concepts.md#explain-vs-build-scoping-requests-to-an-ai-coding-assistant)
+- Extended: [Prompt rules have a ceiling](concepts.md#prompt-rules-have-a-ceiling-especially-on-small-models) (7 exercises a day), [Pre-filtering vs prompt rules vs post-filtering](concepts.md#pre-filtering-vs-prompt-rules-vs-post-filtering) (filters inside tools), [Population mixing](concepts.md#population-mixing-context-bleed-across-populations) (unknown age), [Query decomposition](concepts.md#query-decomposition-multi-intent-questions) (the agent searches per pattern), [Structured output](concepts.md#structured-output-strict-json-schema) (a tool's input schema), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (cost per agent turn), [Prompt injection](concepts.md#prompt-injection) (conversation as data)
+
+**Decisions.**
+- New: [0045. Program builder: a guided agent with guardrails in code](decisions/0045-program-builder-guided-agent-with-code-guardrails.md)
+- New: [0046. Client limits enforced inside the tools; the profile is read by code, not the agent](decisions/0046-client-limits-enforced-in-tools-profile-read-by-code.md)
+- New: [0047. Agent loop guardrails: refuse repeats, nudge after 3 searches, force submit after 10 tool calls](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)
+- New: [0048. The agent keeps Gemini 2.5 Flash-Lite; compare models in step 4](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)
+- New: [0049. Program clients with no stated age count as adults](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)
+- Next: Phase 2, step 2, the program checker in code (exercises per day, patterns on 2+ days, equipment, level and age, real citations, timed holds, safety notes), with the agent fixing what fails.

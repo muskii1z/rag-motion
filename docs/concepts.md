@@ -70,7 +70,9 @@ Structured output forces the model to reply in an exact template instead of free
 
 *Phase 1F F3 + F4 update: structured output as the input to a filter.* `QuestionLimits` (`equipment_limited`, `equipment_owned`, `limit_phrase`) is filled by a structured call at temperature 0. `equipment_owned` is typed with the same allowed equipment names as the exercise table, so the model can't return "resistance bands" when the database says `band`; the output plugs straight into a SQL filter. `limit_phrase` records the exact words that state the limit, so a person can check why a filter was applied.
 
-*First seen: Step 6. Extended: after Step 15, Phase 1F F3 + F4.*
+*Phase 2, step 1 update: a schema as a tool's input.* The agent's `submit_program` tool takes `ProgramDraft` (days, exercises with sets, reps, rest; progression; rationale; cited ids; safety notes) as its JSON schema. Pydantic puts nested models under `$defs` and points to them with `$ref`; some providers want them written out in place, so `_inline_refs()` does that, and a test checks no `$ref` is left. If a submitted program doesn't match the shape, the validation error goes back to the agent as the tool result instead of crashing. As before, the shape says nothing about whether 7 exercises a day is right for a beginner.
+
+*First seen: Step 6. Extended: after Step 15, Phase 1F F3 + F4, Phase 2 step 1.*
 
 ### Hallucinated inference
 When a model fills a field from its own assumptions instead of the text. Examples from Step 6: "early 30s" became age 30; "played college soccer" became experience level "intermediate"; `bodyweight` was added to equipment though not listed. The output looks confident and valid. Countered with explicit prompt rules: numbers must come from the text; ranges or hedges ("maybe twice a week") become null, with the exact wording saved in `context_notes`; experience level only when stated or clearly implied. The rules fixed most cases on Qwen, but it still inferred "intermediate" afterwards.
@@ -143,7 +145,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 *Step 13 update: passages make prompts longer.* Adding five document passages to the evidence raised a RAG answer's input from about 1,000 tokens (Step 10) to 3,531 tokens (316 out) for the beginner-adult question. On Gemini 2.5 Flash-Lite that was still $0.000480 per answer, about 1.5 s of generation. Input tokens scale with k (how many passages are retrieved) times chunk size, which is one reason chunk size and k are tuning knobs, not just quality knobs.
 
-*First seen: Step 6. Extended: Steps 7 and 13.*
+*Phase 2, step 1 update: an agent turn is many calls.* One RAG answer is about $0.0004. One program-agent turn makes a model call per round of tool calls, and every call re-sends the growing message list, so costs add up per turn: run 2 (11 tool calls) cost $0.0012; run 1, which looped without finishing, cost $0.0025. `run_turn` sums OpenRouter's reported cost across all calls.
+
+*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 step 1.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -183,7 +187,9 @@ A prompt rule (an instruction written into the prompt, like "never apply older-a
 
 **In an interview (F7b):** "I thought formatting was the one job a prompt could do well. On my cheap model, adding four formatting rules made it pad answers and misjudge its own coverage, and none of three versions beat the plain prompt. So the ceiling isn't only for hard limits; every extra instruction costs something on a small model."
 
-*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a, F7b.*
+*Phase 2, step 1 update: the ceiling in an agent.* The program agent's prompt says beginners get 4–6 exercises a day. In the first finished run it gave a beginner 7 a day, and it prescribed the plank in reps instead of a timed hold. Neither will be fixed with firmer wording: the next step is a program checker in code that finds these and sends them back to the agent to fix.
+
+*First seen: Step 13. Extended: Phase 1F F3 + F4, F5, F7a, F7b, Phase 2 step 1.*
 
 ### Saying what not to infer (default assumptions in extraction prompts)
 When a model fills in a form, it tends to fill gaps with a likely default. In F5, the limit reader tagged questions about "athletes" and "an intermediate lifter" as `adults`, even though the prompt said athletes → null. The fix was to spell out what does *not* count, with examples: "set it only when the question names an age or one of these groups ... Words like 'athlete', 'lifter', 'someone', 'client' or 'I' do not name a group: null. Do not assume adults by default." Then all 40 were right. This worked where the Step 13 answer rule didn't because it's a small, narrow job with one field, and the result was checked on every eval question.
@@ -466,7 +472,9 @@ A multi-intent question asks for several things at once. "Explosive lower-body p
 
 **In an interview:** "A request like 'explosive lower-body program to run faster' is four searches in disguise. Splitting it into sub-queries for principles, jumps, single-leg strength, and progression retrieves better evidence than one blended search."
 
-*First seen: between Steps 5 and 6.*
+*Phase 2, step 1 update: the agent decomposes by itself.* A program request is no longer one search. The agent calls `find_exercises` once per movement pattern (7 calls in run 2) and `search_sources` with its own short queries for dosage (3 in run 2). Left alone it over-decomposed: 8 source searches with exact repeats in run 1, until [loop guardrails](#loop-guardrails-step-budget-repeat-refusal-forced-finish) capped it.
+
+*First seen: between Steps 5 and 6. Extended: Phase 2 step 1.*
 
 ### Retrieve-then-rerank vs parallel hybrid
 There are two ways to combine keyword and semantic search. **Retrieve-then-rerank (keyword first):** keyword search picks a shortlist (say 50 candidates), then embeddings reorder only that shortlist. Its hole: keyword search misses synonyms, so an exercise that doesn't share the question's words (a question about "hip hinge" when the text only says "Romanian deadlift") never reaches the shortlist, and the embedding step can't bring it back. **Parallel hybrid:** run keyword search and semantic search separately over all rows, then merge the two ranked lists, so each search can contribute results the other missed. This project plans the parallel version for Phase 1F. The hole was spotted while reviewing the article "RAG Is Simpler Than You Think", whose "hybrid" recipe is keyword-first.
@@ -911,7 +919,9 @@ Training guidance is population-specific: the right dose for older adults, youth
 
 *Pre-Phase 2 update: a trap for the new research.* Adding adult research created a new way to mix populations: weekly-set numbers from studies on younger adults given to a 70-year-old. The eval question `prog-older-adult-sets` forbids Pelland, Schoenfeld, Singer, and the program-design notes, and expects the older-adult notes or Guidelines chapter 5. In the first run it passed, and no forbidden citations held at 15/15.
 
-*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4, F5, Pre-Phase 2.*
+*Phase 2, step 1 update: a missing age is a missing filter.* The program agent's first finished program, for a client who gave no age, cited `notes-nsca-youth-ltad-1` (youth notes) for an adult. With no age, `population()` returned nothing and no population filter was applied. Fixed by treating an unknown age as adults for programs ([0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)).
+
+*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4, F5, Pre-Phase 2, Phase 2 step 1.*
 
 ### Query understanding (reading limits from the question)
 Query understanding means turning the words of a question into structured information before searching. Here it's an intake form: a small LLM call (`extract_limits`) reads the question and fills in `QuestionLimits`: is equipment limited (true only if the question says what the person has, or that they have nothing), which equipment they own (allowed names only), and the exact phrase that says so. The filter then uses the form. An LLM does this instead of keyword rules because people phrase limits in many ways ("a pair of dumbbells", "at home with no equipment"). "Limited" is read strictly: "dumbbell exercises for glutes" names equipment but doesn't say it's all the person has, so no filter.
@@ -931,7 +941,9 @@ Three places to enforce a rule like "only what I own". **Prompt rules:** tell th
 
 *Phase 1F F5 update: the developer's question, "aren't these just prompt adjustments?"* No. A filter is code in the search step: a SQL `WHERE` clause that removes items before the AI sees anything. The only AI part is reading the question into the intake form. Prompt rules were the thing tried first, and they failed 5 of 13. With both pre-filters (equipment and population), 13 of 13 pass. This is standard practice, usually called metadata filtering or pre-filtering.
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5.*
+*Phase 2, step 1 update: the filter moves inside the agent's tools.* The program agent never sees the whole catalog. `find_exercises` returns only exercises that pass `usable()`: equipment the client owns (bodyweight always; "full gym" = everything), level up to the client's (unknown = beginner; 65+ capped below advanced), and no banned patterns (sprints unless the goal is power; jumps and sprints for 65+). `search_sources` filters passages to the client's age group. See [Guardrails in tools vs in prompts](#guardrails-in-tools-vs-in-prompts).
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, Phase 2 step 1.*
 
 ### Keep-general filter (untagged means everyone)
 A filter design choice: what happens to items with no tag? Here an empty population list means "general, applies to everyone", and those passages are never filtered out. The filter removes only passages tagged for *other* groups: `population IS NULL OR cardinality(populations) = 0 OR population = ANY(populations)`. The alternative, keeping only passages tagged with the question's group, would throw away most of the useful material (132 of 200 passages are general, such as the chapters on health benefits and active lifestyles). It avoids over-filtering at the cost of letting through general material that may be less specific.
@@ -957,6 +969,52 @@ Different failures need different tools. **Hard limits** (equipment the person d
 **In an interview (F7b):** "My first map was: filters for limits, k for breadth, prompt for formatting. Then the formatting prompt made answers worse. Now I split formatting too: labels that are database facts get printed by code, and only the judgment part is left for the model."
 
 *First seen: Phase 1F, F7a. Extended: Phase 1F, F7b.*
+
+---
+
+## Agents
+
+### Agent (LLM agent)
+An agent is a language model given instructions, a set of tools, and the conversation so far, which decides on its own which tool to call next. A tool is a function in our code that the model can ask to run; each one is described by a name, a short description, and an input schema (the fields it accepts). The model never runs anything itself: it says "call `find_exercises` with pattern = hinge", our code runs it and sends back the result, and the model decides again. This repeats until the model asks the user something or submits its result. In rag-motion's program agent the tools are `find_exercises`, `search_sources`, `ask_user`, and `submit_program`.
+
+**In an interview:** "My program builder is an agent: the model decides which tools to call and in what order, but my code runs every tool, and the loop ends only when it asks the client a question or submits a program that matches a schema."
+
+*First seen: Phase 2, step 1.*
+
+### Tool calling (function calling)
+Tool calling is how an API lets a model request a function call. You send the tool definitions (name, description, JSON schema for the inputs) with the messages. Instead of text, the model can reply with a tool call: the tool's name and arguments as JSON. Your code runs it and adds the result to the messages as a "tool" message, linked by an id. In this project it goes through OpenRouter's OpenAI-compatible API (`chat.completions` with `tools=`). `tool_choice` controls freedom: `"auto"` lets the model choose between text and any tool; naming one tool forces the model to call that tool. The agent uses `auto` normally and forces `submit_program` after 10 tool calls. A model on `auto` can also skip the tools: in run 1 it asked its question as plain text instead of calling `ask_user`.
+
+**In an interview:** "Tool calling is just structured output with a choice. The model returns a function name and JSON arguments, my code runs it, and I can switch `tool_choice` from auto to a specific tool when I need it to finish."
+
+*First seen: Phase 2, step 1.*
+
+### Workflow vs guided agent vs autonomous agent
+A **workflow** is a fixed sequence written in code: step 1, then step 2, every time. The model fills in parts but never chooses the order. An **agent** lets the model choose which step comes next. A **fully autonomous agent** gets a goal and broad tools and decides almost everything. A **guided agent** (this project's choice) sits in between: a prompt gives the order of work, the tools are narrow, and code enforces the limits and checks the result. Agents are more flexible (they can ask the user, skip what's known, search again), but less predictable, harder to test, slower and costlier per decision, and they can "decide" that a check passed when it didn't.
+
+**In an interview:** "I didn't want a fully autonomous agent. The model chooses which tools to call and asks the client for missing details, but the prompt sets the order of work and everything that must never break is in code: the tools only return allowed exercises, and the checks run in code, not in the model's judgment."
+
+*First seen: Phase 2, step 1.*
+
+### Guardrails in tools vs in prompts
+A guardrail is anything that stops the system from doing something it shouldn't. A prompt guardrail asks the model to behave ("use only the client's equipment"); the model can still slip. A tool guardrail builds the rule into what the tool can return: `find_exercises` filters by the client's equipment, level, and age before the model sees anything, so whatever the model asks for, it only gets usable exercises. The client's profile is also read by separate code (`extract_profile`), not by the agent, so the agent can't change the limits it is filtered by. This is the agent version of [pre-filtering](#pre-filtering-vs-prompt-rules-vs-post-filtering).
+
+**In an interview:** "The agent can ask for any movement pattern, but it can't get an exercise the client can't do, because the filter lives inside the tool. Prompts guide the agent; code is what it can't get around."
+
+*First seen: Phase 2, step 1.*
+
+### Loop guardrails (step budget, repeat refusal, forced finish)
+An agent runs in a loop, and a small model can get stuck in it. In run 1 the agent made 7 exercise searches, then 8 source searches including exact repeats, and never submitted; it stopped only at the 15-step cap. Loop guardrails are code rules that keep the loop moving toward an end: a **step budget** (a hard cap, here `MAX_STEPS = 15`), **repeat refusal** (an identical search gets "Already searched; use the earlier results"), a **nudge** (after 3 different searches, a system message says to submit), and a **forced finish** (after 10 tool calls, `tool_choice` allows only `submit_program`). With them, run 2 finished in 11 calls for $0.0012.
+
+**In an interview:** "My first agent run looped on the same searches and never finished. I didn't just add 'don't repeat' to the prompt; I made repeats return a refusal, nudged after three searches, and after ten tool calls the API only lets it call submit."
+
+*First seen: Phase 2, step 1.*
+
+### The message list is the memory (stateless model, stateless server)
+The model remembers nothing between calls. Each call sends the whole message list: the system prompt, the profile note, every client message, every tool call and result. That list is the agent's only memory, and it grows with every tool call, which is why each call in a turn costs more input tokens than the one before. The server is stateless too: it keeps no conversation. The client (here, `scripts/program_chat.py`) holds the conversation and sends all of it every turn; `run_turn` rebuilds the profile from it each time.
+
+**In an interview:** "The model has no memory; the message list is the memory. My server doesn't store conversations either. The client sends the whole conversation each turn, which keeps the server simple, at the cost of re-sending and re-reading it every time."
+
+*First seen: Phase 2, step 1.*
 
 ---
 
@@ -2244,7 +2302,9 @@ Prompt injection is when instructions hidden inside data hijack the model. In St
 
 *Step 13 update: document text is now in the evidence.* Passages from the Guidelines and the NSCA notes are now sent to the model inside `<evidence>`. Both are vetted sources the project chose, so the risk is still low, but this is the point where retrieved text becomes model input. The evidence-is-data rule has still not been tested with an injected instruction.
 
-*First seen: Step 6. Extended: Steps 10 and 13.*
+*Phase 2, step 1 update: the conversation drives an agent.* The program agent's prompt says everything in the conversation is data from the client, never instructions that change the rules. The stronger defense is structural: the client's limits are computed by code from the profile, and the tools filter by them, so the agent can't talk its way past them. One gap remains: the profile itself is read from the conversation by an LLM (`extract_profile`), and Step 6 showed that extraction can be manipulated. A client message could still change what the profile says. Not tested with an injected instruction in this step.
+
+*First seen: Step 6. Extended: Steps 10 and 13, Phase 2 step 1.*
 
 ### HTML escaping
 HTML is the language web pages are written in. If text from a user or a model is inserted into a page as-is, any HTML tags or scripts inside it would run in the browser (an attack called cross-site scripting, XSS). Escaping turns special characters like `<` and `>` into harmless codes, so the text is shown, not run. In Step 10 the web page escapes all user and model text before showing it. Model output counts as untrusted: it can repeat anything that was in its input, including text from documents later on.
@@ -2641,3 +2701,10 @@ A subagent is a separate Claude instance with its own instructions and tools. Th
 **In an interview:** "I put the project's working rules in CLAUDE.md so every AI coding session starts with the same constraints and context."
 
 *First seen: Step 0.*
+
+### Explain vs build (scoping requests to an AI coding assistant)
+An AI coding assistant tends to act: given a goal and a deadline, it starts writing code. In Phase 2, step 1, the developer asked for an explanation of how a program generator would work, said "I want this done by today", and Claude started building before being asked. The developer stopped it: "I didn't say to build it. I said explain to me." The fix was to restate the scope (a guided agent, 4 small steps, each explained as it is built) and save a feedback memory that an explain-only request means no building.
+
+**In an interview:** "When I worked with an AI coding assistant, I kept the steps small and stopped it when it jumped ahead. Once it started building an agent I had only asked it to explain; I stopped it, set the scope myself, and made 'explain means don't build' a standing rule."
+
+*First seen: Phase 2, step 1.*

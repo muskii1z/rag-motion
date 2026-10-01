@@ -53,7 +53,16 @@ Update the Status column as steps complete.
 | Next | Program-design sources, then Phase 2 program generator | |
 | Pre-Phase 2 | Program-design sources | done: Schoenfeld 2021, Singer 2024, Pelland 2024 preprint (all CC BY), coach-reviewed program-design notes (not NSCA: no access to the book); 6 program-design questions (52 total) |
 
-**Where we are (2026-10-01):** Phase 1 and 1F complete and measured. All 42 exercises and all notes coach-reviewed. Final eval (52 questions, 3 runs): no forbidden advice 45/45, citations 97%, expected evidence 95%, coverage 91%. README rewritten; pre-public checks clean. Next: developer makes the repo public and pins it; then Phase 2 (program generator).
+## Phase 2: program builder (guided agent, in this repo)
+
+| Step | What | Status |
+|---|---|---|
+| P1 | Agent loop: conversation + tools (find_exercises, search_sources, ask_user, submit_program), loop guardrails | done (`src/ragmotion/agent.py`, `program.py`, `scripts/program_chat.py`); run 2 hit the forced submit at 10 tool calls |
+| P2 | Program checker in code; agent fixes failures | next |
+| P3 | Program page (chat + program table) | |
+| P4 | Program eval: ~10 fictional clients, code checks, coach review; optional model comparison | |
+
+**Where we are (2026-10-01):** Phase 1 and 1F complete and measured. All 42 exercises and all notes coach-reviewed. Final eval (52 questions, 3 runs): no forbidden advice 45/45, citations 97%, expected evidence 95%, coverage 91%. README rewritten; pre-public checks clean. Next: developer makes the repo public and pins it. Phase 2 (program builder) is being built in this repo, step by step (table above).
 
 **Original Phase 1F note:** Add metadata filtering, hybrid search (keyword + semantic, run separately and merged), reranking, and query rewriting (an LLM rewrites the question before search, using a glossary of exercise abbreviations like RDL, BSS, SL RDL, KB) one at a time. Rerun the Step 15 evaluation after each change and record the scores against the baseline.
 

@@ -118,6 +118,7 @@ Evidence so far:
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **a structured reading that over-reached.** One prompt line taught `extract_limits` that a request for bodyweight exercises means no equipment. Because its output is a typed form, a check over all 52 questions showed exactly which ones flipped: "KBS for hip power" and a band-pulling question became limited too. A second line fixed it; the check, run twice, showed 8 limited questions, as intended. See [0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md).
   - Point to make: "Structured output let me diff the model's reading across every question before and after a prompt change. That's how I saw my fix break two questions it wasn't meant for."
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **a structured output as a tool.** The program agent returns its program by calling `submit_program`, whose input schema is built from the `ProgramDraft` Pydantic model (days, exercises with sets, reps, rest; progression; rationale; cited ids; safety notes). Nested definitions are written out in place (`_inline_refs`), a test checks for leftover `$ref`, and a program that fails validation goes back to the agent as the tool result. See [Structured output](concepts.md#structured-output-strict-json-schema) (extended) and [Tool calling](concepts.md#tool-calling-function-calling).
 
 ## RAG
 
@@ -626,12 +627,19 @@ Evidence so far:
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
-*Not yet covered.*
+Evidence so far:
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **the program agent.** A chatbot answers each message with text. The program agent has four tools (`find_exercises`, `search_sources`, `ask_user`, `submit_program`) and decides which to call and in what order. Code runs each tool and returns the result; the loop ends when the agent asks the client a question or submits a program that matches a schema. See [Agent (LLM agent)](concepts.md#agent-llm-agent) and [Tool calling](concepts.md#tool-calling-function-calling).
+- **Why the existing RAG app wasn't enough.** Asked for a program, it did one search and one answer: 5 exercises with no hinge, three loading schemes listed instead of one chosen, no week layout. The agent's run 2 made 7 exercise searches (one per movement pattern) and 3 dosage searches, then submitted a 3-day full-body program with sets, reps, rest, progression, and cited sources ($0.0012).
+- **Guided, not autonomous** ([0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md)). The developer's words: "not a fully autonomous agent, it's going to be prompted and then use the sources it has." The prompt sets the order of work; filters live inside the tools ([0046](decisions/0046-client-limits-enforced-in-tools-profile-read-by-code.md)); checks will run in code (step 2). See [Workflow vs guided agent vs autonomous agent](concepts.md#workflow-vs-guided-agent-vs-autonomous-agent).
+- **The model has no memory.** The message list (prompt, profile, conversation, every tool call and result) is its memory, and the server keeps no state; the client sends the whole conversation each turn. See [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server).
+  - Point to make: "It's an agent because the model chooses its own tool calls and can stop to ask the client for missing details. It's a guided one because the prompt sets the order and code decides what the tools are allowed to return."
 
 ## LangGraph
 
 ### Why did you use LangGraph?
-*Not yet covered.*
+Evidence so far (partial: LangGraph is not used):
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): the agent loop is plain Python in `src/ragmotion/agent.py` (`run_turn`): call the model with tools, run the tool it asks for, append the result, repeat, with loop guardrails in code ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The project rule is not to add frameworks before a step needs them. [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) names the signal for a graph framework: the loop gaining branches (checker feedback, coach approval) that are hard to follow in plain Python.
+  - Point to make: "I wrote the agent loop by hand first, so I know exactly what a framework like LangGraph would be doing for me before I adopt one."
 
 ## Workflows
 
@@ -645,6 +653,9 @@ Evidence so far (partial: no program generation yet):
   - Point to make: "One retry, then a clear stop. A program workflow would need the same shape: a bounded number of attempts and a message a person can act on, never an endless loop."
 
 - [Phase 1F, F7c](build-log.md#phase-1f-f7c-query-rewriting-for-coach-slang-dictionary-vs-llm-rewrite) (developer question, plan only): **the program generator will have code checks.** The answer to "when does this become a workout protocol generator?": a step-by-step builder (profile → exercises per movement pattern via filtered search → sets and reps from program-design sources, cited → weekly layout), then code checks: each muscle group trained 2+ times a week, only owned equipment, rest days. With its own eval. Not built.
+
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **two kinds of validation in the agent.** Shape: if `submit_program`'s arguments don't match `ProgramDraft`, the validation error goes back to the agent as the tool result ("invalid shape, sent back") so it can try again, inside the step limits. Content: not checked yet. Run 2's program passed the shape and still had 7 exercises a day for a beginner (the prompt says 4–6) and a plank in reps. Step 2 adds a checker in code (exercises per day, patterns on 2+ days, equipment, level and age, real citations, timed holds, safety notes) whose failures go back to the agent to fix.
+  - Point to make: "Schema validation catches a malformed program; it can't catch a well-formed program a coach would reject. That's what the code checker is for, and its failures go back to the agent, with a limit on how many tries."
 
 ## Human-in-the-loop
 
@@ -677,6 +688,10 @@ Evidence so far:
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **the review gate held.** The coach reviewed the original 20 exercises ("beginner 11, 17 barbell + rack, 20 they are main muscles, it's really a full body workout") and the 11 program-design claims ("those look fine") before the repo went public. Three answer keys changed because of the broad jump call; it stays forbidden for older adults (no jumps). See [0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md).
   - Point to make: "The AI drafted the content, but nothing went public until a coach had signed off on every exercise and every program-design claim, and the eval key was updated to match the coach's calls."
+
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **the agent asks the human for missing details.** Code computes what's missing (goal, days per week, equipment, experience level) and the agent is told to ask once for all of it via `ask_user`. In run 1 it asked one question covering goal, equipment, and days (as plain text rather than through the tool). Not built yet: a coach approving the finished program.
+- **A coach's eye on the first program.** Run 2 looked complete and cited sources, yet a coach would flag 7 exercises a day for a beginner, a plank prescribed in reps, and youth notes cited for an adult (fixed: [0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)). Those three became the checker's first rules.
+- **Some cases skip the agent entirely.** A pregnancy mention gets no program, a referral to a health professional, and an offer of the Guidelines' pregnancy section, decided in code.
 
 ## Observability
 
@@ -720,6 +735,9 @@ Evidence so far:
   - Tracing is now off by default and switched on to debug one request. The 0020 decision had named this exact revisit signal in Step 14.
   - See [Trace allowance and sampling](concepts.md#trace-allowance-and-sampling-observability-cost).
   - Point to make: "I ran out of free traces, which taught me that tracing everything isn't free. Locally I trace on demand; in production I'd sample a share of requests and trace every failure."
+
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **the first agent debugging, from a step log.** Every turn returns a list of every tool call with its arguments and a short result, printed by `scripts/program_chat.py`. That is how run 1's failure was found: 7 `find_exercises` calls, then 8 `search_sources` calls including exact repeats, and no submit before the 15-step cap. The fix was in code ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The step log also showed which passages fed the program, which exposed youth notes cited for an adult. `run_turn` is traced in LangSmith as `program_agent` when tracing is on.
+  - Point to make: "To debug an agent I need every decision it made, in order: which tool, which arguments, what came back. My first run's log showed it searching the same thing over and over, so I fixed the loop in code rather than guessing at the prompt."
 
 ## Production
 
@@ -812,6 +830,8 @@ Evidence so far:
   - Point to make: "The error named the service that was down, so I didn't waste time debugging my own code or my network. That's what the named-failure work was for."
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **timeouts doing their job.** Two eval runs hit OpenRouter at the same moment; 3 calls timed out at the 25 s limit and failed cleanly instead of hanging. One reply was unreadable twice in a row (about 1 in 150). Both are in the README's limitations. See [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls).
+
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **stateless agent turns.** `run_turn(conversation)` takes the whole conversation each time and keeps nothing between turns, so any server process can handle any turn. See [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server). Cost per program turn: $0.0012 in run 2, $0.0025 in the looping run 1, against about $0.0004 per RAG answer.
 
 ## Security
 
@@ -982,6 +1002,8 @@ Evidence so far:
 
 - [Phase 1F, F7d](build-log.md#phase-1f-f7d-hybrid-search-re-tested-with-filters-weightings-and-a-split-mode-readme-results-update): **the default path is unchanged: still one search.** Question → slang dictionary → `extract_limits` → semantic search with filters in SQL → top 5 exercises + top 5 passages → LLM. Hybrid and split stay available for the evals (`--mode hybrid|split --weight N`) but would add a keyword query per request. See [0037](decisions/0037-semantic-stays-default-after-hybrid-retest.md).
 
+- [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **a program request is a loop, not a line.** Client message → `read_profile` (`extract_profile` over the whole conversation) → limits computed in code → pregnancy check → model call with system prompt, profile note, conversation, and 4 tools → for each tool call: `find_exercises` (catalog filtered by equipment, level, age) or `search_sources` (`search_all` filtered by age group) → results appended → model again → ends at `ask_user` (a question back to the client) or `submit_program` (validated against `ProgramDraft`, enriched with catalog names) → step log, cost, and cited ids returned. Repeats refused, a nudge after 3 searches, submit forced after 10 tool calls ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)).
+
 ## Tradeoffs
 
 ### What would you change if this system had 100,000 users?
@@ -1100,3 +1122,7 @@ Evidence so far:
 - **Go public now vs review first** ([0041](decisions/0041-both-coach-reviews-before-going-public.md)): both coach reviews first. Given up: time to publish. Phase 2 (program generator) becomes a separate project.
 - **Bodyweight request vs named equipment** ([0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)): a request for bodyweight exercises filters out all equipment; naming an exercise or its equipment doesn't. Given up: barbell options for someone who asks for a bodyweight progression but owns a barbell. Gained: the forbidden barbell squat is gone (45/45).
 - **Honest numbers vs clean numbers** ([0044](decisions/0044-readme-reports-errors-and-rejected-changes.md)): the README reports 4 errored runs and every rejected change. Given up: tidier, slightly higher headline numbers. Gained: numbers a reviewer can trust.
+- **Workflow vs guided agent vs autonomous agent** ([0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md), [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools)): a guided agent. Given up: a workflow's predictability and easy testing (run 1 looped). Gained: a conversation that asks for missing details and a search per movement pattern, with limits and checks still in code.
+- **Prompt rules vs code guardrails in the agent loop** ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)): code. Given up: the chance that a forced submit comes before every pattern was searched. Gained: every turn ends.
+- **Cheaper Qwen models vs keeping Gemini 2.5 Flash-Lite** ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)): kept Gemini. Given up: up to about 3x lower cost per token. Gained: a model already proven in this app; reliability matters more than fractions of a cent in an agent.
+- **Unknown age: no filter vs adults** ([0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)): adults. Given up: correct sources for a youth or older client who doesn't state their age. Gained: no youth or older-adult passages in a typical adult's program.
