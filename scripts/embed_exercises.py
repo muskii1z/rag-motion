@@ -19,7 +19,7 @@ from ragmotion.models import Exercise
 
 EXERCISE_COLUMNS = (
     "slug, name, description, instructions, primary_muscles, movement_pattern, "
-    "equipment, difficulty, laterality, body_region, source"
+    "equipment, difficulty, laterality, body_region, source, direction"
 )
 
 

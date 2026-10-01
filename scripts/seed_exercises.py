@@ -52,6 +52,12 @@ WHERE (exercise.name, exercise.description, exercise.instructions, exercise.prim
 RETURNING slug, (xmax = 0) AS inserted
 """
 
+# Direction isn't part of the embedded text, so it's set separately: changing it never clears an embedding.
+DIRECTION_SQL = """
+UPDATE exercise SET direction = %(direction)s
+WHERE slug = %(slug)s AND direction IS DISTINCT FROM %(direction)s
+"""
+
 
 def main() -> None:
     # 1. Read and validate the whole file before touching the database.
@@ -70,6 +76,7 @@ def main() -> None:
     with get_connection() as conn:
         for ex in exercises:
             row = conn.execute(UPSERT_SQL, ex.model_dump()).fetchone()
+            conn.execute(DIRECTION_SQL, {"slug": ex.slug, "direction": ex.direction})
             if row is None:
                 continue  # slug existed and nothing changed
             if row[1]:

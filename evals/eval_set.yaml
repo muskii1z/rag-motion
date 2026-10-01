@@ -164,8 +164,8 @@ questions:
 - id: constraint-no-equipment
   question: "Exercises that need no equipment"
   category: constraint
-  expected_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
-  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, single-leg-romanian-deadlift, turkish-get-up]
+  expected_exercises: [a-skip, bird-dog, bodyweight-squat, bounding, broad-jump, calf-raise, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, side-plank, single-leg-hop, split-squat]
+  forbidden_exercises: [band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, box-squat, bulgarian-split-squat, cable-triceps-pushdown, chest-supported-dumbbell-row, depth-jump, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, kettlebell-swing, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, seated-cable-row, single-leg-romanian-deadlift, suitcase-carry, turkish-get-up]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: every exercise that needs any equipment is forbidden (all 15 non-bodyweight exercises)."
@@ -174,8 +174,8 @@ questions:
 - id: constraint-dumbbells-only
   question: "I only have a pair of dumbbells. Good lower-body exercises?"
   category: constraint
-  expected_exercises: [a-skip, bounding, broad-jump, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, glute-bridge, goblet-squat, lateral-bound, pistol-squat, single-leg-hop, single-leg-romanian-deadlift, split-squat]
-  forbidden_exercises: [band-lateral-walk, barbell-back-squat, box-jump, bulgarian-split-squat, depth-jump, dumbbell-hip-thrust, dumbbell-step-up, kettlebell-deadlift, nordic-hamstring-curl]
+  expected_exercises: [a-skip, bodyweight-squat, bounding, broad-jump, calf-raise, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, glute-bridge, goblet-squat, lateral-bound, pistol-squat, single-leg-hop, single-leg-romanian-deadlift, split-squat]
+  forbidden_exercises: [band-lateral-walk, barbell-back-squat, box-jump, box-squat, bulgarian-split-squat, depth-jump, dumbbell-hip-thrust, dumbbell-step-up, kettlebell-deadlift, leg-curl, leg-extension, leg-press, nordic-hamstring-curl]
   expected_coverage: full
   answer_rules: [label-bodyweight]
   reviewed: true
@@ -249,7 +249,7 @@ questions:
   question: "How much strength training should a beginner adult do each week, and which exercises could they start with?"
   category: population
   expected_passages: [{source: pag2, pages: [8, 56, 60, 61, 62, 63]}]
-  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, broad-jump, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
+  acceptable_exercises: [a-skip, band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, bird-dog, bodyweight-squat, box-squat, broad-jump, cable-triceps-pushdown, calf-raise, chest-supported-dumbbell-row, dead-bug, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, one-arm-dumbbell-row, pallof-press, push-up, seated-cable-row, side-plank, split-squat, suitcase-carry]
   forbidden_passages: [{source: notes-nsca-older-adults}, {source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 5"}]
   expected_coverage: full
   answer_rules: [label-level, group-by-muscle]
@@ -261,7 +261,7 @@ questions:
     tests the dose passage and the population rule.
 
 # ---- NSCA notes ----
-  # F2: all beginner exercises acceptable (25 after the coach made the broad jump beginner, 2026-10-01).
+  # F2: all beginner exercises acceptable (25 after the coach made the broad jump beginner, 2026-10-01; Q2 added the new beginner exercises).
 
 - id: notes-older-load
   question: "How heavy should older adults lift to build strength?"
@@ -339,8 +339,8 @@ questions:
   question: "I only have resistance bands. What can I do for a full-body workout?"
   category: constraint
   expected_exercises: [band-pull-apart, pallof-press, band-biceps-curl, band-lateral-walk]
-  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
-  forbidden_exercises: [barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, power-clean, pull-up, single-leg-romanian-deadlift, turkish-get-up]
+  acceptable_exercises: [a-skip, bird-dog, bodyweight-squat, bounding, broad-jump, calf-raise, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, side-plank, single-leg-hop, split-squat]
+  forbidden_exercises: [band-assisted-pull-up, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, box-squat, bulgarian-split-squat, cable-triceps-pushdown, chest-supported-dumbbell-row, depth-jump, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, kettlebell-swing, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, one-arm-dumbbell-row, power-clean, pull-up, seated-cable-row, single-leg-romanian-deadlift, suitcase-carry, turkish-get-up]
   expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight]
   reviewed: true
@@ -351,8 +351,8 @@ questions:
   question: "I have one kettlebell at home. What exercises can I do?"
   category: constraint
   expected_exercises: [kettlebell-swing, kettlebell-deadlift, turkish-get-up]
-  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, goblet-squat, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
-  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, hammer-curl, inverted-row, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, single-leg-romanian-deadlift]
+  acceptable_exercises: [a-skip, bird-dog, bodyweight-squat, bounding, broad-jump, calf-raise, dead-bug, front-plank, glute-bridge, goblet-squat, lateral-bound, pistol-squat, push-up, side-plank, single-leg-hop, split-squat]
+  forbidden_exercises: [band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, box-squat, bulgarian-split-squat, cable-triceps-pushdown, chest-supported-dumbbell-row, depth-jump, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, hammer-curl, incline-dumbbell-press, inverted-row, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, pull-up, seated-cable-row, single-leg-romanian-deadlift, suitcase-carry]
   expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight, label-level]
   reviewed: true
@@ -362,9 +362,9 @@ questions:
 - id: constraint-dumbbells-bench
   question: "I have dumbbells and a flat bench. Give me a full-body routine."
   category: constraint
-  expected_exercises: [bench-dip, bulgarian-split-squat, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, farmer-carry, goblet-squat, hammer-curl, one-arm-dumbbell-row, single-leg-romanian-deadlift]
-  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
-  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, box-jump, depth-jump, dumbbell-step-up, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, pallof-press, power-clean, pull-up, turkish-get-up]
+  expected_exercises: [bench-dip, bulgarian-split-squat, chest-supported-dumbbell-row, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, farmer-carry, goblet-squat, hammer-curl, incline-dumbbell-press, one-arm-dumbbell-row, single-leg-romanian-deadlift, suitcase-carry]
+  acceptable_exercises: [a-skip, bird-dog, bodyweight-squat, bounding, broad-jump, calf-raise, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, side-plank, single-leg-hop, split-squat]
+  forbidden_exercises: [band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, box-jump, box-squat, cable-triceps-pushdown, depth-jump, dumbbell-step-up, inverted-row, kettlebell-deadlift, kettlebell-swing, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, pallof-press, power-clean, pull-up, seated-cable-row, turkish-get-up]
   expected_coverage: full
   answer_rules: [label-bodyweight]
   reviewed: true
@@ -375,8 +375,8 @@ questions:
   question: "I'm a complete beginner working out at home with no equipment. Where should I start?"
   category: constraint
   expected_exercises: [glute-bridge, push-up, dead-bug, split-squat, front-plank]
-  acceptable_exercises: [a-skip, broad-jump]
-  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, bounding, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, lateral-bound, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, pistol-squat, power-clean, pull-up, single-leg-hop, single-leg-romanian-deadlift, turkish-get-up]
+  acceptable_exercises: [a-skip, bird-dog, bodyweight-squat, broad-jump, calf-raise, side-plank]
+  forbidden_exercises: [band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, bounding, box-jump, box-squat, bulgarian-split-squat, cable-triceps-pushdown, chest-supported-dumbbell-row, depth-jump, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, kettlebell-swing, lat-pulldown, lateral-bound, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, pistol-squat, power-clean, pull-up, seated-cable-row, single-leg-hop, single-leg-romanian-deadlift, suitcase-carry, turkish-get-up]
   expected_coverage: full
   answer_rules: [label-level]
   reviewed: true
@@ -387,7 +387,7 @@ questions:
   question: "What strength exercises are good for a 70-year-old who is new to exercise?"
   category: population
   expected_passages: [{source: notes-nsca-older-adults}, {source: pag2, chapter: "Chapter 5"}]
-  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
+  acceptable_exercises: [a-skip, band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, bird-dog, bodyweight-squat, box-squat, cable-triceps-pushdown, calf-raise, chest-supported-dumbbell-row, dead-bug, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, one-arm-dumbbell-row, pallof-press, push-up, seated-cable-row, side-plank, split-squat, suitcase-carry]
   forbidden_exercises: [bounding, box-jump, broad-jump, depth-jump, lateral-bound, nordic-hamstring-curl, pistol-squat, power-clean, single-leg-hop]
   forbidden_passages: [{source: notes-nsca-youth-ltad}, {source: pag2, chapter: "Chapter 3"}]
   expected_coverage: full
@@ -400,7 +400,7 @@ questions:
   question: "What exercises can a 10-year-old start with?"
   category: population
   expected_passages: [{source: notes-nsca-youth-ltad}]
-  acceptable_exercises: [a-skip, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, broad-jump, dead-bug, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, one-arm-dumbbell-row, pallof-press, push-up, split-squat]
+  acceptable_exercises: [a-skip, band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, bench-dip, bird-dog, bodyweight-squat, box-squat, broad-jump, cable-triceps-pushdown, calf-raise, chest-supported-dumbbell-row, dead-bug, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, front-plank, glute-bridge, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, one-arm-dumbbell-row, pallof-press, push-up, seated-cable-row, side-plank, split-squat, suitcase-carry]
   forbidden_exercises: [depth-jump, nordic-hamstring-curl, pistol-squat, power-clean]
   forbidden_passages: [{source: notes-nsca-older-adults}]
   expected_coverage: full
@@ -423,7 +423,7 @@ questions:
   question: "Best lower-body strength exercises for an intermediate lifter in a full gym?"
   category: constraint
   expected_exercises: [barbell-back-squat, barbell-deadlift, bulgarian-split-squat, single-leg-romanian-deadlift]
-  acceptable_exercises: [dumbbell-hip-thrust, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, goblet-squat, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, pistol-squat, split-squat]
+  acceptable_exercises: [bodyweight-squat, box-squat, calf-raise, dumbbell-hip-thrust, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, goblet-squat, kettlebell-deadlift, kettlebell-swing, leg-curl, leg-extension, leg-press, nordic-hamstring-curl, pistol-squat, split-squat]
   expected_coverage: full
   reviewed: true
   notes: >-
@@ -433,8 +433,8 @@ questions:
   question: "I only have a pull-up bar. What upper-body exercises can I do?"
   category: constraint
   expected_exercises: [pull-up]
-  acceptable_exercises: [a-skip, bounding, broad-jump, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, single-leg-hop, split-squat]
-  forbidden_exercises: [band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, bulgarian-split-squat, depth-jump, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, inverted-row, kettlebell-deadlift, kettlebell-swing, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, single-leg-romanian-deadlift, turkish-get-up]
+  acceptable_exercises: [a-skip, bird-dog, bodyweight-squat, bounding, broad-jump, calf-raise, dead-bug, front-plank, glute-bridge, lateral-bound, pistol-squat, push-up, side-plank, single-leg-hop, split-squat]
+  forbidden_exercises: [band-assisted-pull-up, band-biceps-curl, band-lateral-walk, band-pull-apart, barbell-back-squat, barbell-bench-press, barbell-bent-over-row, barbell-deadlift, bench-dip, box-jump, box-squat, bulgarian-split-squat, cable-triceps-pushdown, chest-supported-dumbbell-row, depth-jump, dumbbell-bench-press, dumbbell-biceps-curl, dumbbell-hip-thrust, dumbbell-lateral-raise, dumbbell-overhead-press, dumbbell-overhead-triceps-extension, dumbbell-reverse-lunge, dumbbell-romanian-deadlift, dumbbell-step-up, farmer-carry, goblet-squat, hammer-curl, incline-dumbbell-press, inverted-row, kettlebell-deadlift, kettlebell-swing, lat-pulldown, leg-curl, leg-extension, leg-press, machine-chest-press, nordic-hamstring-curl, one-arm-dumbbell-row, pallof-press, power-clean, seated-cable-row, single-leg-romanian-deadlift, suitcase-carry, turkish-get-up]
   expected_coverage: partial  # coach (F6): only a few exercises fit this equipment, so a full workout isn't possible from our catalog
   answer_rules: [label-bodyweight]
   reviewed: true

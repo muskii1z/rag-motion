@@ -23,7 +23,7 @@ class ExerciseHit(Exercise):
 
 SEARCH_SQL = """
 SELECT slug, name, description, instructions, primary_muscles, movement_pattern,
-       equipment, difficulty, laterality, body_region, source,
+       equipment, difficulty, laterality, body_region, source, direction,
        1 - (embedding <=> %(q)s) AS similarity
 FROM exercise
 WHERE embedding IS NOT NULL
@@ -133,7 +133,7 @@ OR_QUERY_SQL = "to_tsquery('english', array_to_string(tsvector_to_array(to_tsvec
 
 KEYWORD_EXERCISE_SQL = f"""
 SELECT slug, name, description, instructions, primary_muscles, movement_pattern,
-       equipment, difficulty, laterality, body_region, source,
+       equipment, difficulty, laterality, body_region, source, direction,
        ts_rank_cd(to_tsvector('english', {EXERCISE_TEXT_SQL}), {OR_QUERY_SQL}) AS similarity
 FROM exercise
 WHERE to_tsvector('english', {EXERCISE_TEXT_SQL}) @@ {OR_QUERY_SQL}

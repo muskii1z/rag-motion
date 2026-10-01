@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS exercise (
     -- Must be non-empty and only use known equipment names.
     equipment        text[] NOT NULL
         CHECK (cardinality(equipment) > 0)
-        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor']),
+        CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor', 'machine', 'cable']),
 
     difficulty       text NOT NULL
         CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
@@ -67,13 +67,18 @@ CREATE TABLE IF NOT EXISTS exercise (
 ALTER TABLE exercise ADD COLUMN IF NOT EXISTS embedding_model text;
 
 -- Phase 1F (F1): the catalog grew to include curls, speed drills, racks, and pull-up bars.
+-- Q2 (2026-10-01): machines and cables.
 -- Drop and re-add the two value lists (safe to re-run; the constraint names are Postgres's defaults).
 ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_movement_pattern_check;
 ALTER TABLE exercise ADD CONSTRAINT exercise_movement_pattern_check
     CHECK (movement_pattern IN ('squat', 'hinge', 'lunge', 'push', 'pull', 'carry', 'core', 'jump', 'isolation', 'sprint'));
 ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;
 ALTER TABLE exercise ADD CONSTRAINT exercise_equipment_check1
-    CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor']);
+    CHECK (equipment <@ ARRAY['bodyweight', 'dumbbell', 'band', 'kettlebell', 'barbell', 'bench', 'box', 'rack', 'pullup-bar', 'anchor', 'machine', 'cable']);
+
+-- Phase 2 quality pass (Q2): gym machines and cable stations, and the direction of push/pull exercises
+-- (horizontal: bench press, rows; vertical: overhead press, pulldowns), so a day can hold one of each.
+ALTER TABLE exercise ADD COLUMN IF NOT EXISTS direction text CHECK (direction IN ('horizontal', 'vertical'));
 
 -- ---- Step 12: document chunks ----
 -- One row per passage cut from a source document or project note (see data/sources.toml).

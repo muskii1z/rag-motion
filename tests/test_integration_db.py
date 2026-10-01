@@ -45,11 +45,13 @@ def test_equipment_filter_only_returns_usable_exercises():
     with get_connection() as conn:
         q = conn.execute("SELECT embedding FROM exercise WHERE slug = 'goblet-squat'").fetchone()[0]
         cur = conn.cursor(row_factory=dict_row)
-        params = {"q": q, "model": settings.embedding_model, "k": 50}
+        params = {"q": q, "model": settings.embedding_model, "k": 1000}
         filtered = cur.execute(SEARCH_SQL, {**params, "owned": ["band", "bodyweight"]}).fetchall()
         unfiltered = cur.execute(SEARCH_SQL, {**params, "owned": None}).fetchall()
     assert filtered and all(set(r["equipment"]) <= {"band", "bodyweight"} for r in filtered)
-    assert len(unfiltered) == 42
+    import json
+    from ragmotion.ingestion import PROJECT_ROOT
+    assert len(unfiltered) == len(json.loads((PROJECT_ROOT / "data" / "exercises.json").read_text()))
 
 
 def test_population_filter_skips_other_groups_but_keeps_general_passages():

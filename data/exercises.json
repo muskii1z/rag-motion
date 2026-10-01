@@ -245,7 +245,8 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "dumbbell-overhead-press",
@@ -264,7 +265,8 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "vertical"
   },
   {
     "slug": "one-arm-dumbbell-row",
@@ -285,7 +287,8 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "band-pull-apart",
@@ -304,7 +307,8 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "inverted-row",
@@ -324,7 +328,8 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "dead-bug",
@@ -472,7 +477,8 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "vertical"
   },
   {
     "slug": "barbell-back-squat",
@@ -648,7 +654,8 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "pull-up",
@@ -667,7 +674,8 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "vertical"
   },
   {
     "slug": "barbell-bent-over-row",
@@ -687,7 +695,8 @@
     "difficulty": "intermediate",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
+    "direction": "horizontal"
   },
   {
     "slug": "split-squat",
@@ -800,5 +809,346 @@
     "laterality": "bilateral",
     "body_region": "core",
     "source": "Drafted with AI assistance, reviewed by M. Saraswat"
+  },
+  {
+    "slug": "dumbbell-bench-press",
+    "name": "Dumbbell Bench Press",
+    "description": "A horizontal press lying on a flat bench, pushing a dumbbell in each hand from chest level to straight arms. It builds the chest, front shoulders and triceps, and lets each arm work on its own.",
+    "instructions": "Lie on the bench with feet flat. Start with the dumbbells at the sides of the chest, elbows about 45 degrees from the body. Press up until the arms are straight, then lower under control.",
+    "primary_muscles": [
+      "chest",
+      "triceps",
+      "front deltoids"
+    ],
+    "movement_pattern": "push",
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "horizontal"
+  },
+  {
+    "slug": "incline-dumbbell-press",
+    "name": "Incline Dumbbell Press",
+    "description": "A press on a bench set to a low incline, which shifts more of the work to the upper chest and front shoulders than the flat version.",
+    "instructions": "Set the bench to about 30 degrees. Press the dumbbells from the upper chest to straight arms, then lower slowly.",
+    "primary_muscles": [
+      "chest",
+      "front deltoids",
+      "triceps"
+    ],
+    "movement_pattern": "push",
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "horizontal"
+  },
+  {
+    "slug": "machine-chest-press",
+    "name": "Machine Chest Press",
+    "description": "A seated horizontal press on a weight machine. The machine guides the path, so it's an easy way to load the chest safely while learning to press.",
+    "instructions": "Adjust the seat so the handles line up with the middle of the chest. Press forward to straight arms and return under control.",
+    "primary_muscles": [
+      "chest",
+      "triceps",
+      "front deltoids"
+    ],
+    "movement_pattern": "push",
+    "equipment": [
+      "machine"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "horizontal"
+  },
+  {
+    "slug": "dumbbell-lateral-raise",
+    "name": "Dumbbell Lateral Raise",
+    "description": "A shoulder isolation exercise raising light dumbbells out to the sides to about shoulder height. It targets the side of the shoulders, which presses train less.",
+    "instructions": "Stand tall with a slight bend in the elbows. Raise the dumbbells out to the sides to shoulder height, pause, and lower slowly.",
+    "primary_muscles": [
+      "deltoids"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "dumbbell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "cable-triceps-pushdown",
+    "name": "Cable Triceps Pushdown",
+    "description": "A triceps isolation exercise pushing a cable handle or rope down from chest height until the arms are straight, keeping the elbows by the sides.",
+    "instructions": "Stand facing the cable with elbows tucked. Push the handle down until the arms are straight, then let it rise back to about chest height.",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "cable"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "lat-pulldown",
+    "name": "Lat Pulldown",
+    "description": "A seated vertical pull, drawing a cable bar from overhead down to the upper chest. It trains the lats and upper back and is the usual way to build up to pull-ups.",
+    "instructions": "Sit with thighs under the pads and hands just wider than shoulders. Pull the bar to the upper chest, leading with the elbows, then let it rise under control.",
+    "primary_muscles": [
+      "latissimus dorsi",
+      "biceps",
+      "rhomboids"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "cable"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "vertical"
+  },
+  {
+    "slug": "seated-cable-row",
+    "name": "Seated Cable Row",
+    "description": "A seated horizontal pull, rowing a cable handle to the stomach with a tall torso. It builds the mid back and lats with a steady load through the whole movement.",
+    "instructions": "Sit tall with knees slightly bent. Pull the handle to the stomach, squeezing the shoulder blades together, then reach forward under control without rounding.",
+    "primary_muscles": [
+      "latissimus dorsi",
+      "rhomboids",
+      "middle trapezius",
+      "biceps"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "cable"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "horizontal"
+  },
+  {
+    "slug": "chest-supported-dumbbell-row",
+    "name": "Chest-Supported Dumbbell Row",
+    "description": "A row lying face down on an incline bench, which takes the lower back out of the movement so the upper back does the work.",
+    "instructions": "Lie chest-down on a bench set to about 30 degrees. Row both dumbbells toward the hips, pause, and lower slowly.",
+    "primary_muscles": [
+      "rhomboids",
+      "middle trapezius",
+      "latissimus dorsi",
+      "rear deltoids"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "horizontal"
+  },
+  {
+    "slug": "band-assisted-pull-up",
+    "name": "Band-Assisted Pull-Up",
+    "description": "A pull-up with a resistance band looped over the bar under the knee or foot, which takes some of the bodyweight so the full movement can be practiced.",
+    "instructions": "Loop the band over the bar and place a knee or foot in it. Pull until the chin clears the bar, then lower all the way down. Use a lighter band as you get stronger.",
+    "primary_muscles": [
+      "latissimus dorsi",
+      "biceps",
+      "rhomboids"
+    ],
+    "movement_pattern": "pull",
+    "equipment": [
+      "pullup-bar",
+      "band"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "upper",
+    "source": "Drafted with AI assistance; pending coach review",
+    "direction": "vertical"
+  },
+  {
+    "slug": "bodyweight-squat",
+    "name": "Bodyweight Squat",
+    "description": "A squat with no added load, sitting the hips down and back between the feet and standing back up. It's the starting point for learning the squat pattern.",
+    "instructions": "Stand with feet about shoulder width apart. Sit down as deep as you can keep the heels down and the back neutral, then stand up.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "movement_pattern": "squat",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "box-squat",
+    "name": "Box Squat",
+    "description": "A squat down to a box or bench behind you, which sets a consistent depth and builds confidence in the bottom position.",
+    "instructions": "Stand in front of a box at about knee height. Sit back until you lightly touch it, then stand up without rocking.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "movement_pattern": "squat",
+    "equipment": [
+      "box"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "leg-press",
+    "name": "Leg Press",
+    "description": "A seated machine squat pattern, pushing a weighted platform away with the legs. The back is supported, so the legs can be loaded heavily with little technique demand.",
+    "instructions": "Place feet about shoulder width on the platform. Lower until the knees reach about 90 degrees without the hips lifting, then press back up without locking the knees.",
+    "primary_muscles": [
+      "quadriceps",
+      "glutes"
+    ],
+    "movement_pattern": "squat",
+    "equipment": [
+      "machine"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "leg-extension",
+    "name": "Leg Extension",
+    "description": "A machine isolation exercise straightening the knees against a pad, training the quadriceps on their own.",
+    "instructions": "Sit with the pad on the lower shins. Straighten the knees, pause, and lower slowly.",
+    "primary_muscles": [
+      "quadriceps"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "machine"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "leg-curl",
+    "name": "Leg Curl",
+    "description": "A machine isolation exercise bending the knees against a pad, training the hamstrings through knee flexion.",
+    "instructions": "Set the pad just above the heels. Curl the heels toward the glutes, pause, and lower under control.",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "machine"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "calf-raise",
+    "name": "Calf Raise",
+    "description": "Rising onto the balls of the feet and lowering back down, training the calves. It can be done on flat ground or with the heels off a step for more range.",
+    "instructions": "Stand tall, rise as high as you can onto the balls of the feet, pause, and lower slowly. Hold something for balance if needed.",
+    "primary_muscles": [
+      "calves"
+    ],
+    "movement_pattern": "isolation",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "bilateral",
+    "body_region": "lower",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "side-plank",
+    "name": "Side Plank",
+    "description": "A side-lying hold on the forearm and feet, keeping a straight line from head to heels. It trains the obliques and resists the body sagging sideways.",
+    "instructions": "Lie on your side with the elbow under the shoulder. Lift the hips into a straight line and hold. Bend the knees to make it easier.",
+    "primary_muscles": [
+      "obliques",
+      "transverse abdominis"
+    ],
+    "movement_pattern": "core",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "unilateral",
+    "body_region": "core",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "bird-dog",
+    "name": "Bird Dog",
+    "description": "A hands-and-knees core exercise reaching one arm forward and the opposite leg back while keeping the trunk still.",
+    "instructions": "Start on hands and knees with a neutral back. Reach the opposite arm and leg out, pause, and return without the hips rotating. Alternate sides.",
+    "primary_muscles": [
+      "spinal erectors",
+      "glutes",
+      "transverse abdominis"
+    ],
+    "movement_pattern": "core",
+    "equipment": [
+      "bodyweight"
+    ],
+    "difficulty": "beginner",
+    "laterality": "unilateral",
+    "body_region": "core",
+    "source": "Drafted with AI assistance; pending coach review"
+  },
+  {
+    "slug": "suitcase-carry",
+    "name": "Suitcase Carry",
+    "description": "Walking with a heavy dumbbell in one hand only. The trunk must resist leaning toward the weight, so it trains the obliques and grip together.",
+    "instructions": "Hold a dumbbell at one side, stand tall and walk without leaning. Switch hands each set.",
+    "primary_muscles": [
+      "obliques",
+      "forearms",
+      "upper trapezius"
+    ],
+    "movement_pattern": "carry",
+    "equipment": [
+      "dumbbell"
+    ],
+    "difficulty": "beginner",
+    "laterality": "unilateral",
+    "body_region": "full",
+    "source": "Drafted with AI assistance; pending coach review"
   }
 ]

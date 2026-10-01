@@ -8,10 +8,11 @@ The database constraints remain the final safety net.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 MovementPattern = Literal["squat", "hinge", "lunge", "push", "pull", "carry", "core", "jump", "isolation", "sprint"]
-Equipment = Literal["bodyweight", "dumbbell", "band", "kettlebell", "barbell", "bench", "box", "rack", "pullup-bar", "anchor"]
+Equipment = Literal["bodyweight", "dumbbell", "band", "kettlebell", "barbell", "bench", "box", "rack", "pullup-bar", "anchor", "machine", "cable"]
+Direction = Literal["horizontal", "vertical"]  # for push and pull only (Q2)
 Difficulty = Literal["beginner", "intermediate", "advanced"]
 Laterality = Literal["bilateral", "unilateral"]
 BodyRegion = Literal["lower", "upper", "core", "full"]
@@ -33,6 +34,14 @@ class Exercise(BaseModel):
     laterality: Laterality
     body_region: BodyRegion
     source: str = Field(min_length=1)
+    direction: Direction | None = None
+
+    @model_validator(mode="after")
+    def _direction_only_for_push_and_pull(self) -> "Exercise":
+        """Push and pull exercises must say horizontal or vertical; nothing else may (Q2)."""
+        if (self.movement_pattern in ("push", "pull")) != (self.direction is not None):
+            raise ValueError(f"{self.slug}: direction is required for push/pull and not allowed otherwise")
+        return self
 
 
 class ClientProfile(BaseModel):

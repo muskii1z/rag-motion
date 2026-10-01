@@ -164,14 +164,14 @@ def test_the_developers_chest_light_program_is_now_rejected_with_exact_fixes():
     bad = {c.name: c for c in failed(check_program(ProgramDraft.model_validate(DEVELOPERS_PROGRAM), gym, {"notes-program-design-1"}))}
     assert "chest: 3" in bad["at least 6 weekly sets per major muscle group"].detail
     assert "add 3 more" in bad["at least 6 weekly sets per major muscle group"].fix
-    assert "glute-bridge, dumbbell-hip-thrust" in bad["one exercise per movement pattern per day"].fix
+    assert "glute-bridge, dumbbell-hip-thrust" in bad["one exercise per movement pattern (and push/pull direction) per day"].fix
 
 
 def test_an_upper_day_with_a_squat_is_flagged():
     draft = json.loads(json.dumps(GOOD))
     draft["days"][0]["name"] = "Day 1: Upper"
     names = {c.name for c in failed(check_program(ProgramDraft.model_validate(draft), profile(), {"notes-program-design-1"}))}
-    assert "day names match their exercises (upper/lower)" in names
+    assert "day names match their exercises (upper/lower/push/pull/legs)" in names
 
 
 def test_weekly_sets_use_the_lower_bound_and_skip_unreachable_groups():
@@ -185,3 +185,21 @@ def test_weekly_sets_use_the_lower_bound_and_skip_unreachable_groups():
     volume = next(c for c in check_program(ProgramDraft.model_validate(bw), profile(equipment=["bodyweight"]), {"notes-program-design-1"})
                   if c.name.startswith("at least"))
     assert volume.passed and "back: 0" in volume.detail
+
+
+def test_push_and_pull_count_per_direction_and_push_pull_days_are_checked():
+    upper = [ex("dumbbell-bench-press"), ex("dumbbell-overhead-press"), ex("seated-cable-row"), ex("lat-pulldown")]
+    two_flat = [ex("dumbbell-bench-press"), ex("incline-dumbbell-press"), ex("seated-cable-row"), ex("lat-pulldown")]
+    gym = profile(sessions_per_week=2, equipment=[], unmapped_equipment=["full gym"])
+    def failures(day, name="Day 1: Upper"):
+        draft = {**GOOD, "days": [{"name": name, "exercises": day}, {"name": "Day 2", "exercises": GOOD_DAY}]}
+        return {c.name: c for c in failed(check_program(ProgramDraft.model_validate(draft), gym, {"notes-program-design-1"}))}
+    assert "one exercise per movement pattern (and push/pull direction) per day" not in failures(upper)  # flat + overhead: fine
+    assert "horizontal push x2" in failures(two_flat)["one exercise per movement pattern (and push/pull direction) per day"].detail
+    assert "day names match their exercises (upper/lower/push/pull/legs)" in failures(upper, "Day 1: Push")  # rows on a push day
+
+
+def test_every_push_and_pull_exercise_has_a_direction():
+    from ragmotion.program import catalog
+    for slug, e in catalog().items():
+        assert (e["movement_pattern"] in ("push", "pull")) == ("direction" in e), slug

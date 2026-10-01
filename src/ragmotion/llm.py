@@ -43,8 +43,10 @@ Rules:
   use bodyweight only if the text says so ("no equipment", "bodyweight only", "at home with nothing").
   Being "new to the gym" says nothing about equipment: leave it empty.
   Use an allowed name only for a true equivalent:
-  bodyweight, dumbbell, band (resistance bands, mini bands), kettlebell, barbell, bench, box.
-  Suspension trainers (TRX), machines, cables, rowers, bikes, etc. are NOT bands; put them in
+  bodyweight, dumbbell, band (resistance bands, mini bands), kettlebell, barbell, bench, box, rack,
+  pullup-bar, anchor, machine, cable.
+  Weight machines (leg press, chest press, leg curl) -> machine; cable stations and lat pulldowns -> cable.
+  Suspension trainers (TRX), rowers, bikes, etc. are NOT bands; put them in
   unmapped_equipment in the coach's words.
 - experience_level only when stated or clearly implied ("advanced lifter" -> advanced,
   "never lifted" -> beginner). Otherwise null.
@@ -187,7 +189,7 @@ Rules:
   Naming an exercise or the equipment for an exercise ("kettlebell swing for hip power", "band pulling
   exercises") is not a limit: false.
 - Map equipment to the allowed names only: bodyweight, dumbbell, band, kettlebell, barbell, bench, box,
-  rack, pullup-bar, anchor. Leave out equipment that has no allowed name.
+  rack, pullup-bar, anchor, machine, cable. Leave out equipment that has no allowed name.
 - population: set it only when the question names an age or one of these groups: adults, older adults,
   children/kids/adolescents/high school, pregnancy. An age decides it ("a 70-year-old" -> older-adults,
   "a 10-year-old" -> youth). Words like "athlete", "lifter", "someone", "client" or "I" do not name a

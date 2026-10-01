@@ -94,7 +94,7 @@ def missing_for_program(profile: ClientProfile) -> list[str]:
 def find_exercises(pattern: MovementPattern, profile: ClientProfile) -> list[dict]:
     """Catalog exercises for one movement pattern, already filtered to what this client can use."""
     return [
-        {"slug": s, "name": e["name"], "level": e["difficulty"], "equipment": e["equipment"],
+        {"slug": s, "name": e["name"], "level": e["difficulty"], "equipment": e["equipment"], "direction": e.get("direction"),
          "primary_muscles": e["primary_muscles"], "region": e["body_region"]}
         for s, e in catalog().items() if e["movement_pattern"] == pattern and usable(e, profile)
     ]
@@ -111,8 +111,12 @@ def search_sources(query: str, profile: ClientProfile, k: int = 5) -> list[dict]
 MAIN_PATTERNS = {"squat or lunge": {"squat", "lunge"}, "hinge": {"hinge"}, "push": {"push"}, "pull": {"pull"}}
 CORE_PATTERNS = {"core", "carry"}
 TIMED = {"front-plank", "farmer-carry"}  # prescribed in seconds or metres, not reps
-ONE_PER_DAY = {"squat", "lunge", "hinge", "push", "pull"}  # at most one of each per day (coach, 2026-10-01)
+ONE_PER_DAY = {"squat", "lunge", "hinge", "push", "pull"}  # at most one of each per day (coach, 2026-10-01);
+# push and pull count per direction (Q2): a horizontal and a vertical press on one upper day is fine.
 LOWER_PATTERNS, UPPER_PATTERNS = {"squat", "lunge", "hinge"}, {"push", "pull"}
+# Day names that promise a body region, and the patterns they must not contain (core, carry, isolation are fine anywhere).
+DAY_NAME_RULES = [("upper", LOWER_PATTERNS), ("lower", UPPER_PATTERNS), ("leg", UPPER_PATTERNS),
+                  ("push", LOWER_PATTERNS | {"pull"}), ("pull", LOWER_PATTERNS | {"push"})]
 
 # Major muscle groups for weekly volume, built from the catalog's primary muscles (Q1, 2026-10-01).
 MUSCLE_GROUPS = {
@@ -207,24 +211,27 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
 
     # Q1: program quality.
     pattern_of = lambda x: cat[x.slug]["movement_pattern"] if x.slug in cat else None
+    def slot(x):  # 'hinge', or 'horizontal push' / 'vertical pull' for push and pull
+        p = pattern_of(x)
+        return f"{cat[x.slug].get('direction')} {p}" if p in UPPER_PATTERNS else p
     doubles = []
     for d in draft.days:
-        for pattern in ONE_PER_DAY:
-            same = [x.slug for x in d.exercises if pattern_of(x) == pattern]
+        for key in sorted({slot(x) for x in d.exercises if pattern_of(x) in ONE_PER_DAY}):
+            same = [x.slug for x in d.exercises if pattern_of(x) in ONE_PER_DAY and slot(x) == key]
             if len(same) > 1:
-                doubles.append((d.name, pattern, same))
-    checks.append(Check(name="one exercise per movement pattern per day", passed=not doubles,
+                doubles.append((d.name, key, same))
+    checks.append(Check(name="one exercise per movement pattern (and push/pull direction) per day", passed=not doubles,
                         detail="; ".join(f"{n}: {p} x{len(s)}" for n, p, s in doubles),
                         fix="; ".join(f"'{n}' has {len(s)} {p} exercises ({', '.join(s)}): keep one, and swap the other for "
                                       f"a different pattern or move it to another day" for n, p, s in doubles)))
     mislabeled = []
     for d in draft.days:
-        name = d.name.lower()
-        wrong = (LOWER_PATTERNS if "upper" in name else UPPER_PATTERNS if "lower" in name else set())
+        words = set(re.findall(r"[a-z]+", d.name.lower()))
+        wrong = set().union(*[banned for word, banned in DAY_NAME_RULES if word in words or word + "s" in words])
         mislabeled += [(d.name, x.slug) for x in d.exercises if pattern_of(x) in wrong]
-    checks.append(Check(name="day names match their exercises (upper/lower)", passed=not mislabeled,
+    checks.append(Check(name="day names match their exercises (upper/lower/push/pull/legs)", passed=not mislabeled,
                         detail=", ".join(f"{n}: {s}" for n, s in mislabeled),
-                        fix="; ".join(f"'{n}' is named upper/lower but includes {s}: move it to a matching day or rename the day"
+                        fix="; ".join(f"'{n}' includes {s}, which doesn't match the day's name: move it to a matching day or rename the day"
                                       for n, s in mislabeled)))
 
     sets, minimum = weekly_sets(draft), weekly_set_minimum(profile)
