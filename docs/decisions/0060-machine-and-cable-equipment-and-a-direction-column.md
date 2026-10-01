@@ -25,6 +25,6 @@ The brief didn't record why the column was chosen over new pattern values; the p
 - "Machine" is one value for many different machines. A client with only a leg press would be offered a chest press machine too.
 
 ## Revisit when
-- The coach disagrees with a direction label (bench dip's vertical label is still unconfirmed).
+- The coach disagrees with a direction label (bench dip confirmed vertical by the coach on 2026-10-01, Q3; all labels now confirmed).
 - Clients with partial machine access show up, and "machine" is too coarse.
 - A loaded-only exercise needs to be filtered by the weight it uses.

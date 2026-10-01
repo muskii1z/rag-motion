@@ -17,3 +17,6 @@ The coach kept the key strict: research or Guidelines only.
 ## Revisit when
 - The coach has reviewed the program-design notes and judges them acceptable evidence for frequency.
 - The question keeps failing after the final evals; then look at why the notes outrank Pelland and the Guidelines.
+
+## Update 2026-10-01 (Phase 2 quality pass, Q3): a new research source competes
+After Iversen et al. 2021 (a CC BY narrative review on time-efficient training) was added, it ranked first on `prog-frequency`, and the question's passage MRR fell from 0.50 to 0.00. Iversen is research, so it meets this decision's rule ("research or Guidelines only"), but it isn't in the key. Pending with the coach: add Iversen as an additional expected source for `prog-frequency`, and also for `prog-weekly-sets`, `prog-rest-intervals`, and `prog-rep-ranges`. See [0062](0062-q3-sources-iversen-refalo-bastos-cc-by.md).

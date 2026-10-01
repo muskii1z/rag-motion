@@ -22,6 +22,6 @@ During Q2 (catalog work), label every push and pull exercise horizontal or verti
 - The coach finds a direction label that doesn't fit an exercise.
 
 ## Update 2026-10-01 (Phase 2 quality pass, Q2): built
-- Direction is a separate column, `exercise.direction`, required for push/pull by a model validator ([0060](0060-machine-and-cable-equipment-and-a-direction-column.md)). All 16 push/pull exercises in the 60-exercise catalog have one; bench dip's (vertical) awaits the coach.
+- Direction is a separate column, `exercise.direction`, required for push/pull by a model validator ([0060](0060-machine-and-cable-equipment-and-a-direction-column.md)). All 16 push/pull exercises in the 60-exercise catalog have one; bench dip's (vertical) was confirmed by the coach on 2026-10-01 (Q3).
 - The check counts "horizontal push", "vertical pull" and so on separately. A test confirms flat + overhead press passes and two horizontal presses are flagged.
 - Result: full-gym upper/lower replays went from 0/3 to 2/3 passing every check, then 4/6 after the narration fix ([0061](0061-narration-forces-a-submission.md)).

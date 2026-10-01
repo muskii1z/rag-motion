@@ -214,6 +214,9 @@ Evidence so far:
 - [After Step 15](build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2): **tables broke the size rule.** One table became a 1,265-word chunk because the splitter looks for sentence ends and a table has none. Oversized tables and lists now split by rows, with the caption repeated on each piece. After: Kons 25 chunks (median 343, max 448 words), Haugen 28 (median 365, max 508); the Guidelines' 133 chunks unchanged. See [Splitting tables by rows with repeated captions](concepts.md#splitting-tables-by-rows-with-repeated-captions).
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **storing structure on every chunk paid off later.** Because each chunk kept its chapter and headings (Step 12), population tags were derived from them by rules and back-filled without re-chunking or re-embedding. See [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm).
 
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **a table hidden inside a paragraph.** One new paper (Bastos 2024) nests its tables inside paragraph tags, so a whole table came out as one 1,649-word run-on chunk with the cells glued together. The row splitter never saw rows. The reader now pulls nested tables out and reads them row by row with the caption; Bastos re-chunked to 23 passages, max 446 words. Only 1 of 7 XML sources did this. See [0063](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md) and [Structured XML (JATS) vs PDF](concepts.md#structured-xml-jats-vs-pdf-for-research-papers) (extended).
+  - Point to make: "Even a standard format varies by publisher. After every new source I check the longest and shortest chunks; that's how I caught a whole table squashed into one passage."
+
 ## Embeddings
 
 ### What is an embedding?
@@ -347,6 +350,9 @@ Evidence so far:
 - **[Pre-Phase 2](build-log.md#pre-phase-2-program-design-sources-six-eval-questions-and-the-plan-to-go-public): new sources need their own population rule.** The program-design papers studied healthy adults, so they're tagged `adults` as whole sources and filtered out of youth, older-adult, and pregnancy questions. The trap `prog-older-adult-sets` passed. One new side effect: on `pop-beginner-adult`, two passages from the unreviewed program-design notes now rank ahead of the Guidelines (recall still 1.0). See [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm) (extended) and [Draft content in the knowledge base](concepts.md#draft-content-in-the-knowledge-base-review-status).
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **two steps have to agree.** The slang dictionary turned "BW squat progression" into "bodyweight squat progression", but search still returned the barbell back squat, because the limit reader didn't count it as no equipment, so no filter ran. Fixed in the limit reader ([0042](decisions/0042-bodyweight-requests-are-a-no-equipment-limit.md)). Final retrieval: every filtered setup has 0% questions with a forbidden item; every unfiltered one has 13–17%, whatever the search method.
+
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **a broad paper crowds out specific ones.** After adding Iversen 2021, a narrative review on time-efficient training, it ranked first on the weekly-sets, rest, rep-range, and frequency questions, ahead of the meta-analyses the keys expect (still in the top 5). Passage MRR 0.84 → 0.76; answers still used expected evidence 52/54. See [Broad reviews vs specific studies in retrieval](concepts.md#broad-reviews-vs-specific-studies-in-retrieval).
+  - Point to make: "Similarity rewards a document that touches every topic a little. A broad review can outrank the paper that actually answers the question. Whether that's wrong is a domain call, and I sent it to my coach."
 
 ### Critiquing RAG advice (interview material)
 Not a question from the brief, but a strong story: being able to judge popular advice with specifics. Between Steps 5 and 6 the developer brought in the article "RAG Is Simpler Than You Think" (Rafael Pierre, Lighthouse newsletter, June 2026). The review kept what was right (start simple and measure, cheap query rewriting, jargon breaks general embeddings, split multi-intent questions) and named what was weak: a keyword-first "hybrid" that can't recover synonyms, overstated pain of pre-computed embeddings at small scale, "no chunking needed" and "no evaluation complexity" claims, illustrative rather than measured numbers, a decision tree that assumes live users, and an LLM judging its own search results. Result: two concrete plan changes, not a rewrite. Full review in the [build log](build-log.md#b-article-review-rag-is-simpler-than-you-think); decision in [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -587,6 +593,9 @@ Evidence so far:
   - The recall drop came from bigger expected lists ("no equipment" 11 → 15), not worse search. The "extras" are new exercises the keys don't list yet, waiting on the coach's judgment calls. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
   - Point to make: "After adding 18 exercises I re-ran the eval before trusting anything. Safety held at 15 of 15; the scores that moved, moved because the answer key grew, and I can show which keys."
 
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **new sources, new questions, and a score drop explained.** Three CC BY papers (time-efficient training, proximity to failure, RIR scales) each got a question only they can answer (55 total); each retrieved its paper at rank 1–2 with passage recall 1.0. Regression, 1 run, no judge: citations 52/55, coverage 50/55, expected evidence 52/54, no forbidden advice 15/15, completeness 0.83, no extras 17/29. Passage MRR fell 0.84 → 0.76 because the broad review ranks first on four older questions. The coach's Q2 key calls were applied first (`cdcb98b`); whether Iversen joins four keys is pending. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change) (extended).
+  - Point to make: "A metric dropped after I added research. I read which questions moved and why before deciding whether the system or the key was wrong. Here it was mostly the key, and that call belongs to the coach."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -656,6 +665,8 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **a data-model rule found three bugs.** Requiring a direction for push/pull exercises crashed the embedding script, exposing three queries that never selected the new column. And the first narration guardrail broke an existing test (asking for missing details), which is how the refused-lookup exception was found. 77 tests pass. See [Cross-field validation](concepts.md#cross-field-validation-a-model-level-rule).
   - Point to make: "Two of my bugs this step were caught by things I'd built earlier: a validator and an old test. Neither was written for these bugs."
+
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **a hidden size limit in a test.** A database test fetched the top 300 passages and assumed that was all of them; at 358 passages it wasn't. The limit went to 5,000, and the question-count test to 55. A new unit test uses a small made-up article to prove nested tables come out row by row. 78 tests pass. See [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions) (extended).
 
 ## Agents
 
@@ -770,6 +781,8 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **the coach reviewed 18 new exercises before they counted.** Three short calls ("horizontal 2, 9 is beginner, 11 loadable"): incline press is horizontal; band-assisted pull-up is beginner; box squat can be loaded. Claude kept the box squat's equipment as box only and put the loading in its instructions, so box-only clients keep it ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)). Still open for the coach: the bench dip's direction and five answer-key judgment calls (bodyweight squat progression, upper back, grip, biceps, anti-rotation).
   - Point to make: "A script can place new exercises in the answer key by the coach's rules. Whether a bird dog counts as anti-rotation is still the coach's call."
+
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **the coach settles the answer key.** Five judgment calls from Q2 came back in one line ("yes to all of them, bench dip vertical") and were written next to each key as comments. The next call is already queued: should a broad review count as a right source on four program-design questions?
 
 ## Observability
 
@@ -1009,6 +1022,9 @@ Evidence so far:
   - Notes are attributed only to sources someone read: the program-design notes say they come from general practice, not NSCA ([0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md)).
   - Point to make: "The best paper on weekly volume was paywalled as published but CC BY as a preprint. I used the preprint and labeled it, rather than skipping the evidence or ingesting the paywalled version."
 
+- [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **three outcomes from one license check.** Iversen 2021, Refalo 2023, and Bastos 2024 are CC BY 4.0 (stated inside each XML): ingested. A 2024 trial licensed CC BY-NC-ND: rejected, because no-derivatives rules out chunked copies. Robinson 2024: paywalled, skipped, since Refalo covers it. See [0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md).
+  - Point to make: "Open access isn't one thing. I ingest CC BY, reject no-derivatives licenses even when the paper is free to read, and skip paywalled versions."
+
 ## Architecture
 
 ### What happens from the moment a user submits a request until they receive an answer?
@@ -1238,3 +1254,6 @@ Evidence so far:
 - **Direction as a column vs new pattern values** ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md), [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail)): a column. Given up: one more field every query must select (three forgot). Gained: "push" and "pull" kept their meaning in every filter, prompt, and key.
 - **Box squat: box only vs box plus dumbbell** ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)): box only, loading in the text. Given up: filters can't see that it can be loaded. Gained: box-only clients still get it.
 - **Narration: allow text vs force a submission** ([0061](decisions/0061-narration-forces-a-submission.md)): force, once a lookup has succeeded. Given up: the agent can't ask a follow-up question mid-build (not seen yet, not tested). Gained: no turn ends with a promise instead of a program.
+- **Ingest a broad review vs only specific studies** ([0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md), [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales)): ingested Iversen 2021. Given up: passage MRR 0.84 → 0.76, as it outranks the specific meta-analyses on four questions. Gained: evidence on time-efficient programs, which nothing else covered. Key decision pending.
+- **Nested tables: drop vs read separately** ([0063](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md)): read separately. Given up: the table no longer sits mid-paragraph. Gained: no 1,649-word run-on chunk; tables chunked row by row.
+- **Free to read vs free to reuse** ([0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md)): rejected a CC BY-NC-ND trial and a paywalled study. Given up: their evidence. Gained: a public repo with only reusable text.

@@ -23,3 +23,7 @@ Then P3 (program page) and P4 (program eval).
 
 ## Revisit when
 - Q2 or Q3 stalls (for example, no openly licensed sources for Q3): move on to P3 with what exists.
+
+## Update 2026-10-01: Q2 and Q3 done
+- Q2: see [0060](0060-machine-and-cable-equipment-and-a-direction-column.md) and [0061](0061-narration-forces-a-submission.md). The coach's Q2 answer-key calls were applied (`cdcb98b`).
+- Q3: three CC BY papers (Iversen 2021 time-efficient training, Refalo 2023 proximity to failure, Bastos 2024 RIR scales), three eval questions (55 total). See [0062](0062-q3-sources-iversen-refalo-bastos-cc-by.md). Open before P3: the coach's decision on Iversen in four answer keys.

@@ -70,3 +70,8 @@ The developer approved the policy (groups A–D, committed source manifest, git-
 - Three more group A (CC BY) sources: `schoenfeld2021-loading` and `singer2024-rest` (license sentence verified inside the Europe PMC XML) and `pelland2024-volume` (SportRxiv preprint v2; CC BY 4.0 stated on the SportRxiv page; the published Sports Medicine version is paywalled). Pelland's title says "preprint, not peer reviewed". See [0038](0038-program-design-sources-three-cc-by-papers-pelland-preprint.md).
 - Skipped as paywalled: ACSM 2009 progression models, Moesgaard 2022 periodization. NSCA *Essentials* stays group D.
 - New rule in practice: notes are attributed only to sources someone actually read. The program-design notes were drafted from general practice and say so; they are not labeled as NSCA notes. See [0039](0039-program-design-notes-from-general-practice-not-nsca.md).
+
+## Update 2026-10-01 (Phase 2 quality pass, Q3): three more group A sources, and a group C rejection
+- Group A (CC BY 4.0, license sentence verified inside each Europe PMC XML): `iversen2021-time-efficient`, `refalo2023-failure`, `bastos2024-rir-scales`. The developer approved the downloads.
+- Rejected under this policy: a 2024 *Journal of Sports Sciences* trial licensed CC BY-NC-ND (group C, no derivatives). Skipped as paywalled: Robinson et al. 2024 (proximity-to-failure dose-response).
+- See [0062](0062-q3-sources-iversen-refalo-bastos-cc-by.md).

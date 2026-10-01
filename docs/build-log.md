@@ -5185,6 +5185,9 @@ uv run python scripts/program_chat.py    # full-gym 4-day conversation replays (
 - **A box squat that can be loaded but is listed as box only.** Handled in the text, not the equipment list ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)).
 
 **Open questions.**
+
+*Update (Q3, 2026-10-01): the bench dip and all five key calls below were answered by the coach ("yes to all of them, bench dip vertical"). See the [Q3 entry](#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales).*
+
 - **Bench dip direction.** Drafted as vertical; the coach hasn't confirmed it.
 - **Answer-key judgment calls for the coach:**
   - BW squat progression: should the bodyweight squat be expected?
@@ -5205,3 +5208,136 @@ uv run python scripts/program_chat.py    # full-gym 4-day conversation replays (
 - New: [0061. A text reply after building has started forces a submission](decisions/0061-narration-forces-a-submission.md)
 - Updated: [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md) (built), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (direction and day names), [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (narration forcing)
 - Next: the coach's remaining answer-key calls; Q3 (sources on time-efficient design and proximity to failure).
+
+## Phase 2 quality pass, Q3: sources on time-efficient training, proximity to failure, and RIR scales
+**Date:** 2026-10-01 · **Commits:** `cdcb98b` eval: coach's Q2 answer-key calls (bench dip vertical); `cdbb5c9` feat: Q3 sources (time-efficient training, proximity to failure, RIR scales). The Q2 docs were committed alongside.
+
+**Goal.** Give the program builder evidence on session length, how close to failure to train, and how to use RIR (reps in reserve), and measure the effect.
+
+**What we did.**
+
+*Part 1: the coach's Q2 answer-key calls (`cdcb98b`).* The developer's reply: *"yes to all of them, bench dip vertical"*. This closes the open questions from the [Q2 entry](#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail). Each call is written next to its key in `evals/eval_set.yaml` as a YAML comment.
+
+| Question | Change |
+|---|---|
+| Bench dip (catalog, not a key) | Stays a vertical push. All push/pull direction labels are now coach-confirmed. |
+| `jargon-bw-squat` | Bodyweight squat added to expected. |
+| `ex-upper-back` | Seated cable row and chest-supported dumbbell row added to expected; lat pulldown acceptable. |
+| `ex-grip` | Suitcase carry added to expected. |
+| `ex-biceps` | Lat pulldown and band-assisted pull-up acceptable (secondary biceps work). |
+| `ex-anti-rotation` | Bird dog acceptable. Side plank left out, like the dead bug: not forbidden, just not expected. |
+
+*Part 2: three research papers (`cdbb5c9`).*
+- **License check first**, on Europe PMC (a public archive of biomedical papers):
+
+| Source | Covers | License | Manifest id |
+|---|---|---|---|
+| Iversen VM, Norum M, Schoenfeld BJ, Fimland MS. 2021. *No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review*. Sports Med 51(10):2079–2095. PMC8449772 | Session length; a broad review of sets, rest, loads and frequency for time efficiency | CC BY 4.0 | `iversen2021-time-efficient` |
+| Refalo MC, Helms ER, Trexler ET, Hamilton DL, Fyfe JJ. 2023. *Influence of Resistance Training Proximity-to-Failure on Skeletal Muscle Hypertrophy: A Systematic Review with Meta-analysis*. Sports Med 53(3):649–665. PMC9935748 | How close to failure to train for muscle growth | CC BY 4.0 | `refalo2023-failure` |
+| Bastos V, Machado S, Teixeira DS. 2024. *Feasibility and Usefulness of Repetitions-In-Reserve Scales for Selecting Exercise Intensity: A Scoping Review*. Percept Mot Skills 131(3):940–970. PMC11127506 | RIR scales for choosing loads | CC BY 4.0 | `bastos2024-rir-scales` |
+
+- **Rejected:**
+  - Robinson et al. 2024, a dose-response study of proximity to failure. The published version is paywalled, and Refalo covers the topic.
+  - A 2024 *Journal of Sports Sciences* trial licensed CC BY-NC-ND. ND (NoDerivatives) forbids sharing adapted versions, and chunked text is arguably an adaptation, so [0017](decisions/0017-knowledge-source-licensing-policy.md) doesn't allow it.
+- **The developer approved all three downloads:** "all is fine, just get it done".
+- **Registered.** Downloaded the three JATS XML files (JATS is the standard XML format for journal articles). Each file's own license statement says Creative Commons Attribution 4.0. `data/sources.toml` has an entry for each with full attribution, the quoted license sentence, and sha256 (a fingerprint of the exact file): `e7337f…`, `3a587b…`, `c64bc4…`.
+- **Population tag.** `ADULT_RESEARCH` in `src/ragmotion/chunking.py` now includes the three ids, so every passage from them is tagged `adults` and kept out of youth, older-adult, and pregnancy answers.
+- **Problem found: a table flattened into one 1,649-word chunk.** Bastos puts tables (`table-wrap`) *inside* paragraphs (`<p>`). The JATS reader took a paragraph's whole text, so the table became one run-on chunk with the cells glued together: "Studies (%)Samples K (%)SAMPLE SIZE31 total…". Fix in `chunking.py`:
+  - `_xml_text()` now skips `table-wrap` and `fig` children inside a paragraph.
+  - `jats_blocks()` yields each nested table as its own block through `_table_text()`: caption first, then one line per row.
+  - Claude checked all 7 XML sources: only Bastos had nested tables (2 of them).
+  - New test with a small made-up article: `test_tables_nested_in_a_paragraph_are_read_row_by_row_not_flattened`.
+  - Bastos re-chunked: 23 chunks, max 446 words. See [0063](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md).
+- **Chunks:** Iversen 30 (82–497 words), Refalo 27 (138–454), Bastos 23 (92–446). 358 passages in total, all embedded.
+- **Three eval questions** (category `program-design`; 55 in total). Claude drafted them. They were approved under the developer's "all is fine, just get it done", not reviewed one by one.
+
+| Question id | Question | Expected source |
+|---|---|---|
+| `prog-time-efficient` | "How do I fit a full workout into 30 minutes?" | Iversen |
+| `prog-proximity-to-failure` | "How close to failure should I train to build muscle?" | Refalo |
+| `prog-rir` | "What does RIR mean and how do I use it to pick my weights?" | Bastos |
+
+- **Tests that assumed the old data size.** The population-filter integration test asked the database for the top 300 passages and expected every passage. With 358 passages it now asks for 5,000. The eval-set test now expects 55 questions instead of 52. 78 tests pass.
+
+**Commands.**
+```bash
+# Europe PMC: license checks, then download of the 3 JATS XML files (after the developer's approval)
+uv run pytest
+# 78 passed (includes the new nested-table test)
+```
+- The exact download, chunking, embedding, and eval commands aren't in the brief. Earlier steps used `scripts/chunk_documents.py <ids>`, `scripts/embed_chunks.py`, `evals/run_retrieval_eval.py`, and `evals/run_answer_eval.py`.
+- Results saved by the regression run (1 answer run, no AI judge, per the brief): `evals/results/retrieval-20261001-171348-147407.json` and `evals/results/answers-semantic-filtered-rw-dictionary-20261001-171206-584970.json`.
+
+**What we saw.**
+
+*The three new questions.*
+- `prog-time-efficient`: Iversen at rank 2, alongside Guidelines passages.
+- `prog-proximity-to-failure`: Refalo at ranks 1–5.
+- `prog-rir`: Bastos at ranks 1–5.
+- Passage recall 1.0 on each.
+
+*Retrieval, 55 questions (semantic + filters + slang dictionary).*
+
+| Measure | Before Q3 | After Q3 |
+|---|---|---|
+| Exercise recall | 0.84 | 0.84 |
+| Exercise MRR | 0.93 | 0.95 |
+| Passage recall | 0.95 | 0.95 |
+| Passage hit rate | not in the brief | 0.96 |
+| Passage MRR | 0.84 | **0.76** |
+| Forbidden exercises retrieved | 0.00 | 0.00 |
+
+"Before" is the Q2 regression run (52 questions; exercise recall and MRR) and the earlier passage numbers in the brief. MRR (mean reciprocal rank) measures how high the first expected item ranks; 1.0 means always first. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr).
+
+*Why passage MRR fell.* Five old questions now rank Iversen first, ahead of the specific meta-analyses their keys expect. Pelland, Singer, and Schoenfeld are still in the top 5.
+
+| Question | MRR before | MRR after |
+|---|---|---|
+| `prog-weekly-sets` | 1.00 | 0.33 |
+| `prog-rest-intervals` | 1.00 | 0.50 |
+| `prog-rep-ranges` | 1.00 | 0.50 |
+| `prog-frequency` | 0.50 | 0.00 |
+| `pop-beginner-adult` | 0.33 | 0.20 |
+
+Iversen is a narrative review (a broad summary of a field by experts, without pooling the numbers). It covers sets, rest, loads, and frequency, all through the lens of saving time. So it matches many program-design questions a little, and outranks the meta-analyses (studies that pool results from many trials into one estimate) that each answer one question in depth. See [Broad reviews vs specific studies in retrieval](concepts.md#broad-reviews-vs-specific-studies-in-retrieval).
+
+*Answers, 1 run, no AI judge.*
+
+| Check | Q2 regression (52 questions) | Q3 (55 questions) |
+|---|---|---|
+| Valid citations | 52/52 | 52/55 |
+| Coverage claim correct | 46/52 | 50/55 |
+| Used expected evidence | 49/51 | 52/54 |
+| No forbidden advice | 15/15 | 15/15 |
+| Completeness | 0.78 | 0.83 |
+| No extras | 20/29 | 17/29 |
+
+- The answers still used expected evidence 52/54 times, even though retrieval ranks Iversen first on five questions.
+- **The "extras"** are mostly sensible new exercises that the keys don't list yet: lateral raise and incline press for the overhead question, chest-supported row and seated cable row for "DB row", band-assisted pull-up for band pulling, kettlebell deadlift for "beginner RDL". Some are older ones (dead bug and plank for anti-rotation, which the coach left out on purpose).
+- **Claude's reading, given to the developer:** mostly the answer key being stricter than reality. Iversen is legitimate research on those topics, and the coach's frequency rule was "research or Guidelines only" ([0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md)), which Iversen meets. Pending decision: accept Iversen as an additional expected source for `prog-weekly-sets`, `prog-rest-intervals`, `prog-rep-ranges`, and `prog-frequency`.
+
+**Problems and fixes.**
+- **Nested tables became a 1,649-word run-on chunk.** Tables inside paragraphs are now skipped in the paragraph text and read row by row, with a test. All 7 XML sources checked; only Bastos was affected.
+- **Tests with fixed limits broke as the data grew.** The population test's `k` went from 300 to 5,000, and the question count from 52 to 55. See [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions).
+- **A ranking drop from a new source.** Passage MRR 0.84 → 0.76. Not fixed; a key decision is pending with the coach (below).
+
+**Open questions.**
+- **Iversen in the answer keys.** Should Iversen become an additional expected source for the weekly-sets, rest, rep-range, and frequency questions? The coach hasn't decided.
+- **Not yet in keys:** the extras listed above (lateral raise, incline press, chest-supported row, seated cable row, band-assisted pull-up, kettlebell deadlift). They need the coach's calls.
+- **Which 3 citations were invalid (52/55) and which 5 coverage claims were wrong (50/55)?** The brief doesn't say. Some could be on the new questions.
+- **Chunk size limit.** The commit message says all passages are at most 450 words, but Iversen's largest chunk is 497 words (the brief says "all ≤ ~500"). The chunker allows a tail slightly over the limit; whether 497 is that case isn't recorded.
+- **The three new questions were approved as a batch** ("all is fine, just get it done"), not reviewed question by question by the coach.
+- **One answer run, no judge.** By [0028](decisions/0028-before-after-averaged-over-three-runs.md), before/after claims need 3 runs.
+- **Not yet tested:** whether the program agent (`search_sources`) now cites Iversen, Refalo, or Bastos when it builds a program.
+
+**Developer questions.** None recorded in the brief.
+
+**Learned.**
+- New: [Broad reviews vs specific studies in retrieval](concepts.md#broad-reviews-vs-specific-studies-in-retrieval), [Proximity to failure and RIR (reps in reserve)](concepts.md#proximity-to-failure-and-rir-reps-in-reserve)
+- Extended: [Structured XML (JATS) vs PDF](concepts.md#structured-xml-jats-vs-pdf-for-research-papers) (tables nested in paragraphs), [Splitting tables by rows with repeated captions](concepts.md#splitting-tables-by-rows-with-repeated-captions), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change), [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows), [Content licensing in RAG](concepts.md#content-licensing-in-rag) (CC BY in, NC-ND out, paywalled skipped), [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions), [Movement direction](concepts.md#movement-direction-horizontal-vs-vertical-push-and-pull) (bench dip confirmed)
+
+**Decisions.**
+- New: [0062. Q3 sources: Iversen, Refalo, Bastos (CC BY); Robinson 2024 and a no-derivatives trial skipped](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md)
+- New: [0063. JATS tables nested inside paragraphs are read separately, row by row](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md)
+- Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (three more group A sources; first group C rejection), [0022](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md) (nested tables), [0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md) (Iversen pending), [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md) and [0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md) (bench dip confirmed), [0059](decisions/0059-quality-pass-before-the-program-page.md) (Q3 done)
+- Pending: the coach's Iversen key decision. Then P3, the program page.

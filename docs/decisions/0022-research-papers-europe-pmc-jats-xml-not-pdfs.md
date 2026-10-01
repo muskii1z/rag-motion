@@ -22,3 +22,6 @@ Research articles are read from Europe PMC's JATS XML (`format = "jats-xml"` in 
 - A needed source exists only as a PDF (for example the Army ATP 7-22.02, if it is added): it goes through the PDF path, and two-column layout may still need work.
 - Citations need page numbers for research papers.
 - The skip list or the table handling misfires on a new paper (check chunk counts, sizes, and a sample table chunk, as done here).
+
+## Update 2026-10-01 (Phase 2 quality pass, Q3): tables nested inside paragraphs
+Bastos et al. 2024 (SAGE) nests tables inside `<p>` elements, which turned one table into a 1,649-word run-on chunk. The reader now skips nested tables and figures in paragraph text and reads nested tables separately, row by row. Only Bastos, of 7 XML sources, did this. See [0063](0063-jats-tables-nested-in-paragraphs-read-separately.md).

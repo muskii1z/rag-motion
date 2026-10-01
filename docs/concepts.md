@@ -752,7 +752,9 @@ The practical legal risk to a small project is small, but the portfolio signal i
 
 *Pre-Phase 2 update: three program-design papers, and where the license is written.* For the program-design evidence, every candidate was license-checked before download. Schoenfeld 2021 and Singer 2024 state CC BY inside their Europe PMC XML. Pelland 2024's published version (Sports Medicine) is paywalled, but its SportRxiv preprint is CC BY 4.0, stated on the preprint server's page. So one paper can be off limits as published and allowed as a preprint ([Preprint vs peer-reviewed version](#preprint-vs-peer-reviewed-version)). ACSM 2009 and Moesgaard 2022 were skipped as paywalled. See [0038](decisions/0038-program-design-sources-three-cc-by-papers-pelland-preprint.md).
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11), Step 12, Pre-Phase 2.*
+*Phase 2 quality pass (Q3) update: all three tiers in one search.* Looking for sources on time-efficient training, proximity to failure, and RIR, the license check sorted the candidates three ways. Iversen 2021, Refalo 2023, and Bastos 2024 are CC BY 4.0 (stated inside each XML file): ingested. A 2024 *Journal of Sports Sciences* trial is CC BY-NC-ND: rejected, because NoDerivatives forbids sharing adapted versions and chunks are arguably adaptations. Robinson 2024 is paywalled as published: skipped, since Refalo covers the topic. See [0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md).
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11), Step 12, Pre-Phase 2, Phase 2 quality pass Q3.*
 
 ### Preprint vs peer-reviewed version
 A preprint is a version of a paper shared publicly before, or alongside, journal peer review (review by other researchers before publication). The peer-reviewed version can change numbers, wording, or conclusions. Licenses can differ too: Pelland 2024's preprint on SportRxiv is CC BY 4.0, while the version published in Sports Medicine is paywalled. rag-motion ingests the preprint and labels it in the source title, "(Pelland et al., 2024 preprint, not peer reviewed)", so every citation shows its status to the coach reading the answer.
@@ -1197,7 +1199,16 @@ Pushes and pulls come in two directions. Horizontal: pressing forward or rowing 
 
 *Phase 2 quality pass (Q2) update: built.* All 16 push and pull exercises in the 60-exercise catalog now carry a direction. Horizontal includes push-up, bench presses (barbell, dumbbell, incline dumbbell, machine), and rows (one-arm, bent-over, inverted, seated cable, chest-supported) plus the band pull-apart. Vertical includes the dumbbell overhead press, pull-up, band-assisted pull-up, lat pulldown, and bench dip. The coach put the incline press with horizontal; the bench dip's vertical label is still a draft. Day names now use it too: a "Push" day can't have rows.
 
-*First seen: Phase 2 quality pass, Q1. Extended: Q2.*
+*Q3 update: confirmed.* The coach kept the bench dip as a vertical push ("bench dip vertical"), so every direction label in the catalog is now coach-confirmed.
+
+*First seen: Phase 2 quality pass, Q1. Extended: Q2, Q3.*
+
+### Proximity to failure and RIR (reps in reserve)
+**Failure** is the point in a set where you can't complete another rep with good form. **Proximity to failure** is how close a set ends to that point. **RIR (reps in reserve)** is a way to describe it: the number of reps you could still have done when you stopped. "2 RIR" means you stopped with about two reps left. An RIR scale lets a client pick a load by feel ("choose a weight you could lift 2 more times") instead of from a percentage of a tested maximum. Before Q3, the only mention was in the coach-reviewed program-design notes (muscle can grow across a wide range of loads "when sets are taken close to failure"), with no research source on how close, or on RIR. Q3 added Refalo et al. 2023 (a meta-analysis on proximity to failure and muscle growth) and Bastos et al. 2024 (a scoping review of RIR scales), plus Iversen et al. 2021 on time-efficient programs.
+
+**In an interview:** "My program builder could pick sets and reps from the research, but had no research on effort: how close to failure each set should end. So I added openly licensed reviews on proximity to failure and RIR scales, with eval questions that only those papers can answer."
+
+*First seen: Phase 2 quality pass, Q3.*
 
 ---
 
@@ -1348,7 +1359,9 @@ JATS (Journal Article Tag Suite) is a standard XML format that archives such as 
 
 *Pre-Phase 2 update: publishers name boilerplate differently.* MDPI and Frontiers articles have administrative sections the skip list didn't know, and they became 13–18-word passages. Added to the list: "data availability statement", "conflicts of interest", "conflict of interest", "funding statement", "publisher's note" (straight and curly apostrophe), "institutional review board statement", "informed consent statement". After re-chunking, every passage from the new papers was at least 66 words. Each new publisher can bring new section names, so check the shortest chunks after ingesting.
 
-*First seen: after Step 15. Extended: Pre-Phase 2.*
+*Phase 2 Q3 update: tables nested inside paragraphs.* Bastos et al. 2024 (SAGE) puts its tables *inside* paragraph tags. The reader took a paragraph's full text, so a whole table became one 1,649-word run-on chunk with cells glued together ("Studies (%)Samples K (%)SAMPLE SIZE31 total…"). Now `_xml_text()` skips tables and figures nested in a paragraph, and `jats_blocks()` reads each nested table separately, row by row. Of the 7 XML sources, only Bastos did this. The lesson extends the one above: publishers use the same standard differently, so after ingesting a new source, check both the shortest and the longest chunks. See [0063](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md).
+
+*First seen: after Step 15. Extended: Pre-Phase 2, Phase 2 quality pass Q3.*
 
 ### Stripping bibliography markers to protect citation checks
 Research articles cite their own references inline, as markers like `[12]`. rag-motion's answers use square brackets for *its* citations (`[pag2-57]`), checked by code ([Citation validation](#citation-validation)). If `[12]` reached the model, it could copy it into an answer, and the checker would flag it as an invented source (or a reader might take it as a real citation). So `jats_blocks()` removes the bibliography reference tags (`xref ref-type="bibr"`) and the empty brackets they leave behind. General rule: clean the source text so nothing in it collides with your own citation format.
@@ -1362,7 +1375,9 @@ The chunker splits an oversized section at paragraphs, then at sentences. A tabl
 
 **In an interview:** "A big table came out as one 1,265-word chunk because my splitter looked for sentence ends. Now tables split by rows and every piece repeats the caption, so a retrieved piece still says what it's a table of. I re-ran the older document to check nothing else changed."
 
-*First seen: after Step 15.*
+*Phase 2 Q3 update: the row splitter only works if the table reaches it as a table.* In Bastos 2024 the tables sat inside paragraphs, so they arrived as one paragraph of glued-together cells, and the row splitter never saw any rows. After the reader was fixed to pass nested tables on separately (caption, then one line per row), Bastos re-chunked to 23 passages, max 446 words. A test with a small made-up article checks the table comes out as `"Table 1 Sample\nSex | Studies\nMale only | 16"`, not `"Male only16"`.
+
+*First seen: after Step 15. Extended: Phase 2 quality pass Q3.*
 
 ---
 
@@ -1513,7 +1528,9 @@ Semantic passage MRR also fell (0.70 → 0.65), for a real reason: 53 new passag
 
 *Phase 2 quality pass (Q2) update: 42 → 60 exercises.* The F2 approach was reused: a script placed the 18 new exercises in the 11 catalog-dependent questions by the coach's existing rules (for example, "no equipment" +4 expected bodyweight exercises and +14 forbidden; the three beginner-population questions +18 acceptable each). What a rule can't decide (is the bird dog anti-rotation? does the lat pulldown count for biceps?) went to the coach as a list of judgment calls. Until those are answered, the 1-run regression shows "no extras" at 20/29, because answers cite new exercises the keys don't mention yet. The integration test now counts the catalog from `exercises.json` instead of hard-coding 42.
 
-*First seen: after Step 15. Extended: Eval walkthrough part 1, Phase 1F F1, Phase 1F F2, Phase 2 quality pass Q2.*
+*Phase 2 quality pass (Q3) update: the same lesson, a third time.* Three new papers made five program-design and population keys look stale (passage MRR 0.84 → 0.76), and the answers cited sensible new exercises the keys don't list yet ("no extras" 17/29). The pattern is now familiar: when the corpus grows, re-read the keys that the new material touches, and send the judgment calls to the coach. The coach's Q2 calls were applied just before Q3 (`cdcb98b`), with each reason in a YAML comment next to its key.
+
+*First seen: after Step 15. Extended: Eval walkthrough part 1, Phase 1F F1, Phase 1F F2, Phase 2 quality pass Q2, Q3.*
 
 ### System failures vs eval-expectation errors
 When a score drops, either the system did something wrong or the eval expected the wrong thing. The only way to tell is to read the actual answer and evidence. From the eval v2 round:
@@ -1629,7 +1646,16 @@ Scores can move with no change to the system, just because the ruler changed. Du
 
 *Phase 2 quality pass (Q2) update: recall fell, search didn't change.* Semantic + filter exercise recall went from 0.87 to 0.84 after the catalog grew to 60. The expected lists grew with it ("no equipment": 11 → 15 expected), and search still returns 5 exercises, so the share it can find dropped. Forbidden exercises retrieved stayed at 0.00 and exercise MRR was 0.93.
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01), Phase 2 quality pass Q2.*
+*Phase 2 quality pass (Q3) update: a new source lowered a ranking score.* After three papers were added, passage MRR fell from 0.84 to 0.76, while the answers still used the expected evidence 52/54 times and gave no forbidden advice (15/15). The drop came from one broad review (Iversen 2021) ranking first on four program-design questions whose keys list only the specific meta-analyses. The key, not the search, decides whether that counts as a miss. Whether to accept Iversen in those keys is the coach's call, still pending. See [Broad reviews vs specific studies in retrieval](#broad-reviews-vs-specific-studies-in-retrieval).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01), Phase 2 quality pass Q2, Q3.*
+
+### Broad reviews vs specific studies in retrieval
+Research papers come in kinds. A **meta-analysis** pools the results of many trials to answer one question, such as how rest between sets affects growth. A **narrative review** is a broad expert summary of a field, without pooling the numbers. In semantic search, a broad review can match many questions a little, because it touches every topic. After Q3 added Iversen 2021, a narrative review on time-efficient training that discusses sets, rest, loads, and frequency, it ranked first on the weekly-sets, rest, rep-range, and frequency questions, ahead of the meta-analyses the keys expect (Pelland, Singer, Schoenfeld, still in the top 5). Passage MRR fell from 0.84 to 0.76, but the answers still used expected evidence 52/54 times. So adding a source can lower a ranking metric without making answers worse. Whether the broad review should count as a right answer is a judgment for the domain expert, not the metric.
+
+**In an interview:** "When I added a broad review paper, my ranking score dropped, because it now came first on questions where my key expected specific meta-analyses. The answers didn't get worse. The question was whether my key was too strict, and that went to my coach, not to a code change."
+
+*First seen: Phase 2 quality pass, Q3.*
 
 ### Source-anchored vs judgment-based keys
 Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
@@ -1927,7 +1953,9 @@ A test that runs against real data quietly assumes what that data contains. When
 
 **In an interview:** "When I doubled my catalog, one test failed. The code was fine; the test assumed which rows would come back. I rewrote it to check a property, 'every result mentions biceps', so adding data won't break it again, and I note in the test why it changed."
 
-*First seen: Phase 1F, F1.*
+*Phase 2 quality pass (Q3) update: a hidden size limit.* The population-filter integration test asked the database for the top 300 passages and assumed that meant all of them. With 358 passages it no longer did, so the limit went to 5,000. The eval-set test's question count went from 52 to 55. Both are fixed numbers that quietly describe the data; a limit taken from the table's actual size would survive the next source too.
+
+*First seen: Phase 1F, F1. Extended: Phase 2 quality pass Q3.*
 
 ### Integrity tests for the answer key
 The eval's answer key is data, and data can have typos and contradictions, so it gets its own unit tests. F2 added two:
