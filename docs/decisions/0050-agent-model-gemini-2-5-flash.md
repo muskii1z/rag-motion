@@ -1,5 +1,5 @@
 # 0050. The agent uses Gemini 2.5 Flash; the Q&A app stays on Flash-Lite
-**Date:** 2026-10-01 · **Step:** Phase 2, step 2 · **Status:** accepted (supersedes [0048](0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md))
+**Date:** 2026-10-01 · **Step:** Phase 2, step 2 · **Status:** superseded by [0053](0053-agent-model-qwen3-5-flash-after-six-model-test.md) (it superseded [0048](0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md))
 
 ## Context
 With the program checker in place, Gemini 2.5 Flash-Lite still struggled. Even with exact fix instructions it passed 2 of 3 replays of the developer's conversation, never on the first submission, and one run still had the wrong number of exercises per day after 3 tries. [0048](0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md) had kept Flash-Lite and planned a model comparison "if needed". It was needed now.
@@ -29,3 +29,8 @@ Same conversation (beginner, build muscle and get stronger, 4 days, "dumbbells, 
 - Step 4's test set (about 10 fictional clients) shows Flash failing checks, or Flash-Lite passing them reliably.
 - Cost per program starts to matter at real usage.
 - A cheaper model is shown to pass the same checks first time.
+
+## Update 2026-10-01 (Phase 2, step 2 follow-up): superseded
+The developer asked for a cheaper model that does the same job. Five cheap OpenRouter models with tool support were tested on the same conversation, 3 runs each. Qwen3.5 Flash (`qwen/qwen3.5-flash-02-23`) passed 3/3 on the first submission, like Gemini 2.5 Flash, in a steady 19 s, at $0.0013–0.0015 per program, about 4–5x cheaper. The agent now runs on Qwen3.5 Flash. The Q&A app stays on Flash-Lite. See [0053](0053-agent-model-qwen3-5-flash-after-six-model-test.md).
+
+This also corrects a claim made at the time of this decision: Gemini 2.5 Flash was faster and more reliable than Flash-Lite, but not cheaper per passing program (about 1.5–2x more).

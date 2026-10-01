@@ -26,3 +26,6 @@ Keep Gemini 2.5 Flash-Lite for the agent. Compare 2–3 models in step 4 on the 
 
 ## Update 2026-10-01 (Phase 2, step 2): superseded
 The comparison came sooner than step 4. With the program checker in place, Flash-Lite passed 2 of 3 replays of the developer's conversation and none on the first submission. Gemini 2.5 Flash passed 3 of 3 on the first submission and was faster. The agent now uses Gemini 2.5 Flash; the Q&A app stays on Flash-Lite. Still Gemini, as the developer asked. See [0050](0050-agent-model-gemini-2-5-flash.md).
+
+## Note 2026-10-01 (Phase 2, step 2 follow-up)
+Qwen3.5 Flash, one of the options listed above on price alone, was later measured on the agent's real task and adopted: 3/3 programs accepted first try at $0.0013–0.0015 each. See [0053](0053-agent-model-qwen3-5-flash-after-six-model-test.md).

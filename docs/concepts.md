@@ -149,7 +149,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 *Phase 2, step 2 update: cost per program, by model.* Replaying one conversation 3 times per model: Gemini 2.5 Flash-Lite cost $0.0021–0.0026 per program, Gemini 2.5 Flash $0.0060–0.0067. Retries add calls: a Flash-Lite run that resubmitted 3 times cost $0.0043. See [Cost per correct result](#cost-per-correct-result-model-capability-vs-price-per-token).
 
-*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2.*
+*Phase 2, step 2 follow-up update: 0.6 cents in context.* The developer read Gemini 2.5 Flash's $0.006 per program as "0.6" and called it a lot. It is 0.6 of a cent: about $6 per 1,000 programs. Small units are easy to misread, so say the unit and scale it to a round number of uses. The cheaper agent model found afterwards, Qwen3.5 Flash, costs $0.0013–0.0015 per program, about $1.40 per 1,000.
+
+*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2, step 2 follow-up.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -172,7 +174,9 @@ Open-weight models (models whose trained weights are published, like Qwen and Ki
 
 *Step 10 update: speed and real cost vary too.* Across Step 10 runs, Qwen's generation time ranged from about 4 to 29 seconds for similar-sized answers, unpredictably. The host serving it was the bottleneck. Its actual cost per call also ran about 2x its listed price, probably depending on which host served the request. Gemini 2.5 Flash-Lite, served by Google, answered the same question in under a second. See [Latency: where the time goes](#latency-where-the-time-goes).
 
-*First seen: Step 6. Extended: Step 10.*
+*Phase 2, step 2 follow-up update: not every open model behaves the same.* In the 6-model agent test, Qwen3.5 Flash (open-weight) took a steady 19 s on all 3 runs, while Qwen3 235B ranged 19–53 s and 5x in cost, and GPT-OSS 120B took 96–136 s. Which host served each run wasn't recorded. The agent call sets `provider.require_parameters`, like the Q&A call. A steady result on 3 runs on one day is a reason to adopt, not proof it stays steady. See [Latency variance](#latency-variance-consistency-matters-for-ux).
+
+*First seen: Step 6. Extended: Step 10, Phase 2 step 2 follow-up.*
 
 ### Prompt rules have a ceiling (especially on small models)
 A prompt rule (an instruction written into the prompt, like "never apply older-adult numbers to other groups") makes a mistake less likely. It does not make it impossible. Small, cheap models follow long lists of rules less reliably, and the more material you put in front of them, the more chances they have to slip. In Step 13, after an explicit population rule was added, two runs of the same question on Gemini 2.5 Flash-Lite gave one clean answer and one that still ended with "For beginners, 10–15 repetitions..." cited to the older-adults notes. The durable fix is structural: change what reaches the model (for example a [metadata filter](#metadata-filtering) that removes wrong-group passages), check the output in code, or use a stronger model. The eval measures which is needed. Same lesson as Step 10's equipment mismatch ([Hard constraints and negation](#hard-constraints-and-negation)).
@@ -469,7 +473,9 @@ Three rules that keep a find-and-replace from mangling text. **Longest first:** 
 
 **In an interview:** "My slang expander matches the longest term first, whole words only, in one pass. Without that, 'SL RDL' would be split into two expansions, and 'SA' would fire inside 'Sandbag'. Each of those rules has a unit test."
 
-*First seen: Phase 1F, F7c.*
+*Phase 2, step 2 follow-up update: whole words in the program checker.* The referral check had the "Sandbag" problem in reverse: matching "back" as part of any text, so "coming back to lifting" would demand a health referral. `HEALTH_PATTERN` in `src/ragmotion/program.py` now uses `\b` word boundaries, and "back" counts only inside health phrases ("bad back", "lower back", "back pain"). Whole words fix one kind of error but not all: "shoulder" is still a whole word in "shoulder press". See [False negatives vs false positives in a safety check](#false-negatives-vs-false-positives-in-a-safety-check).
+
+*First seen: Phase 1F, F7c. Extended: Phase 2, step 2 follow-up.*
 
 ### Query decomposition (multi-intent questions)
 A multi-intent question asks for several things at once. "Explosive lower-body program to run faster" is really several searches: power training principles, jump exercises, single-leg strength, and how to progress. One embedding of the whole question blends those meanings together and may retrieve a bit of each and not enough of any. Query decomposition means splitting the question into sub-questions, searching for each one separately, and combining the results. This fits Phase 2, where an agent builds whole programs. Not built yet.
@@ -1059,14 +1065,34 @@ A false positive is a check that fires when nothing is wrong. The referral check
 
 **In an interview:** "My referral rule fired on 'little lifting experience', which isn't a health issue. A check needs the right trigger, not just the right rule, so I tied it to a list of health words and added a test that ordinary notes don't trigger it."
 
-*First seen: Phase 2, step 2.*
+*Phase 2, step 2 follow-up update: the predicted false alarm, fixed.* `HEALTH_WORDS` was replaced by `HEALTH_PATTERN`: whole words only, and "back" only in health phrases (bad back, lower/upper back, back pain/injury/problem/issue). Tested: "bad knee", "lower back pain", "had shoulder surgery" trigger; "coming back to lifting after a break" and "little lifting experience" don't. Tightening a trigger has a cost in the other direction; see [False negatives vs false positives in a safety check](#false-negatives-vs-false-positives-in-a-safety-check).
+
+*First seen: Phase 2, step 2. Extended: step 2 follow-up.*
+
+### False negatives vs false positives in a safety check
+A false positive is a check that fires when nothing is wrong. A false negative is a check that stays silent when it should fire. Tightening a rule to remove false positives usually adds false negatives, so the two have to be weighed. For a safety reminder ("check with a health professional"), a false negative is worse: a client with a bad back gets no reminder. A probe of the new `HEALTH_PATTERN`, run while documenting the step, found both kinds: no referral for "hurt my back", "my back hurts", "tweaked my back", "strained my hamstring", or "herniated disc"; a referral for "wants to do hip thrusts", "likes the shoulder press", and "knee-friendly please". The back phrases are a regression (something that used to work and now doesn't): under the old part-of-word matching, any note with "back" triggered, so "my back hurts" got a reminder before the fix and doesn't now. A word list will always have gaps like these. Not fixed yet.
+
+**In an interview:** "Fixing a false alarm in my referral check made it miss 'my back hurts'. For a safety rule I'd rather over-warn than under-warn, so I test both directions with real phrasings, and a word list may not be the final answer."
+
+*First seen: Phase 2, step 2 follow-up.*
 
 ### Cost per correct result (model capability vs price per token)
 Price per token isn't the whole cost. An agent that fails needs retries, and each retry is more calls, more time, and sometimes still a failed result. The fair comparison is cost and time per *correct* result. On the same conversation, 3 runs each: Gemini 2.5 Flash-Lite passed 2/3, none on the first submission, 15–21 s, $0.0021–0.0026 per run. Gemini 2.5 Flash passed 3/3 on the first submission, 11–13 s, $0.0060–0.0067. The bigger model was **faster** because it needed no retries. By these numbers it still cost more per passing program (about $0.006 vs about $0.003–0.004), so the gain was reliability and speed, at about 0.6 cents a program.
 
 **In an interview:** "I measured models on the same conversation. The cheaper one needed retries and still failed one in three; the slightly bigger one passed every time on the first try and was faster. It cost about 0.6 cents a program, which is nothing next to a program a coach has to fix."
 
-*First seen: Phase 2, step 2.*
+*Phase 2, step 2 follow-up update: a correction, and a cheaper model that also passed.* An earlier note in this project said Gemini Flash was cheaper per correct program than Flash-Lite. The recorded numbers say otherwise: about 1.5–2x **more**. The developer then asked for a cheaper model. In a 6-model test on the same conversation, Qwen3.5 Flash passed 3/3 on the first submission at $0.0013–0.0015 per program. That is cheaper per passing program than both Gemini Flash ($0.0060–0.0067) and Flash-Lite (about $0.0032–0.0039 per passing program). Low price per token didn't guarantee low cost per result: DeepSeek V4 Flash, also on the cheap list, failed all 3 runs and cost $0.0058–0.0065 per run. See [Model selection by measurement](#model-selection-by-measurement-test-on-the-real-task).
+
+**In an interview (follow-up):** "I first argued the bigger model was cheaper per correct result, and my own numbers proved me wrong. So I tested six models on the real task. The winner passed every run first try at about a quarter of the cost of what I had."
+
+*First seen: Phase 2, step 2. Extended: step 2 follow-up.*
+
+### Model selection by measurement (test on the real task)
+Choosing a model by its price list, its size, or its brand is guessing. Choosing by measurement means running each candidate on the actual task, the same input several times, and scoring what matters for this job: did it pass the checks, did it pass first try, how long did it take, and what did a passing result cost. In the agent test (one conversation, 3 runs each), bigger or pricier wasn't automatically better: Qwen3.5 Flash matched the pricier Gemini 2.5 Flash's 3/3 first try at about a quarter of the cost; the larger Qwen3 235B and GPT-OSS 120B passed but were slower and less steady (up to 53 s and 136 s); DeepSeek V4 Flash failed every run. The same Qwen model had been passed over in step 1 on listed price alone ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)); the measurement is what changed the choice ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md)). It needs two things already built: a checker that scores programs in code, and a setting (`AGENT_MODEL`) to switch models without editing code. Limits: 3 runs on one conversation is small; step 4's 10 fictional clients will test it more widely.
+
+**In an interview:** "I don't pick models by brand or price. My program checker scores every output in code, so I replayed the same conversation on six models and compared pass rate, first-try rate, time, and cost per program. A model I'd skipped on price ended up matching the more expensive one at a quarter of the cost."
+
+*First seen: Phase 2, step 2 follow-up.*
 
 ---
 
@@ -1697,7 +1723,9 @@ A regression is an old bug coming back after a later change. A regression test r
 
 *Phase 2, step 2 update: a coach's eye, turned into tests.* The problems a coach spotted in step 1's first program (7 exercises a day, a carry in reps) plus two the checker must also catch (a barbell squat for a dumbbell client, an invented citation) are tests in `tests/test_program_checker.py`. So is the referral false alarm: a non-health note must not trigger it.
 
-*First seen: Step 16. Extended: Phase 2, step 2.*
+*Phase 2, step 2 follow-up update:* the false alarm the build log predicted ("coming back to lifting" contains "back") became a test before the fix: `test_referral_triggers_on_health_words_only` checks three phrases that must trigger and two that must not. 66 tests.
+
+*First seen: Step 16. Extended: Phase 2, step 2 and its follow-up.*
 
 ### Integration tests that skip gracefully
 An integration test checks that parts work together with a real outside system, here the Postgres database. They catch problems unit tests can't (for example, that the "only needs what I own" SQL query really excludes the step-up and hip thrust, or that every chunk has a vector). But they need that system running. Step 16's three database tests carry an `integration` marker (a label pytest can select or skip by), and `conftest.py` skips them automatically when Postgres can't be reached, instead of failing. So the unit tests still run anywhere, and a stopped Docker container doesn't look like broken code.
@@ -2525,6 +2553,13 @@ Latency is how long a request takes, from asking to getting the answer back. Ste
 *Phase 1F F7c update: what one extra model call costs in time.* With the answer eval now recording timings, the total median per question was 2.42 s with no rewriting and 2.42 s with the dictionary, but 3.08 s with the LLM rewrite (its own step: 639 ms median), about 26% slower. Every extra model call in front of search adds its full round trip to every question.
 
 *First seen: Step 9. Extended: Steps 10, 14, and Phase 1F F7c.*
+
+### Latency variance (consistency matters for UX)
+Latency variance is how much the time for the same request changes from run to run. For a person waiting in a chat, a steady wait is easier to accept than one that is sometimes fast and sometimes very slow, and a slow worst case can hit a timeout. UX (user experience) is how using the product feels. In the 6-model agent test (same conversation, 3 runs each): Qwen3.5 Flash took 19 s every run; Mistral Small 3.2 took 22–48 s; Qwen3 235B 19–53 s; GPT-OSS 120B 96–136 s; Gemini 2.5 Flash 11–13 s. Qwen3.5 Flash was chosen partly for its steady timing, accepting about 7 s more than Gemini Flash. Report a range, not just an average, and judge by the slow end.
+
+**In an interview:** "When I compared agent models I looked at the spread, not just the average. One model passed every check but took up to 2 minutes a program; another took 19 seconds every time. For a chat, the steady one wins."
+
+*First seen: Phase 2, step 2 follow-up.*
 
 ### Retry on malformed structured output
 [Structured output](#structured-output-strict-json-schema) gives a valid shape only when the reply arrives complete. In the first eval v2 run, 2 of 31 answers crashed with "1 validation error for GroundedAnswer: Invalid JSON: EOF while parsing a string": the model's JSON was cut off mid-string. The code correctly refused to use half an answer, but it didn't try again, so those questions produced no answer and weren't scored (29 of 31). Fix: `llm.structured_completion()` now wraps `_structured_completion_once()` and retries once when pydantic raises a `ValidationError`. The final v2 run scored all 31. Tradeoffs: a retry costs another call and more time on those cases; retrying only once means a persistent problem still ends in an error instead of looping; and a retry can hide a systematic cause, so the crash rate is worth watching. Whether the cut-off came from the length cap (`max_tokens`) was not recorded.

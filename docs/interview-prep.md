@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 2, step 2, 2026-10-01 (program checker in code with exact fixes and up to 3 submissions; building tools refuse until goal, days, equipment, and level are known; empty replies and checker rejections handled in code; agent model Gemini 2.5 Flash after a 3-run comparison; 65 tests; decisions 0050 to 0052).
+Last updated: Phase 2, step 2 follow-up, 2026-10-01 (6-model agent test: Qwen3.5 Flash matches Gemini 2.5 Flash's 3/3 first try at about a quarter of the cost; referral check uses whole words; 66 tests; decision 0053 supersedes 0050).
 
 ---
 
@@ -631,6 +631,10 @@ Evidence so far:
   - **Model behavior is tested separately, by replaying a real conversation.** The developer's conversation was replayed 3 times per model, and the checker's verdict was the score.
   - Point to make: "The fake model proves my guardrails work. Only replays with the real model show whether the agent actually produces programs that pass."
 
+- [Phase 2, step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix): **the checker doubles as a model benchmark.** The same replayed conversation, 3 runs on each of 6 models, scored by `check_program()`: passed all checks, accepted first try, time, cost per program. Qwen3.5 Flash 3/3 first try at $0.0013–0.0015; DeepSeek V4 Flash 0/3. See [Model selection by measurement](concepts.md#model-selection-by-measurement-test-on-the-real-task).
+  - **A test written from a predicted bug.** The step-2 build log flagged that "coming back to lifting" would trigger a referral; it became `test_referral_triggers_on_health_words_only` with the fix. A later probe found the narrower rule misses "my back hurts" (not yet tested or fixed). See [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check).
+  - Point to make: "Because my quality checks are code, swapping a model is an experiment, not a guess: one environment variable, three replays, and a table."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -675,7 +679,7 @@ Evidence so far (partial: no program generation yet):
   2. Any failure → sent back to the agent with the failed checks and `exactly_what_to_change`, e.g. "'Day 1' has 7 exercises: remove 1".
   3. The next call is forced to be `submit_program`, because the agent once asked the client to fix the program.
   4. Up to 3 submissions. After that, the program is returned with its checks and `passed_checks = False`; the terminal prints "Program checks: X/Y passed" and each failure.
-  - **What the runs showed.** Failed rules alone: Flash-Lite repeated the same mistakes 3 times (14/16 passed, shown with 2 failures). With exact fixes: 2 of 3 Flash-Lite runs passed after one rejection. Gemini 2.5 Flash: 3 of 3 accepted first time ([0050](decisions/0050-agent-model-gemini-2-5-flash.md)). See [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) and [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure).
+  - **What the runs showed.** Failed rules alone: Flash-Lite repeated the same mistakes 3 times (14/16 passed, shown with 2 failures). With exact fixes: 2 of 3 Flash-Lite runs passed after one rejection. Gemini 2.5 Flash: 3 of 3 accepted first time ([0050](decisions/0050-agent-model-gemini-2-5-flash.md)). Follow-up: Qwen3.5 Flash also 3 of 3 first time, at about a quarter of the cost; now the agent's model ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md)). See [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) and [Fail visibly](concepts.md#fail-visibly-retry-budget-then-show-the-failure).
   - Point to make: "A failed program goes back to the agent with exact instructions, three tries at most, and then the person sees the program with its failures listed. No silent pass, no endless loop."
 
 ## Human-in-the-loop
@@ -716,6 +720,9 @@ Evidence so far:
 
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **the checker can't replace the coach.** The 16 checks catch only rules someone wrote down. After 3 failed submissions the program is still shown, with failures listed, for a person to judge ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)). Health mentions (pain, injury, surgery, conditions, joints) must come with a reminder to see a health professional. And the agent must now ask the human for equipment before building; in the live test it skipped that question and built from bodyweight only ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)). No coach approval step is built yet.
   - Point to make: "Code checks what can be written as a rule. Everything else, including a program that fails its checks three times, goes in front of a person rather than being hidden or silently accepted."
+
+- [Phase 2, step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix): **a word list can't spot every health issue.** The referral check now uses whole words, which fixed "coming back to lifting", but a probe showed it says nothing for "my back hurts" or "herniated disc" and fires on "shoulder press". See [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check).
+  - Point to make: "My safety rule in code misses some ways people describe pain. That's one more reason a coach reads the client's notes before a program is used."
 
 ## Observability
 
@@ -1160,6 +1167,9 @@ Evidence so far:
 - **Cheaper Qwen models vs keeping Gemini 2.5 Flash-Lite** ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)): kept Gemini. Given up: up to about 3x lower cost per token. Gained: a model already proven in this app; reliability matters more than fractions of a cent in an agent.
 - **Unknown age: no filter vs adults** ([0049](decisions/0049-program-clients-with-no-stated-age-count-as-adults.md)): adults. Given up: correct sources for a youth or older client who doesn't state their age. Gained: no youth or older-adult passages in a typical adult's program.
 
-- **Cheaper model vs reliable model for the agent** ([0050](decisions/0050-agent-model-gemini-2-5-flash.md), [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice)): Gemini 2.5 Flash over Flash-Lite. Given up: about 2.5x cost per run (about 0.6 cents a program), and by the recorded numbers more per passing program too. Gained: 3/3 programs passed first time, and faster (11–13 s vs 15–21 s). At 100,000 users the cost difference becomes real money; it would be weighed against retries and coach time. See [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token).
+- **Cheaper model vs reliable model for the agent** ([0050](decisions/0050-agent-model-gemini-2-5-flash.md), [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice)): Gemini 2.5 Flash over Flash-Lite. Given up: about 2.5x cost per run (about 0.6 cents a program), and by the recorded numbers more per passing program too. Gained: 3/3 programs passed first time, and faster (11–13 s vs 15–21 s). At 100,000 users the cost difference becomes real money; it would be weighed against retries and coach time. See [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token). *Superseded by 0053 below.*
+- **Fast and pricier vs steady and cheaper for the agent** ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md), [step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix)): Qwen3.5 Flash over Gemini 2.5 Flash, after 6 models were tested on the same conversation. Given up: about 7 s per program (19 s vs 11–13 s), and a Google-hosted model for one served by third-party hosts. Gained: the same 3/3 first-try result at $0.0013–0.0015 instead of $0.0060–0.0067, about $1.40 vs $6 per 1,000 programs. Earlier, the same model had been passed over on listed price alone ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)). See [Model selection by measurement](concepts.md#model-selection-by-measurement-test-on-the-real-task) and [Latency variance](concepts.md#latency-variance-consistency-matters-for-ux).
+  - Point to make: "At 100,000 programs that's about $140 instead of $600, for the same pass rate. I only knew that because the checker let me measure it."
+- **Whole-word referral trigger** ([step 2 follow-up](build-log.md#phase-2-step-2-follow-up-a-cheaper-agent-model-6-model-test-and-the-referral-check-fix)): given up: complaints that used to trigger through the word "back" alone ("my back hurts", "hurt my back", "tweaked my back") no longer do, found by a later probe. Gained: no referral for "coming back to lifting". Not settled.
 - **Checks in code with exact fixes and a retry budget** ([0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md)): given up: only written rules are checked, and a failing program can still reach the person after 3 tries (labeled). Gained: no program is silently wrong on a rule we know.
 - **Refuse until complete vs build with defaults** ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)): given up: no program for a client who won't give all four details. Gained: no program silently built from bodyweight only.

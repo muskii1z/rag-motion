@@ -4821,3 +4821,74 @@ Agent model set to Gemini 2.5 Flash, staying with Gemini as the developer asked 
 - New: [0052. Building tools refuse until goal, days, equipment, and level are known](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)
 - Updated: [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (step cap 18, forced submit after a rejection, empty-reply nudge)
 - Next: Phase 2, step 3, the program page (chat plus program table) on localhost.
+
+## Phase 2, step 2 follow-up: a cheaper agent model (6-model test) and the referral-check fix
+**Date:** 2026-10-01 · **Commit:** `d5050cb` fix: referral check matches whole health words only; docs for Phase 2 step 2 · `2deb8de` feat: program agent runs on Qwen3.5 Flash after a 6-model test
+
+**Goal.** Find an agent model that does the same job as Gemini 2.5 Flash for less, and fix the referral check's known false alarm.
+
+**What we did.**
+- **The developer's ask.** *"0.6 is a lot bud, can we explore other models that will do the same job but cheaper."* Claude first clarified the number: 0.6 of a **cent** per program ($0.006), about $6 per 1,000 programs. Then explored anyway.
+- **Picked candidates.** Listed cheap OpenRouter models that support tools and `tool_choice` (forcing a specific tool call, which the agent needs after a rejection), at $0.30 or less per million input tokens. Five candidates.
+- **Ran the test.** Same replayed conversation as step 2 (beginner, build muscle and get stronger, 4 days a week, "dumbbells, a bench and resistance bands"), 3 runs per model, run in parallel. The model was switched with the `AGENT_MODEL` environment variable, which overrides `config.agent_model` without editing code.
+- **Changed the default.** `agent_model` in `src/ragmotion/config.py` is now `qwen/qwen3.5-flash-02-23`. The Q&A app stays on `google/gemini-2.5-flash-lite`. See [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md), which supersedes [0050](decisions/0050-agent-model-gemini-2-5-flash.md).
+- **Fixed the referral false alarm** flagged as an open question in step 2. The checker's list of health words, `HEALTH_WORDS`, matched parts of text, so "coming back to lifting" contained "back" and would demand a health-professional reminder. Replaced by `HEALTH_PATTERN` in `src/ragmotion/program.py`, a regular expression (a text-matching pattern):
+  - whole words only (`\b` word boundaries), with word endings allowed where needed (`injur\w*`, `diabet\w*`, `osteo\w*`);
+  - "back" counts only in health phrases: bad back, lower back, upper back, back pain / injury / problem / issue (and plurals).
+  - New test `test_referral_triggers_on_health_words_only`: "bad knee", "lower back pain", and "had shoulder surgery" trigger; "coming back to lifting after a break" and "little lifting experience" don't.
+- **A correction carried over from step 2.** The step-2 claim that Gemini 2.5 Flash was cheaper per correct program was wrong by the recorded numbers. Flash was faster and more reliable than Flash-Lite, but cost about 1.5–2x more per passing program. Acknowledged in this step.
+
+**Commands.**
+```bash
+# For each candidate model, 3 replays of the same conversation, run in parallel:
+AGENT_MODEL=<model id> ...   # exact replay command not recorded in the brief
+uv run pytest                # 66 tests pass (65 + the new referral test)
+```
+Scribe check, run while writing these docs (not part of the step), probing `HEALTH_PATTERN` with phrases that weren't tested:
+```bash
+uv run python -c "from ragmotion.program import HEALTH_PATTERN as P; print(bool(P.search('hurt my back')))"
+```
+Results are under Open questions.
+
+**What we saw.** Costs include the profile extraction (on Flash-Lite) and embeddings, not only the agent's calls.
+
+| Model | Passed all checks | Accepted on first submission | Time per program | Cost per program |
+|---|---|---|---|---|
+| Gemini 2.5 Flash (previous default; earlier test in step 2) | 3/3 | 3/3 | 11–13 s | $0.0060–0.0067 |
+| **`qwen/qwen3.5-flash-02-23`** | 3/3 | 3/3 | 19 s each | $0.0013–0.0015 |
+| `mistralai/mistral-small-3.2-24b-instruct` | 3/3 | 2/3 | 22–48 s | $0.0010–0.0017 |
+| `qwen/qwen3-235b-a22b-2507` | 3/3 | 3/3 | 19–53 s | $0.0011–0.0050 |
+| `openai/gpt-oss-120b` | 3/3 | 1/3 (two "invalid shape, sent back") | 96–136 s | $0.0010–0.0014 |
+| `deepseek/deepseek-v4-flash` | 0/3 (3–4 checks still failing after 3 submissions) | 0/3 | 126–143 s | $0.0058–0.0065 |
+
+- **Qwen3.5 Flash matched Gemini 2.5 Flash on reliability** (3/3 first try) at about a quarter of the cost (roughly 4–5x cheaper by the ranges), with the steadiest timing of the cheap models (19 s every run). It is about 6–8 s slower than Gemini Flash.
+- It is also cheaper per passing program than Flash-Lite was in step 2 (about $0.0032–0.0039 per passing program, by the step-2 numbers). See [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token).
+- **Not every cheap model was cheap in practice.** DeepSeek V4 Flash failed all 3 runs and cost about as much as Gemini Flash. Qwen3 235B passed every time but its cost varied 5x and its time from 19 to 53 s.
+- **Speed varied a lot.** GPT-OSS 120B passed in the end but took 96–136 s per program, too slow for a chat. See [Latency variance](concepts.md#latency-variance-consistency-matters-for-ux).
+- The step-1 history behind [0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md): Qwen3.5 Flash was one of the Qwen options checked then, on listed price alone, and the developer chose to "keep Gemini". This time the switch rests on a measured comparison the developer asked for.
+
+**Problems and fixes.**
+- **Referral check would fire on "coming back to lifting"** (open question from step 2). Fixed with whole-word matching and health phrases for "back"; test added. See [False-positive checks](concepts.md#false-positive-checks-tie-a-rule-to-its-trigger).
+- **The step-2 "cheaper per correct program" claim** didn't match the numbers. Corrected (see What we did).
+
+**Open questions.**
+- **The new pattern misses some back problems and still has false alarms** (found by the scribe check above, not tested in the step):
+  - No referral for "hurt my back", "my back hurts", "tweaked my back", "strained my hamstring", or "herniated disc". These are false negatives (a check that stays silent when it should fire), which is the riskier direction for a safety reminder. The three back phrases did trigger under the old part-of-word matching (they contain "back"), so the fix traded one false alarm for these misses.
+  - A referral for "wants to do hip thrusts", "likes the shoulder press", and "knee-friendly please", because hip, shoulder, and knee match as whole words in exercise names and preferences.
+  - "conditioning focus" correctly does not trigger.
+  - Whether to widen the list (hurt, strain, tweak, disc, hamstring...) or read health notes with the profile extractor instead isn't decided.
+- **Gemini 2.5 Flash's numbers come from step 2's earlier test**, not the same parallel batch. Parallel runs may share rate limits or hosts, so the timings may not be exactly comparable.
+- **Why DeepSeek V4 Flash cost as much as Gemini Flash** despite being on the cheap list, and which checks it kept failing, wasn't recorded. More submissions and longer runs are likely factors, but this wasn't checked.
+- **What GPT-OSS 120B's "invalid shape" errors were** (which fields) wasn't recorded.
+- **Hosting.** Qwen3.5 Flash is an open-weight model served by third-party hosts on OpenRouter; Qwen was slow and unpredictable in Step 10. The agent call sets `provider.require_parameters` (`src/ragmotion/agent.py`), but which host served these runs wasn't recorded. The steady 19 s is from 3 runs on one day.
+- Evidence is one conversation, 3 runs per model. Step 4's test set (about 10 fictional clients) is where it gets checked more widely.
+- Exact per-token prices of the candidates weren't recorded, only the $0.30/M input ceiling.
+
+**Learned.**
+- New: [Model selection by measurement](concepts.md#model-selection-by-measurement-test-on-the-real-task), [Latency variance (consistency matters for UX)](concepts.md#latency-variance-consistency-matters-for-ux), [False negatives vs false positives in a safety check](concepts.md#false-negatives-vs-false-positives-in-a-safety-check)
+- Extended: [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token) (6-model table; correction), [False-positive checks](concepts.md#false-positive-checks-tie-a-rule-to-its-trigger) (whole words, back phrases), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (cost per program by model), [Open-weight model hosting variability](concepts.md#open-weight-model-hosting-variability) (Qwen3.5 Flash steady; others not), [Longest match first, whole words, one pass](concepts.md#longest-match-first-whole-words-one-pass-safe-text-substitution) (same whole-word idea in the checker), [Regression tests from real failures](concepts.md#regression-tests-from-real-failures)
+
+**Decisions.**
+- New: [0053. The agent runs on Qwen3.5 Flash after a 6-model test](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (supersedes [0050](decisions/0050-agent-model-gemini-2-5-flash.md))
+- Updated: [0050](decisions/0050-agent-model-gemini-2-5-flash.md) marked superseded.
+- Next: Phase 2, step 3, the program page.
