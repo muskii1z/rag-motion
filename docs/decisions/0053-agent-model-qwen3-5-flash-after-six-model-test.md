@@ -39,3 +39,7 @@ Candidates: OpenRouter models that support tools and `tool_choice` (forcing a sp
 - The program page (step 3) makes 19 s feel too slow to users.
 - Timing or failures start varying by host.
 - Prices change, or a new cheap model with tool support appears.
+
+## Update 2026-10-01 (Phase 2 quality pass, Q1)
+- Candidates were picked for supporting `tool_choice`, but Qwen3.5 Flash's only provider rejected a *named* `tool_choice` (OpenRouter 404). The test never reached the forced submit, so it didn't show. The agent no longer names a tool; it offers only the submit tool instead ([0047 update](0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The model choice stands.
+- The 6-model test ran before Q1's stricter quality checks ([0057](0057-program-quality-checks-weekly-sets-patterns-day-labels.md)). With them, Qwen3.5 Flash passed 0 of 3 replays fully. Whether another model does better under the new checks is untested.

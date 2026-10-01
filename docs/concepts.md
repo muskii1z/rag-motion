@@ -155,7 +155,9 @@ A token is a small chunk of text, roughly part of a word. APIs charge separately
 
 *Phase 2, step 2 fixes update: a cost spike from retries.* One live run cost $0.0142, about 10x a normal run (about $0.0014 on Qwen3.5 Flash). The extra came from 3 program submissions: each rejection adds a long program and the checker's feedback to the message list, and every later call re-sends all of it. Retries with long contexts are where agent costs jump.
 
-*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2, step 2 follow-up, step 2 fixes.*
+*Phase 2 quality pass (Q1) update: stricter checks cost retries.* With three new quality checks, replays of the same conversation used 3 submissions and cost $0.0038–0.0076, against $0.0015 for a first-try program: about 2–5x. Time went from 19 s to 35–67 s. Every rule added to a checker is also a possible retry.
+
+*First seen: Step 6. Extended: Steps 7 and 13, Phase 2 steps 1 and 2, step 2 follow-up, step 2 fixes, quality pass Q1.*
 
 ### Thinking (reasoning) models
 Some models generate hidden reasoning before the answer (a "thinking" phase). They are often more accurate, but the reasoning tokens are billed as output and take time. In Step 6, Kimi K2.5 wrote 925 to 1,977 output tokens for an answer of about 100 tokens. That made it about 40x Qwen's cost and slower, and it was also the only model that got both hard tests right.
@@ -180,7 +182,9 @@ Open-weight models (models whose trained weights are published, like Qwen and Ki
 
 *Phase 2, step 2 follow-up update: not every open model behaves the same.* In the 6-model agent test, Qwen3.5 Flash (open-weight) took a steady 19 s on all 3 runs, while Qwen3 235B ranged 19–53 s and 5x in cost, and GPT-OSS 120B took 96–136 s. Which host served each run wasn't recorded. The agent call sets `provider.require_parameters`, like the Q&A call. A steady result on 3 runs on one day is a reason to adopt, not proof it stays steady. See [Latency variance](#latency-variance-consistency-matters-for-ux).
 
-*First seen: Step 6. Extended: Step 10, Phase 2 step 2 follow-up.*
+*Phase 2 quality pass (Q1) update: a host can lack a feature.* Qwen3.5 Flash had only one provider on OpenRouter, and it didn't support a named `tool_choice`. With one host there is no fallback: the request failed with a 404. Check which API features a model's hosts support before relying on them, or use only the common ones.
+
+*First seen: Step 6. Extended: Step 10, Phase 2 step 2 follow-up, quality pass Q1.*
 
 ### Prompt rules have a ceiling (especially on small models)
 A prompt rule (an instruction written into the prompt, like "never apply older-adult numbers to other groups") makes a mistake less likely. It does not make it impossible. Small, cheap models follow long lists of rules less reliably, and the more material you put in front of them, the more chances they have to slip. In Step 13, after an explicit population rule was added, two runs of the same question on Gemini 2.5 Flash-Lite gave one clean answer and one that still ended with "For beginners, 10–15 repetitions..." cited to the older-adults notes. The durable fix is structural: change what reaches the model (for example a [metadata filter](#metadata-filtering) that removes wrong-group passages), check the output in code, or use a stronger model. The eval measures which is needed. Same lesson as Step 10's equipment mismatch ([Hard constraints and negation](#hard-constraints-and-negation)).
@@ -1004,7 +1008,11 @@ Tool calling is how an API lets a model request a function call. You send the to
 
 *Phase 2, step 2 update: forcing a tool after a rejection.* When the checker rejected a program, the agent replied to the *client*, asking them to fix it. Now the call right after a rejection uses `tool_choice` to force `submit_program`, so the only possible move is a corrected program. The same forcing keeps an agent on task whenever there is exactly one right next step. See [Role confusion](#role-confusion-the-agent-hands-its-job-to-the-user).
 
-*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
+*Phase 2 quality pass (Q1) update: a named `tool_choice` isn't universal.* After switching to Qwen3.5 Flash, the first run that reached the forced submit crashed: OpenRouter returned 404 "No endpoints found that support the provided 'tool_choice' value". Its only provider doesn't accept a named tool. The fix forces in a different way: send only the submit tool (`tools=[SUBMIT_TOOL]`) with `tool_choice="auto"`. The model can only call submit or reply in text, and a text reply gets one nudge. Same effect, using only features every provider supports.
+
+**In an interview (follow-up):** "Forcing a tool by name is an API feature some hosts don't support. I got the same effect by offering the agent only one tool, which works everywhere."
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2, quality pass Q1.*
 
 ### Workflow vs guided agent vs autonomous agent
 A **workflow** is a fixed sequence written in code: step 1, then step 2, every time. The model fills in parts but never chooses the order. An **agent** lets the model choose which step comes next. A **fully autonomous agent** gets a goal and broad tools and decides almost everything. A **guided agent** (this project's choice) sits in between: a prompt gives the order of work, the tools are narrow, and code enforces the limits and checks the result. Agents are more flexible (they can ask the user, skip what's known, search again), but less predictable, harder to test, slower and costlier per decision, and they can "decide" that a check passed when it didn't.
@@ -1029,7 +1037,9 @@ An agent runs in a loop, and a small model can get stuck in it. In run 1 the age
 
 *Phase 2, step 2 update: more limits.* `MAX_STEPS` is now 18. `MAX_SUBMISSIONS = 3` caps how often the checker can send a program back. An empty model reply gets one nudge, then a clear error instead of a blank answer. After a rejection, only `submit_program` is allowed. Each limit came from a real failure in a run, not from planning ahead.
 
-*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
+*Phase 2 quality pass (Q1) update: how the forced finish works now.* It used to name `submit_program` in `tool_choice`. On Qwen3.5 Flash's provider that crashed with a 404. Now a forced step offers only the submit tool, and one nudge if the model chats instead. The forced path had never run in the model test, because every run passed first try. See [Test rare paths](#test-rare-paths-not-just-the-happy-path).
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2, quality pass Q1.*
 
 ### The message list is the memory (stateless model, stateless server)
 The model remembers nothing between calls. Each call sends the whole message list: the system prompt, the profile note, every client message, every tool call and result. That list is the agent's only memory, and it grows with every tool call, which is why each call in a turn costs more input tokens than the one before. The server is stateless too: it keeps no conversation. The client (here, `scripts/program_chat.py`) holds the conversation and sends all of it every turn; `run_turn` rebuilds the profile from it each time.
@@ -1127,7 +1137,48 @@ A check has to be passable for every input it can see; otherwise it fails foreve
 
 **In an interview:** "One of my checks could never pass for a client with no equipment, because the catalog has no bodyweight pull exercise. The agent burned all its retries on it. A rule has to be satisfiable, so now it only requires what the catalog can deliver, and the program says what equipment would fill the gap."
 
-*First seen: Phase 2, step 2 fixes.*
+*Phase 2 quality pass (Q1) update:* the weekly-set check was built this way from the start. It only requires a muscle group if the client's usable exercises can train it; with no equipment, back isn't required (tested).
+
+*First seen: Phase 2, step 2 fixes. Extended: quality pass Q1.*
+
+### Structural vs quality checks
+A structural check asks whether a result is complete and allowed: right number of days, real exercises, the client's equipment, a pull on 2+ days. A quality check asks whether it is *good*: balanced volume, no near-duplicate exercises on one day, days that make sense. A program can pass every structural and safety check and still be poorly designed. The developer's 4-day program passed 15/15 checks and gave chest 3 sets a week and two near-identical hip exercises on one day. Q1 added three quality checks ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md)). Quality is harder to put in code, because it needs domain knowledge someone has to write down as a rule.
+
+**In an interview:** "My checker passed a program I'd never give a client. It checked safety and structure, not quality. So I turned the coaching problems I spotted into rules: weekly sets per muscle group, one exercise per pattern per day, and days that match their names."
+
+*First seen: Phase 2 quality pass, Q1.*
+
+### Count, don't trust (compute the model's claims in code)
+When a model states a number about its own output, treat it as a claim, not a fact. The agent's rationale said the program gave "10–13 sets per muscle group". Chest actually got 3. Now code counts weekly sets from the catalog (`weekly_sets()` in `src/ragmotion/program.py`), attaches the table to every program, and the prompt tells the model not to state totals. Anything that can be computed should be computed, not generated. The same idea as [Verify agent output independently](#verify-agent-output-independently).
+
+**In an interview:** "My agent claimed 10 to 13 sets per muscle group; chest had 3. Now the model doesn't state volume at all. Code counts it from the catalog and shows the real numbers."
+
+*First seen: Phase 2 quality pass, Q1.*
+
+### Rules must fit the domain model (richer data, not looser rules)
+A domain model is how the data describes the real world: here, each exercise has one movement pattern (squat, hinge, push, pull...). A rule can only be as precise as that data. "One push and one pull per day" was meant to stop near-duplicates like glute bridge + hip thrust. On upper/lower splits it misfired: a normal upper day has a horizontal and a vertical press, and a row and a pulldown, but the catalog only knows "push" and "pull". Loosening the rule (allow two pushes) would let duplicates through again. The fix chosen is richer data: label push and pull exercises horizontal or vertical, and allow one per pattern *and direction* ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
+
+**In an interview:** "A rule I wrote for full-body days broke upper/lower splits, because my data couldn't tell a bench press from an overhead press. I didn't loosen the rule; I added movement direction to the data, so the rule can say what a coach actually means."
+
+*First seen: Phase 2 quality pass, Q1.*
+
+---
+
+## Program design
+
+### Weekly sets per muscle group (training volume)
+Training volume is how much work a muscle gets. A common way to count it is hard sets per muscle group per week: every working set of an exercise that trains that muscle counts. rag-motion counts five major groups (chest, back, shoulders, quads, glutes/hamstrings), built from each exercise's primary muscles in the catalog, using the lower end of a range ("2-3" counts as 2). The minimum is 6 sets a week for muscle or strength goals and 4 otherwise, set by the developer as coach. The count is simple on purpose: an exercise counts fully toward every group its primary muscles touch, and arms aren't counted.
+
+**In an interview:** "The checker counts hard sets per muscle group per week from the catalog. A beginner who wants muscle needs at least 6 per group; my agent's first passing program gave chest 3, and now it can't."
+
+*First seen: Phase 2 quality pass, Q1.*
+
+### Movement direction (horizontal vs vertical push and pull)
+Pushes and pulls come in two directions. Horizontal: pressing forward or rowing toward you (bench press, push-up, row). Vertical: pressing overhead or pulling down from above (overhead press, pull-up, pulldown). A balanced upper day usually has one of each. The catalog only labels "push" or "pull", so a rule can't tell a bench press + overhead press (a good pair) from two bench-style presses (a near-duplicate). Direction labels are planned for Q2 ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
+
+**In an interview:** "For programming, 'push' isn't one thing: overhead and forward presses train the shoulders differently. My data didn't know that, so my checker couldn't either."
+
+*First seen: Phase 2 quality pass, Q1.*
 
 ---
 
@@ -1762,7 +1813,16 @@ A regression is an old bug coming back after a later change. A regression test r
 
 *Phase 2, step 2 fixes update:* the misses found in the docs probe became tests (all 8 complaint phrases must match the backup pattern; three ordinary phrases must not), and so did the developer's live run: a guessed bodyweight is ignored unless the client said it, and a pattern with no usable exercises isn't required. 69 tests.
 
-*First seen: Step 16. Extended: Phase 2, step 2, its follow-up, and step 2 fixes.*
+*Phase 2 quality pass (Q1) update: a whole program as a regression test.* The developer's real 4-day program, which passed 15/15 checks but gave chest only 3 sets a week, is now a test. It must be rejected with "chest: 3" and "add 3 more", and the glute bridge + hip thrust pair must be flagged. A forced-submit test was added too, after the crash. 73 tests.
+
+*First seen: Step 16. Extended: Phase 2, step 2, its follow-up, step 2 fixes, quality pass Q1.*
+
+### Test rare paths, not just the happy path
+The happy path is the normal route through the code, where nothing goes wrong. Rare paths are the branches that run only sometimes: retries, forced finishes, error handling. They are easy to skip in testing because a good run never reaches them. In the 6-model test every Qwen3.5 Flash run passed first try, so the forced submit after 10 tool calls never ran. The first real run that reached it crashed, because that model's provider doesn't support a named `tool_choice`. Ways to cover rare paths: unit tests with a fake model that walks into the branch, and live runs set up to trigger it (for example, a long conversation or a program built to fail a check).
+
+**In an interview:** "My model comparison only ever exercised the happy path, so a provider incompatibility in my forced-submit branch shipped untested and crashed on the developer's first long run. Now there's a test that walks the agent into that branch."
+
+*First seen: Phase 2 quality pass, Q1.*
 
 ### Integration tests that skip gracefully
 An integration test checks that parts work together with a real outside system, here the Postgres database. They catch problems unit tests can't (for example, that the "only needs what I own" SQL query really excludes the step-up and hip thrust, or that every chunk has a vector). But they need that system running. Step 16's three database tests carry an `integration` marker (a label pytest can select or skip by), and `conftest.py` skips them automatically when Postgres can't be reached, instead of failing. So the unit tests still run anywhere, and a stopped Docker container doesn't look like broken code.

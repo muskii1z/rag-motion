@@ -641,6 +641,9 @@ Evidence so far:
 - [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **repeat the reading, not just the test.** The cause of a bad live run only showed up when the profile was read 3 times: 1 of 3 reads guessed bodyweight. After the fix, 6 of 6 reads reported equipment missing and the agent asked in 2 of 2 runs. The misses found by a docs probe ("my back hurts", "herniated disc") and the developer's run became tests; 69 pass. See [Temperature](concepts.md#temperature) and [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too).
   - Point to make: "A unit test can check my guard against a guessed value. Only repeated real reads tell me how often the model guesses, so for anything feeding a guardrail I run it several times, not once."
 
+- [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **test rare paths.** The 6-model test only ever took the happy path (first-try passes), so the forced-submit branch shipped untested and crashed on Qwen3.5 Flash's provider. Now a test walks into it. The developer's real program became a regression test, and the test suite went from 70 to 73. See [Test rare paths](concepts.md#test-rare-paths-not-just-the-happy-path).
+  - Point to make: "My model comparison proved the normal path worked. It said nothing about the retry path, and that's where it broke."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -653,6 +656,9 @@ Evidence so far:
 
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **an agent that has to finish its own job.** When code rejects its program, the agent must fix it and resubmit; it isn't allowed to hand the problem back to the client ([Role confusion](concepts.md#role-confusion-the-agent-hands-its-job-to-the-user)). And it can't start building until it has asked for what's missing ([0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md)).
   - Point to make: "A chatbot replies. My agent works toward a result that has to pass checks, and code decides both when it may start and when it's done."
+
+- [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **an agent's output can be valid and still poor.** A 15/15 program gave chest 3 sets a week and claimed "10–13 sets per muscle group". Code now counts weekly sets and checks quality, and the model is told not to state totals. See [Count, don't trust](concepts.md#count-dont-trust-compute-the-models-claims-in-code).
+  - Point to make: "An agent will tell you its work is balanced. Mine said 10 to 13 sets per muscle; chest had 3. Whatever can be counted, my code counts."
 
 ## LangGraph
 
@@ -690,6 +696,10 @@ Evidence so far (partial: no program generation yet):
 
 - [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **a rule that could never pass.** Pull on 2+ days was required, but no pull exercise in the catalog works without equipment, so a bodyweight client's program failed all 3 submissions and cost $0.0142, about 10x normal. Now a pattern with no usable exercises isn't required, and the agent says what equipment would add it ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md), [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass)).
   - Point to make: "Before I blame the model for failing a check, I ask whether the check was passable. One of mine wasn't, for a whole group of clients."
+
+- [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **stricter checks, more failures shown.** Three quality checks ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md)) made every replay use all 3 submissions; 0 of 3 passed fully and were shown with 1–2 failed checks, at $0.0038–0.0076 vs $0.0015 first try. One check (one push/pull per day) turned out to fight upper/lower splits; the fix is richer data, not a looser rule ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
+  - **A crash on the retry path itself.** The forced submit named a tool in `tool_choice`, which the new model's only provider rejects (404). Now it offers only the submit tool ([0047 update](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)).
+  - Point to make: "When a program fails validation, the failure branch itself has to work. Mine crashed the first time it ran on a new model, because no test had reached it."
 
 ## Human-in-the-loop
 
@@ -735,6 +745,9 @@ Evidence so far:
 
 - [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **two layers for health mentions, and checks still aren't judgment.** The referral reminder now fires on the AI-read `health_issues` or a deliberately broad word pattern; a false alarm was chosen over a miss ([0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md), [Two-layer safety check](concepts.md#two-layer-safety-check-ai-reading-plus-broad-backup)). And the developer's live run passed 14 of 15 checks with the same few exercises every day and a glute bridge on "Upper" days. It was the developer, reading as a coach, who said "it should have asked" about equipment.
   - Point to make: "My checker passed 14 of 15 rules on a program I'd never give a client. The person in the loop caught what the rules didn't, and the cause turned out to be a wrong guess two steps upstream."
+
+- [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **the coach found what 15 checks missed.** The developer read a passing program and asked whether it was "actually good". The review found 3 chest sets a week, no horizontal press on Upper A, glute bridge + hip thrust on one day, and an unverified volume claim. Each became a rule or a planned data change ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md), [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)), and the coach chose the thresholds (6 or 4 weekly sets).
+  - Point to make: "Every quality rule in my checker started as a coach looking at a program the code had approved. The human finds the gap; the code makes sure it stays closed."
 
 ## Observability
 
@@ -885,6 +898,9 @@ Evidence so far:
 
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **production behavior for the agent.** No blank replies (one nudge, then "The program builder didn't respond. Please try again."). A bounded number of tries (3 submissions, 18 steps). Separate model settings for the agent (`agent_model`, Gemini 2.5 Flash) and the Q&A app (Flash-Lite), so each can change on its own. Measured per program: 11–13 s and $0.0060–0.0067 on Flash.
   - Point to make: "Every way the agent can stall ends in a message the user can act on, and the agent's model is its own setting, so I can change it without touching the Q&A app."
+
+- [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **a provider without a feature.** Qwen3.5 Flash had one host on OpenRouter, and it didn't support a named `tool_choice`: 404, no fallback. Fixed by using only common features (offer one tool instead of naming it). The terminal chat now prints a friendly error instead of a traceback. See [Open-weight model hosting variability](concepts.md#open-weight-model-hosting-variability).
+  - Point to make: "Switching to a cheaper model also switched the host, and that host was missing a feature I used on one rare path. I now stick to features every host supports, or check before relying on one."
 
 ## Security
 
@@ -1191,3 +1207,7 @@ Evidence so far:
 - **One word list vs AI reading plus a broad backup for health mentions** ([0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md), [step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight)): both layers. Given up: false alarms on exercise names in context notes ("hip thrusts", "back squats", found by a docs probe), and partial reliance on an LLM read. Gained: "tweaked my back", "my back hurts", "herniated disc" now trigger the reminder. This settles the "whole-word referral trigger" item above.
 - **Trust the reader vs guard the reader** ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)): a code guard. Given up: a client who means "no equipment" in words the guard doesn't know gets asked once more. Gained: no bodyweight-only program from a guess (6/6 reads report equipment missing).
 - **Strict pattern rule vs satisfiable rule** ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)): satisfiable. Given up: a program can pass without a pull movement when nothing in the catalog fits. Gained: no retries burned on an impossible check; the program says what equipment would add it.
+- **Strict quality rules vs retry cost** ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md), [Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan)): three quality checks. Given up: first-try passes; replays cost about 2–5x ($0.0038–0.0076) and took 35–67 s. Gained: real volume numbers; chest went from 3 to 6–9 weekly sets.
+- **Looser rule vs richer data** ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)): horizontal/vertical labels instead of allowing two pushes and pulls per day. Given up: a quick fix; costs catalog work and coach review in Q2.
+  - Point to make: "When a rule misfires, I ask whether the data is too coarse before I weaken the rule."
+- **Ship the program page vs improve quality first** ([0059](decisions/0059-quality-pass-before-the-program-page.md)): quality first (Q1–Q3). Given up: an earlier demo.

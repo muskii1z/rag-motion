@@ -27,3 +27,6 @@ Step 1's first finished program passed the schema check and still broke coaching
 ## Update 2026-10-01 (step 2 fixes)
 - The referral check now uses `profile.health_issues` (read by the profile AI) plus a broad backup word pattern on context notes ([0054](0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md)).
 - A main pattern with no usable exercises for the client isn't required ([0056](0056-patterns-with-no-usable-exercises-are-not-required.md)). The pull check could never pass for a bodyweight client.
+
+## Update 2026-10-01 (Phase 2 quality pass, Q1)
+- The "Revisit when" signal happened: the developer's program passed 15/15 and a coach would still change it (chest 3 sets a week, glute bridge + hip thrust on one day). Three quality checks were added ([0057](0057-program-quality-checks-weekly-sets-patterns-day-labels.md)): one exercise per pattern per day, day names match their exercises, and a weekly-set minimum per major muscle group. Weekly sets are now counted in code and shown with every program.

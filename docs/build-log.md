@@ -4972,3 +4972,108 @@ Results are under Open questions.
 - New: [0056. Movement patterns with no usable exercises aren't required](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)
 - Updated: [0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md) (the refusal was bypassed by the reader's guess), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (referral trigger and impossible patterns)
 - Next: Phase 2, step 3, the program page.
+
+## Phase 2 quality pass, Q1: program-quality checks, the forced-submit crash fix, and the Q2 and Q3 plan
+**Date:** 2026-10-01 · **Commit:** `da55637` fix: force submission by offering only the submit tool; terminal chat shows errors · `115ced2` feat: program-quality checks (Q1): weekly sets per muscle, one per pattern per day, day labels
+
+**Goal.** Make the checker judge program quality (balance, volume, sensible days), not only safety and structure, after the developer's coach review found a passing program was weak.
+
+**What we did.**
+
+*Part 1: the forced-submit crash (`da55637`).*
+- **The crash.** The developer's full-gym run stopped with an OpenRouter 404: "No endpoints found that support the provided 'tool_choice' value". After 10 tool calls the loop forced `submit_program` by *naming* it in `tool_choice` (the API setting that says which tool the model must call). Qwen3.5 Flash's only provider on OpenRouter doesn't support a named `tool_choice`.
+- **Why the model test missed it.** In the 6-model test ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md)) every Qwen3.5 Flash run passed on the first submission, so the forced path never ran. See [Test rare paths, not just the happy path](concepts.md#test-rare-paths-not-just-the-happy-path).
+- **The fix, in `src/ragmotion/agent.py`.** When the loop must force a submission (after 10 tool calls, or right after a rejection), it now sends only one tool, `tools=[SUBMIT_TOOL]`, with `tool_choice="auto"`. The model can still reply in plain text instead, so it gets one nudge: "Call submit_program now with the complete, corrected program."
+- **The terminal chat** (`scripts/program_chat.py`) now prints a friendly error message instead of a Python traceback (the long error printout).
+- **Test:** `test_forcing_a_submission_offers_only_the_submit_tool` checks that forcing never sends a named `tool_choice`, and that only `submit_program` is offered after a rejection. 70 tests pass.
+- **Replay** of the developer's conversation: a 4-day upper/lower beginner program, 15/15 checks on the first try, $0.0015.
+
+*Part 2: the coach review of a passing program.*
+- The developer ran it again and pasted the program. It passed 15/15 checks:
+
+| Day | Exercises |
+|---|---|
+| Upper A | DB overhead press, one-arm DB row, dead bug, DB curl |
+| Lower A | goblet squat, DB RDL, farmer carry 30 m, DB step-up |
+| Upper B | push-up, band pull-apart, plank 30 s, hammer curl |
+| Lower B | DB reverse lunge, glute bridge, Pallof press, DB hip thrust |
+
+  (DB = dumbbell; RDL = Romanian deadlift.)
+- The developer: *"I'm wondering if the plan is actually good bc upper day has lower body exercises lol"*.
+- **Claude's review.** The upper days were actually clean: core exercises fit on any day. But nothing in the checker looked at day names. The real problems:
+  - Chest got only 3 sets a week (the push-ups on Upper B).
+  - Upper A had no horizontal press (pressing forward, like a bench press). The catalog has no dumbbell bench press.
+  - Glute bridge and hip thrust, two near-identical hip exercises, on the same day.
+  - Uneven volume across muscle groups.
+  - The rationale claimed "10–13 sets per muscle group". Nothing had checked that number.
+  - No barbell lifts was deliberate: the client is a beginner, and the coach rated barbell squat and deadlift intermediate.
+- **The developer's direction:** *"I feel like this is straightforward work, yes we need these, I want to ensure we have the correct amount of knowledge and function to provide really well researched and informed programs."*
+- **A plan, approved in plan mode** (Claude Code's mode for agreeing a plan before editing files): Q1 quality checks; Q2 about 20 new exercises including machines and cables, with coach review; Q3 sources on time-efficient program design and proximity to failure (how close to failure sets are taken, measured as RIR, reps in reserve); then P3, the program page; then P4, the program eval. See [0059](decisions/0059-quality-pass-before-the-program-page.md).
+- **The developer's choices**, asked as questions: about 20 new exercises including machines (the recommended option); a weekly-set minimum of 6 per major muscle group for muscle or strength goals and 4 otherwise; one exercise per movement pattern per day; and yes to license-checking sources on time-efficient design and RIR.
+
+*Part 3: Q1, the quality checks (`115ced2`), in `src/ragmotion/program.py`.*
+- **`MUSCLE_GROUPS`** maps five major groups to the catalog's primary muscles:
+  - chest: chest
+  - back: latissimus dorsi, rhomboids, middle trapezius, rear deltoids
+  - shoulders: deltoids, front deltoids, upper trapezius
+  - quads: quadriceps
+  - glutes/hamstrings: glutes, hamstrings, adductors, spinal erectors
+- **`first_number()`** reads the lower bound of a range ("2-3" counts as 2), so weekly totals are never overstated.
+- **`weekly_sets(draft)`** counts sets per group per week in code, from each exercise's primary muscles in the catalog. An exercise counts toward every group its primary muscles touch. See [Weekly sets per muscle group](concepts.md#weekly-sets-per-muscle-group-training-volume).
+- **`weekly_set_minimum(profile)`** is 6 if the goal mentions muscle, hypertrophy, size, strength, or stronger, otherwise 4. (A code comment credits the coach, from Pelland's minimum effective dose.)
+- **Three new checks**, each with an exact fix instruction:
+  1. **"one exercise per movement pattern per day"** for squat, lunge, hinge, push, and pull. Core, carry, and isolation exercises are exempt. Fix: "'Lower B' has 2 hinge exercises (...): keep one, and swap the other for a different pattern or move it to another day".
+  2. **"day names match their exercises (upper/lower)"**: a day named upper may not have squat, lunge, or hinge; a day named lower may not have push or pull.
+  3. **"at least N weekly sets per major muscle group"**, only for groups the client's usable exercises can reach (the same idea as [0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)). Fix, for example: "chest has 3 weekly sets: add 3 more".
+- **`agent.py` prompt** gained lines for one exercise per pattern, day naming, and "Don't state weekly set totals yourself; code calculates and shows the real ones." Every program output now carries `weekly_sets`, computed by code. See [Count, don't trust](concepts.md#count-dont-trust-compute-the-models-claims-in-code).
+- **`program_chat.py`** prints "Weekly sets (counted in code)".
+- **Tests** (`tests/test_program_checker.py`), 73 in total:
+  - The developer's real program is now a regression test. It is rejected with "chest: 3" → "add 3 more", and the glute bridge + hip thrust pair is flagged.
+  - An upper day with a squat is flagged.
+  - Weekly sets use the lower bound; an unreachable group (back, with no equipment) isn't required.
+
+**Commands.**
+```bash
+uv run python scripts/program_chat.py   # the developer's full-gym run: crashed with the 404 before da55637
+uv run pytest                           # 70 tests after da55637, 73 after 115ced2
+```
+The exact replay command for the 3 live runs below wasn't in the brief.
+
+**What we saw.** Live replay of the developer's full-gym 4-day conversation, 3 runs, after Q1:
+
+| Run | Submissions | Result | Weekly sets (chest / back / shoulders / quads / glutes-hams) | Time | Cost |
+|---|---|---|---|---|---|
+| 1 | rejected twice (one per pattern, weekly sets; then 4–6 per day, one per pattern) | shown with 1 failed check | 6 / 9 / 9 / 9 / 18 | 35 s | $0.0039 |
+| 2 | similar | shown with 1 failed check | 9 / 8 / 9 / 6 / 16 | 38 s | $0.0038 |
+| 3 | rejected, invalid shape, rejected | shown with 2 failed checks | 6 / 9 / 12 / 9 / 21 | 67 s | $0.0076 |
+
+- **0 of 3 passed every check.** But chest volume went from 3 sets to 6–9, and the volume numbers are now real, counted by code.
+- Run 3's remaining failures: two pushes on Upper A, two lunges on Lower B (reverse lunge + split squat), two pulls on Upper B, and a glute bridge on a day named "Upper Body B".
+- **Cost:** a first-try program was $0.0015; these runs were $0.0038–0.0076, about 2–5x, because each rejection adds another long submission.
+- **The insight.** "One push and one pull per day" conflicts with standard upper/lower practice. A normal upper day has a horizontal press *and* a vertical press (pressing overhead), a row *and* a pulldown. The catalog only knows "push" and "pull", not direction, so the rule can't tell a good pair from two near-duplicates. See [Rules must fit the domain model](concepts.md#rules-must-fit-the-domain-model-richer-data-not-looser-rules).
+
+**Problems and fixes.**
+- **Forced submit crashed on the new model's provider.** Fixed by offering only the submit tool instead of naming it. Untested until a real run hit it.
+- **A program passed every check and was still weak.** Fixed in part with three quality checks.
+- **The model stated volume numbers nobody had checked.** Fixed: code counts weekly sets and shows them; the prompt tells the model not to state totals.
+- **The one-per-pattern rule fights upper/lower splits.** Not fixed yet. Decided: add horizontal/vertical labels in Q2 ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
+
+**Open questions.**
+- Run 1 and 2's single remaining failed check isn't named in the brief (run 1's rejections mention one per pattern, weekly sets, and 4–6 per day).
+- **The weekly-set count is generous.** An exercise counts fully for every group its primary muscles touch, so a farmer carry (primary muscles in `data/exercises.json`: forearms, upper trapezius, obliques, glutes; the coach kept glutes in [0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md)) adds its sets to both shoulders and glutes/hamstrings. Whether that matches how the coach counts volume wasn't discussed.
+- **Isolation exercises** (curls) aren't in any of the five groups, so arms aren't counted.
+- **Day-name matching uses the words "upper" and "lower" only.** Days named "Push" or "Legs" aren't checked.
+- **Whether the 404 came from `require_parameters`.** The agent sets OpenRouter's `provider.require_parameters` (only route to providers that support every parameter sent). That may be why the request found no endpoint rather than falling back; not checked.
+- **0053 picked candidates that "support tool_choice"**, yet Qwen3.5 Flash's provider rejected a named one. Supporting `tool_choice` may mean `auto` only; not checked across the other candidates.
+- Should Q1's stricter checks make another model look better? The 6-model test was run before them.
+
+**Learned.**
+- New: [Structural vs quality checks](concepts.md#structural-vs-quality-checks), [Count, don't trust](concepts.md#count-dont-trust-compute-the-models-claims-in-code), [Rules must fit the domain model](concepts.md#rules-must-fit-the-domain-model-richer-data-not-looser-rules), [Test rare paths, not just the happy path](concepts.md#test-rare-paths-not-just-the-happy-path), [Weekly sets per muscle group](concepts.md#weekly-sets-per-muscle-group-training-volume), [Movement direction (horizontal vs vertical)](concepts.md#movement-direction-horizontal-vs-vertical-push-and-pull)
+- Extended: [Tool calling](concepts.md#tool-calling-function-calling) (named `tool_choice` isn't universal), [Loop guardrails](concepts.md#loop-guardrails-step-budget-repeat-refusal-forced-finish) (forcing by offering one tool), [Tokens and cost per call](concepts.md#tokens-and-cost-per-call) (strict checks cost retries), [Regression tests from real failures](concepts.md#regression-tests-from-real-failures) (the developer's program), [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass) (reachable muscle groups), [Open-weight model hosting variability](concepts.md#open-weight-model-hosting-variability) (one provider, missing feature)
+
+**Decisions.**
+- New: [0057. Program-quality checks in code: weekly sets, one per pattern per day, day labels](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md)
+- New: [0058. Push and pull get horizontal/vertical labels; one per pattern and direction per day](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)
+- New: [0059. A quality pass (Q1–Q3) before the program page](decisions/0059-quality-pass-before-the-program-page.md)
+- Updated: [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (how forcing works now), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (three new checks), [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (named `tool_choice` unsupported)
+- Next: Q2, catalog expansion with machine and cable equipment and horizontal/vertical labels, coach review.

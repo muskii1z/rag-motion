@@ -33,3 +33,7 @@ Run 2 after the change: 7 + 3 tool calls, then submit, $0.0012, a complete 3-day
 - An empty model reply gets one nudge ("Your last reply was empty. Call a tool, or answer the client."), then the turn ends with "The program builder didn't respond. Please try again."
 - Building tools refuse until the client's details are known ([0052](0052-agent-building-tools-refuse-until-profile-complete.md)).
 - Not recorded: whether the 10-call forced submit fired in any Gemini 2.5 Flash run.
+
+## Update 2026-10-01 (Phase 2 quality pass, Q1): forcing by offering one tool
+- The named `tool_choice` crashed on Qwen3.5 Flash: its only OpenRouter provider returned 404 "No endpoints found that support the provided 'tool_choice' value". The forced path had never run in the model test, because every run passed first try.
+- A forced step (after 10 tool calls, or right after a rejection) now sends only the submit tool (`tools=[SUBMIT_TOOL]`, `tool_choice="auto"`), plus one nudge if the model replies in text. Test: `test_forcing_a_submission_offers_only_the_submit_tool` (commit `da55637`).
