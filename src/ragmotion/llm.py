@@ -39,7 +39,10 @@ Rules:
 - Numbers must come from the text. "4x per week" means 4 sessions; "an hour" means 60 minutes.
   If the text gives only a range or a hedge ("early 30s", "maybe twice a week"), set that field
   to null and record the exact wording in context_notes.
-- Equipment: use an allowed name only for a true equivalent:
+- Equipment: record only equipment the text actually mentions. Never assume or default to bodyweight;
+  use bodyweight only if the text says so ("no equipment", "bodyweight only", "at home with nothing").
+  Being "new to the gym" says nothing about equipment: leave it empty.
+  Use an allowed name only for a true equivalent:
   bodyweight, dumbbell, band (resistance bands, mini bands), kettlebell, barbell, bench, box.
   Suspension trainers (TRX), machines, cables, rowers, bikes, etc. are NOT bands; put them in
   unmapped_equipment in the coach's words.

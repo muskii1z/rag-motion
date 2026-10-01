@@ -149,9 +149,14 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
         [x.slug for x, e in known if e["movement_pattern"] in banned_patterns(profile)])
 
     need = min(2, len(draft.days))
+    available = {p for e in cat.values() if usable(e, profile) for p in [e["movement_pattern"]]}
     def days_with(patterns):
         return sum(any(x.slug in cat and cat[x.slug]["movement_pattern"] in patterns for x in d.exercises) for d in draft.days)
     for label, patterns in MAIN_PATTERNS.items():
+        if not patterns & available:  # nothing in the catalog fits this client's equipment: can't be required
+            checks.append(Check(name=f"{label} on {need}+ days", passed=True,
+                                detail="no exercises available with this equipment (the rationale should say what would add them)"))
+            continue
         n = days_with(patterns)
         checks.append(Check(name=f"{label} on {need}+ days", passed=n >= need, detail=f"on {n} days"))
     n = days_with(CORE_PATTERNS)

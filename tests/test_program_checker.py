@@ -114,3 +114,18 @@ def test_backup_word_check_catches_casual_complaints_but_not_coming_back():
 def test_ai_read_health_issues_trigger_the_referral():
     checks = check_program(ProgramDraft.model_validate(GOOD), profile(health_issues=["type 2 diabetes"]), {"notes-program-design-1"})
     assert [c.name for c in failed(checks)] == ["client's conditions acknowledged, with a reminder to see a health professional"]
+
+
+def test_a_guessed_bodyweight_is_ignored_unless_the_client_said_it(monkeypatch):
+    guessed = profile(equipment=["bodyweight"])
+    monkeypatch.setattr(agent, "extract_profile", lambda text: (guessed.model_copy(), None))
+    assert agent.read_profile([{"role": "user", "content": "beginner to the gym, build muscle"}]).equipment == []
+    assert agent.read_profile([{"role": "user", "content": "I have no equipment"}]).equipment == ["bodyweight"]
+
+
+def test_a_pattern_with_no_usable_exercises_isnt_required():
+    day = [x("split-squat"), x("glute-bridge"), x("push-up"), x("dead-bug"), x("front-plank", "30 s")]
+    draft = {**GOOD, "days": [{"name": "Day 1", "exercises": day}, {"name": "Day 2", "exercises": day}]}
+    checks = check_program(ProgramDraft.model_validate(draft), profile(equipment=["bodyweight"]), {"notes-program-design-1"})
+    pull = next(c for c in checks if c.name.startswith("pull"))
+    assert pull.passed and "no exercises available" in pull.detail

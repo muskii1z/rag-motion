@@ -11,6 +11,7 @@ The model has no memory of its own: the conversation list sent each turn is the 
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 
 from langsmith import traceable
@@ -35,6 +36,8 @@ Work in this order:
 1. Look at the client profile (read from the conversation by code). If any of goal, days per week,
    equipment, or experience level is missing, call ask_user ONCE with one friendly question that covers
    everything missing. Offer goal choices: build muscle, get stronger, general fitness, or fat loss.
+   For equipment, offer only what the catalog has exercises for: dumbbells, barbell and rack, bench,
+   kettlebell, resistance bands, plyo box, pull-up bar, or no equipment.
    Never ask for something the profile already has.
 2. Choose a layout from the days per week: 1-3 days = full body each day; 4 days = upper/lower twice;
    5-6 days = upper/lower plus full-body days.
@@ -51,6 +54,8 @@ Rules:
 - Cover squat or lunge, hinge, push and pull on at least 2 days (every day if only 1 day), and core or
   carry at least once. Beginners: 4-6 exercises per day. Never more than 8.
 - Use the client's own day count. Don't add days.
+- If find_exercises returns nothing for a main pattern (e.g. no pull exercises with no equipment), leave it
+  out and say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - Fat loss: build the training side, and say plainly that nutrition is not covered by the sources.
 - If the client mentions an injury or health condition, fill safety_notes with a reminder to check with
   a health professional. No diagnoses or medical advice.
@@ -105,10 +110,19 @@ class AgentTurn:
     passed_checks: bool = False
 
 
+NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
+                          r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
+
+
 def read_profile(conversation: list[dict]) -> ClientProfile:
     """The client's details, read by code from the whole conversation (not by the agent)."""
     lines = [("Client: " if m["role"] == "user" else "Coach assistant asked: ") + m["content"] for m in conversation]
     profile, _ = extract_profile("\n".join(lines))
+    # Guardrail on the reader itself: "bodyweight" only counts if the client said so. On 2026-10-01 the reader
+    # guessed bodyweight for "beginner to the gym" in 1 of 3 runs, which let the agent skip the equipment question.
+    client_text = " ".join(m["content"] for m in conversation if m["role"] == "user")
+    if profile.equipment == ["bodyweight"] and not NO_EQUIPMENT.search(client_text):
+        profile.equipment = []
     return profile
 
 
