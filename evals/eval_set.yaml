@@ -74,7 +74,7 @@ questions:
   question: "What exercises can I do for biceps?"
   category: exercise-selection
   expected_exercises: [dumbbell-biceps-curl, hammer-curl, band-biceps-curl]
-  acceptable_exercises: [one-arm-dumbbell-row, inverted-row, pull-up, barbell-bent-over-row]
+  acceptable_exercises: [band-assisted-pull-up, barbell-bent-over-row, inverted-row, lat-pulldown, one-arm-dumbbell-row, pull-up]
   expected_coverage: full
   answer_rules: [label-secondary]
   reviewed: true
@@ -83,6 +83,7 @@ questions:
     Answer-level rule, not yet checked by code: the answer must say explicitly that the biceps are
     trained as a secondary muscle in these rows (not present them as biceps exercises).
   # F2: curls now exist, so coverage is full; rows and pull-ups acceptable only if labeled as secondary biceps work.
+  # Q2 coach call (2026-10-01): lat pulldown and assisted pull-up acceptable as secondary biceps work.
 
 - id: ex-hinge
   question: "Hip hinge exercises"
@@ -96,15 +97,17 @@ questions:
 - id: ex-anti-rotation
   question: "Anti-rotation core exercise"
   category: exercise-selection
+  acceptable_exercises: [bird-dog]
   expected_exercises: [pallof-press]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: Pallof press only. The dead bug is anti-extension, not anti-rotation."
+  # Q2 coach call (2026-10-01): bird dog acceptable; side plank left out, like the dead bug (not anti-rotation).
 
 - id: ex-grip
   question: "Something to build grip strength"
   category: exercise-selection
-  expected_exercises: [farmer-carry]
+  expected_exercises: [farmer-carry, suitcase-carry]
   acceptable_exercises: [one-arm-dumbbell-row, inverted-row, dumbbell-romanian-deadlift, kettlebell-swing, barbell-deadlift, pull-up]
   expected_coverage: full
   answer_rules: [label-secondary]
@@ -113,6 +116,7 @@ questions:
     Coach review: the farmer carry is the grip exercise. Rows, RDLs, and swings may be mentioned only if
     the answer says grip is trained secondarily (same rule as ex-biceps).
   # F2: deadlift and pull-up acceptable as secondary grip work.
+  # Q2 coach call (2026-10-01): suitcase carry expected.
 
 - id: ex-overhead
   question: "Overhead pressing exercise for the shoulders"
@@ -125,13 +129,16 @@ questions:
 - id: ex-upper-back
   question: "Exercises for the upper back and rear shoulders"
   category: exercise-selection
-  expected_exercises: [band-pull-apart, one-arm-dumbbell-row, inverted-row, farmer-carry, pull-up, barbell-bent-over-row]
+  acceptable_exercises: [lat-pulldown]
+  expected_exercises: [band-pull-apart, barbell-bent-over-row, chest-supported-dumbbell-row, farmer-carry, inverted-row, one-arm-dumbbell-row, pull-up, seated-cable-row]
   expected_coverage: full
   reviewed: true
   notes: "Coach review: added the farmer carry (upper trapezius) to the three pulls."
 
 # ---- Coach jargon and abbreviations ----
   # F2: added pull-up and bent-over row.
+  # Q2 coach call (2026-10-01): cable row and chest-supported row expected.
+  # Q2 coach call (2026-10-01): lat pulldown acceptable.
 
 - id: jargon-rdl
   question: "beginner RDL"
@@ -462,11 +469,12 @@ questions:
 - id: jargon-bw-squat
   question: "BW squat progression"
   category: jargon
-  expected_exercises: [pistol-squat, split-squat]
+  expected_exercises: [bodyweight-squat, pistol-squat, split-squat]
   forbidden_exercises: [barbell-back-squat]
   expected_coverage: full
   reviewed: true
   notes: "BW = bodyweight. Probe: read BW as barbell, so the barbell back squat ranked #1; forbidden because it's the misread."
+  # Q2 coach call (2026-10-01): the bodyweight squat is a right answer.
 
 - id: jargon-db-row
   question: "DB row for the lats"
