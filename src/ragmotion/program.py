@@ -103,3 +103,77 @@ def search_sources(query: str, profile: ClientProfile, k: int = 5) -> list[dict]
     """RAG search over the guidelines, research and notes, filtered to the client's age group."""
     _, passages = search_all(query, k_exercises=1, k_passages=k, population=population(profile))
     return [{"id": p.passage_id, "source": p.source_title, "where": p.chapter, "text": p.text[:1200]} for p in passages]
+
+
+# ---- Step 2: the program checker (the guardrail on the agent's output) ----
+
+MAIN_PATTERNS = {"squat or lunge": {"squat", "lunge"}, "hinge": {"hinge"}, "push": {"push"}, "pull": {"pull"}}
+CORE_PATTERNS = {"core", "carry"}
+TIMED = {"front-plank", "farmer-carry"}  # prescribed in seconds or metres, not reps
+# Only notes about health need a referral reminder ("little lifting experience" doesn't).
+HEALTH_WORDS = ("pain", "injur", "sore", "surgery", "condition", "arthritis", "diabet", "asthma", "blood pressure",
+                "hypertension", "heart", "knee", "back", "shoulder", "hip", "ankle", "wrist", "neck", "rehab", "osteo")
+
+
+class Check(BaseModel):
+    name: str
+    passed: bool
+    detail: str = ""
+    fix: str = ""  # an exact instruction for the agent when the check fails
+
+
+def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: set[str]) -> list[Check]:
+    """Every rule a program must pass, checked in code against the profile read from the client's words."""
+    from ragmotion.rag import find_citations  # local import: rag imports retrieval, which this module also uses
+
+    cat, checks = catalog(), []
+    used = [x for d in draft.days for x in d.exercises]
+    known = [(x, cat[x.slug]) for x in used if x.slug in cat]
+    add = lambda name, bad, detail="": checks.append(Check(name=name, passed=not bad, detail=detail or ", ".join(sorted(set(bad)))))
+
+    want = min(profile.sessions_per_week or len(draft.days), 6)
+    checks.append(Check(name="days match what the client asked for", passed=len(draft.days) == want,
+                        detail=f"{len(draft.days)} days in the program, client asked for {profile.sessions_per_week}"))
+    add("every exercise is in the catalog", [x.slug for x in used if x.slug not in cat])
+    add("only equipment the client has", [x.slug for x, e in known if not set(e["equipment"]) <= owned_equipment(profile)])
+    add(f"nothing above {max_level(profile)} level",
+        [x.slug for x, e in known if LEVELS.index(e["difficulty"]) > LEVELS.index(max_level(profile))])
+    add("no movements excluded for this client (e.g. jumps for older adults)",
+        [x.slug for x, e in known if e["movement_pattern"] in banned_patterns(profile)])
+
+    need = min(2, len(draft.days))
+    def days_with(patterns):
+        return sum(any(x.slug in cat and cat[x.slug]["movement_pattern"] in patterns for x in d.exercises) for d in draft.days)
+    for label, patterns in MAIN_PATTERNS.items():
+        n = days_with(patterns)
+        checks.append(Check(name=f"{label} on {need}+ days", passed=n >= need, detail=f"on {n} days"))
+    n = days_with(CORE_PATTERNS)
+    checks.append(Check(name="core or carry at least once a week", passed=n >= 1, detail=f"on {n} days"))
+
+    lo, hi = (4, 6) if max_level(profile) == "beginner" else (3, 8)
+    sizes = {d.name: len(d.exercises) for d in draft.days}
+    checks.append(Check(name=f"{lo} to {hi} exercises per day", passed=all(lo <= n <= hi for n in sizes.values()),
+                        detail=", ".join(f"{k}: {v}" for k, v in sizes.items()),
+                        fix="; ".join(f"'{k}' has {n} exercises: remove {n - hi}" if n > hi else f"'{k}' has {n} exercises: add {lo - n}"
+                                      for k, n in sizes.items() if not lo <= n <= hi)))
+    add("no exercise repeated within a day", [d.name for d in draft.days if len({x.slug for x in d.exercises}) != len(d.exercises)])
+    add("every exercise has sets, reps and rest", [x.slug for x in used if not (x.sets.strip() and x.reps.strip() and x.rest.strip())])
+    untimed = sorted({x.slug for x in used if x.slug in TIMED and not any(u in x.reps.lower() for u in ("s", "sec", "m"))})
+    checks.append(Check(name="planks and carries in seconds or metres, not reps", passed=not untimed, detail=", ".join(untimed),
+                        fix="; ".join(f"{slug}: change reps to a time such as '20-30 s' on every day it appears" for slug in untimed)))
+
+    cited = find_citations(draft.rationale) | find_citations(draft.progression) | set(draft.cited_ids)
+    invented = sorted(cited - retrieved_ids)
+    checks.append(Check(name="citations come from the agent's own searches", passed=bool(cited) and not invented,
+                        detail=", ".join(invented) if invented else ("" if cited else "no citations")))
+    health = [n for n in profile.context_notes if any(w in n.lower() for w in HEALTH_WORDS)]
+    if health:
+        ok = "professional" in (draft.safety_notes or "").lower()
+        checks.append(Check(name="client's conditions acknowledged, with a reminder to see a health professional",
+                            passed=ok, detail="; ".join(health),
+                            fix="Add safety_notes that mention the condition and say to check with a health professional."))
+    return checks
+
+
+def failed(checks: list[Check]) -> list[Check]:
+    return [c for c in checks if not c.passed]

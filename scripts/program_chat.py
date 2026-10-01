@@ -22,6 +22,10 @@ def show(turn) -> None:
         print(f"\nProgression: {p['progression']}\nWhy: {p['rationale']}")
         if p.get("safety_notes"):
             print(f"Safety: {p['safety_notes']}")
+        bad = [c for c in turn.checks if not c["passed"]]
+        print(f"\nProgram checks: {len(turn.checks) - len(bad)}/{len(turn.checks)} passed")
+        for c in bad:
+            print(f"  FAILED: {c['name']} ({c['detail']})")
     else:
         print(f"\nAgent: {turn.text}")
     print(f"   (cost ${turn.cost_usd:.4f})\n")

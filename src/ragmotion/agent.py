@@ -19,10 +19,11 @@ from pydantic import ValidationError
 from ragmotion.config import settings
 from ragmotion.llm import extract_profile, get_client
 from ragmotion.models import ClientProfile
-from ragmotion.program import (ProgramDraft, catalog, find_exercises, max_level, missing_for_program,
-                               owned_equipment, population, search_sources)
+from ragmotion.program import (ProgramDraft, catalog, check_program, failed, find_exercises, max_level,
+                               missing_for_program, owned_equipment, population, search_sources)
 
-MAX_STEPS = 15
+MAX_STEPS = 18
+MAX_SUBMISSIONS = 3  # the checker can send a program back this many times
 FORCE_SUBMIT_AFTER = 10  # after this many tool calls, only submit_program is allowed (stops endless searching)
 PATTERNS = ["squat", "lunge", "hinge", "push", "pull", "core", "carry", "isolation", "jump", "sprint"]
 
@@ -43,7 +44,8 @@ Work in this order:
 4. Call search_sources to find the dosage for this goal: sets, reps and rest; weekly sets or frequency;
    progression. Two or three searches are enough; never repeat a search. Take numbers only from the
    passages, and cite passage ids inline like [pelland2024-volume-19].
-5. Call submit_program with the complete program.
+5. Call submit_program with the complete program. Code checks it. If it is rejected, fix the listed
+   problems yourself and call submit_program again. Never ask the client to fix the program.
 
 Rules:
 - Cover squat or lunge, hinge, push and pull on at least 2 days (every day if only 1 day), and core or
@@ -99,6 +101,8 @@ class AgentTurn:
     steps: list[dict] = field(default_factory=list)  # every tool call, for the page and for debugging
     cost_usd: float = 0.0
     retrieved_ids: list[str] = field(default_factory=list)
+    checks: list[dict] = field(default_factory=list)  # the program checker's results (step 2)
+    passed_checks: bool = False
 
 
 def read_profile(conversation: list[dict]) -> ClientProfile:
@@ -143,20 +147,31 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 {"role": "system", "content": _profile_note(profile)}, *conversation]
     retrieved: set[str] = set()
     searched: set[str] = set()
+    empty_replies = 0
+    submissions = 0
+    rejected = False
     client = get_client()
 
     for step in range(MAX_STEPS):
         # Guardrail: after FORCE_SUBMIT_AFTER tool calls the model may only submit what it has.
-        forced = len(turn.steps) >= FORCE_SUBMIT_AFTER
+        # ...and after the checker rejects a program, the next move must be a corrected submission.
+        forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected
         tool_choice = {"type": "function", "function": {"name": "submit_program"}} if forced else "auto"
         response = client.chat.completions.create(
-            model=settings.llm_model, messages=messages, tools=TOOLS, tool_choice=tool_choice, temperature=0.2,
+            model=settings.agent_model or settings.llm_model, messages=messages, tools=TOOLS, tool_choice=tool_choice, temperature=0.2,
             max_tokens=3000, extra_body={"provider": {"require_parameters": True}, "usage": {"include": True}},
         )
         turn.cost_usd += ((response.usage.model_extra or {}).get("cost") or 0) if response.usage else 0
         msg = response.choices[0].message
         if not msg.tool_calls:  # plain text: the model is talking to the client
-            turn.kind, turn.text = "message", msg.content or ""
+            if (msg.content or "").strip():
+                turn.kind, turn.text = "message", msg.content
+                return turn
+            if empty_replies == 0:  # guardrail: an empty reply gets one nudge, never shown as a blank answer
+                empty_replies += 1
+                messages.append({"role": "system", "content": "Your last reply was empty. Call a tool, or answer the client."})
+                continue
+            turn.text = "The program builder didn't respond. Please try again."
             return turn
         messages.append({"role": "assistant", "content": msg.content or "",
                          "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
@@ -167,7 +182,12 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 args = json.loads(tc.function.arguments or "{}")
             except json.JSONDecodeError:
                 args = {}
-            if name == "find_exercises":
+            missing = missing_for_program(profile)
+            if name in ("find_exercises", "search_sources", "submit_program") and missing:
+                # Guardrail: no building until goal, days, equipment and level are known.
+                result = {"error": f"Not enough information yet. Ask the client about: {', '.join(missing)}."}
+                summary = f"refused: ask about {', '.join(missing)}"
+            elif name == "find_exercises":
                 result = find_exercises(args.get("pattern", ""), profile)
                 summary = f"{len(result)} exercises: " + ", ".join(e["slug"] for e in result)
             elif name == "search_sources":
@@ -189,13 +209,27 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 except ValidationError as e:
                     result, summary = {"error": f"Program didn't match the required shape: {e.errors()[:3]}"}, "invalid shape, sent back"
                 else:
-                    turn.steps.append({"tool": name, "args": {"title": draft.title, "days": len(draft.days)}, "result": "accepted"})
-                    turn.kind, turn.text, turn.program = "program", draft.title, _enrich(draft)
-                    turn.retrieved_ids = sorted(retrieved)
-                    return turn
+                    submissions += 1
+                    checks = check_program(draft, profile, retrieved)
+                    problems = failed(checks)
+                    if problems and submissions < MAX_SUBMISSIONS:
+                        # Guardrail: the checker sends the program back with what to fix.
+                        result = {"rejected": "The program failed these checks. Fix them and submit again.",
+                                  "failed_checks": [f"{c.name} ({c.detail})" for c in problems],
+                                  "exactly_what_to_change": [c.fix for c in problems if c.fix]}
+                        summary = "rejected: " + "; ".join(c.name for c in problems)
+                        rejected = True
+                    else:
+                        turn.steps.append({"tool": name, "args": {"title": draft.title, "days": len(draft.days)},
+                                           "result": "accepted" if not problems else f"shown with {len(problems)} failed checks"})
+                        turn.kind, turn.text, turn.program = "program", draft.title, _enrich(draft)
+                        turn.retrieved_ids, turn.checks = sorted(retrieved), [c.model_dump() for c in checks]
+                        turn.passed_checks = not problems
+                        return turn
             else:
                 result, summary = {"error": f"Unknown tool {name}"}, "unknown tool"
-            turn.steps.append({"tool": name, "args": args, "result": summary})
+            shown_args = {"title": args.get("title"), "days": len(args.get("days") or [])} if name == "submit_program" else args
+            turn.steps.append({"tool": name, "args": shown_args, "result": summary})
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
         if len(searched) >= 3 and not forced:
             messages.append({"role": "system", "content": "You have enough sources. Submit the program now."})
