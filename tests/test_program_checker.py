@@ -203,3 +203,16 @@ def test_every_push_and_pull_exercise_has_a_direction():
     from ragmotion.program import catalog
     for slug, e in catalog().items():
         assert (e["movement_pattern"] in ("push", "pull")) == ("direction" in e), slug
+
+
+def test_narrating_instead_of_submitting_forces_a_submission(monkeypatch):
+    script = [[call("search_sources", query="sets and reps for muscle")],
+              "</think>\n\nPerfect! I have the information I need. Let me summarize...", [call("submit_program", **GOOD)]]
+    turn, model = run(monkeypatch, script, profile())
+    assert model.tools_offered[2] == ["submit_program"]
+    assert turn.kind == "program" and turn.passed_checks
+
+
+def test_leaked_reasoning_is_never_shown():
+    assert agent._visible("<think>plan plan</think>What equipment do you have?") == "What equipment do you have?"
+    assert agent._visible("</think>\n\nWhat equipment do you have?") == "What equipment do you have?"

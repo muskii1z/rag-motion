@@ -828,7 +828,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "horizontal"
   },
   {
@@ -849,7 +849,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "horizontal"
   },
   {
@@ -869,7 +869,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "horizontal"
   },
   {
@@ -887,7 +887,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "cable-triceps-pushdown",
@@ -904,7 +904,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "lat-pulldown",
@@ -923,7 +923,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "vertical"
   },
   {
@@ -944,7 +944,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "horizontal"
   },
   {
@@ -966,7 +966,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "horizontal"
   },
   {
@@ -987,7 +987,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "upper",
-    "source": "Drafted with AI assistance; pending coach review",
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat",
     "direction": "vertical"
   },
   {
@@ -1006,13 +1006,13 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "box-squat",
     "name": "Box Squat",
-    "description": "A squat down to a box or bench behind you, which sets a consistent depth and builds confidence in the bottom position.",
-    "instructions": "Stand in front of a box at about knee height. Sit back until you lightly touch it, then stand up without rocking.",
+    "description": "A squat down to a box or bench behind you, which sets a consistent depth and builds confidence in the bottom position. Done with bodyweight or loaded by holding a dumbbell or kettlebell at the chest.",
+    "instructions": "Stand in front of a box at about knee height. Sit back until you lightly touch it, then stand up without rocking. To load it, hold a dumbbell or kettlebell vertically at the chest, as in a goblet squat.",
     "primary_muscles": [
       "quadriceps",
       "glutes"
@@ -1024,7 +1024,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "leg-press",
@@ -1042,7 +1042,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "leg-extension",
@@ -1059,7 +1059,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "leg-curl",
@@ -1076,7 +1076,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "calf-raise",
@@ -1093,7 +1093,7 @@
     "difficulty": "beginner",
     "laterality": "bilateral",
     "body_region": "lower",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "side-plank",
@@ -1111,7 +1111,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "core",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "bird-dog",
@@ -1130,7 +1130,7 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "core",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   },
   {
     "slug": "suitcase-carry",
@@ -1149,6 +1149,6 @@
     "difficulty": "beginner",
     "laterality": "unilateral",
     "body_region": "full",
-    "source": "Drafted with AI assistance; pending coach review"
+    "source": "Drafted with AI assistance, reviewed by M. Saraswat"
   }
 ]

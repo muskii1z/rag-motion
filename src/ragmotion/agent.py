@@ -122,6 +122,11 @@ NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body we
                           r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
 
 
+def _visible(text: str | None) -> str:
+    """Drop leaked model reasoning ('<think>...</think>', or everything before a stray '</think>')."""
+    return re.split(r"</think>", re.sub(r"(?s)<think>.*?</think>", "", text or ""))[-1].strip()
+
+
 def read_profile(conversation: list[dict]) -> ClientProfile:
     """The client's details, read by code from the whole conversation (not by the agent)."""
     lines = [("Client: " if m["role"] == "user" else "Coach assistant asked: ") + m["content"] for m in conversation]
@@ -174,6 +179,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
     submissions = 0
     rejected = False
     forced_nudged = False
+    must_submit = False
     client = get_client()
 
     for step in range(MAX_STEPS):
@@ -181,7 +187,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
         # ...and after the checker rejects a program, the next move must be a corrected submission.
         # Forcing works by offering ONLY the submit tool, not by naming a tool in tool_choice: some providers
         # (Qwen3.5 Flash's, 2026-10-01) reject a named tool_choice with a 404.
-        forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected
+        forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected or must_submit
         response = client.chat.completions.create(
             model=settings.agent_model or settings.llm_model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
             tool_choice="auto", temperature=0.2,
@@ -193,7 +199,17 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
             forced_nudged = True
             messages.append({"role": "system", "content": "Call submit_program now with the complete, corrected program."})
             continue
+        building = any(st["tool"] in ("find_exercises", "search_sources") and not str(st["result"]).startswith("refused")
+                       for st in turn.steps)  # a refused lookup (details missing) doesn't count: then asking is right
+        if not msg.tool_calls and building and not must_submit:
+            # Guardrail: once it has started building, a text reply ("Let me summarize...") isn't an answer.
+            # Seen 2026-10-01: Qwen narrated its plan instead of submitting. Its next move must be a submission.
+            must_submit = True
+            messages.append({"role": "assistant", "content": _visible(msg.content)})
+            messages.append({"role": "system", "content": "Don't describe the program. Call submit_program with it now."})
+            continue
         if not msg.tool_calls:  # plain text: the model is talking to the client
+            msg.content = _visible(msg.content)
             if (msg.content or "").strip():
                 turn.kind, turn.text = "message", msg.content
                 return turn
