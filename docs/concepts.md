@@ -164,7 +164,11 @@ Some models generate hidden reasoning before the answer (a "thinking" phase). Th
 
 **In an interview:** "Thinking models trade cost and latency for accuracy. Kimi K2.5 was the only model to get both hard tests right, but its hidden reasoning made each call about 40 times more expensive than Qwen."
 
-*First seen: Step 6.*
+*Phase 2 quality pass (Q2) update: leaked reasoning.* Reasoning is supposed to stay hidden, but it can leak into the visible reply. One agent reply began with a stray `</think>` (the tag that closes a reasoning block) before "Perfect! I have the information I need. Let me summarize...". Shown as is, the client would have seen the model's internal markup. `_visible()` in `src/ragmotion/agent.py` now removes `<think>...</think>` blocks, and everything before a stray `</think>`, from any reply that is shown or stored. Tested with `test_leaked_reasoning_is_never_shown`.
+
+**In an interview:** "Reasoning models sometimes leak their thinking tags into the answer. I strip them in code before anything reaches the user, and a test feeds in the exact leaked text I saw."
+
+*First seen: Step 6. Extended: Phase 2 quality pass, Q2.*
 
 ### OpenAI-compatible APIs
 Many providers, OpenRouter included, accept the same request format as OpenAI's API. So one library, the official `openai` Python library, can call many models just by changing the base URL (the web address requests go to). In Step 6 it points at `https://openrouter.ai/api/v1`. Its `chat.completions.parse()` takes a Pydantic model and returns a validated object. Swapping models is then a setting (`LLM_MODEL`), not new code.
@@ -452,7 +456,9 @@ An embedding is computed from a piece of text at one moment. If the text is late
 
 *Phase 1F F1 update: the rule in practice.* After the coach review, 22 exercises were edited (level, description, equipment). Re-seeding updated those 22 rows and cleared their vectors; the next `embed_exercises.py` run recomputed exactly those 22. Nobody had to remember to re-embed.
 
-*First seen: Step 5. Extended: Steps 8 and F1.*
+*Phase 2 quality pass (Q2) update: metadata that isn't embedded.* The new `direction` label isn't part of the embedded text, so changing it shouldn't throw a vector away. `seed_exercises.py` sets it with a separate `DIRECTION_SQL` update instead of through the content upsert that clears embeddings. Rule of thumb: only a change to the embedded text should make a vector stale.
+
+*First seen: Step 5. Extended: Steps 8, F1, Phase 2 quality pass Q2.*
 
 ### Query rewriting
 Query rewriting means an LLM rewrites the user's question into better search terms before the search runs. People ask conversationally and in shorthand; the search works better on clear, explicit terms. With a small glossary of exercise abbreviations in the prompt (RDL = Romanian deadlift, BSS = Bulgarian split squat, SL RDL = single-leg RDL, KB = kettlebell), "BSS alternatives with a KB" could become a search for Bulgarian split squat alternatives using a kettlebell. It is cheap to improve: you edit a prompt, you don't re-index the data. The cost is one extra LLM call per question, which adds time and a small charge. Planned as a Phase 1F experiment, measured against the Step 15 baseline. Not built yet. See [0012](decisions/0012-keyword-baseline-and-query-rewriting.md).
@@ -1039,7 +1045,9 @@ An agent runs in a loop, and a small model can get stuck in it. In run 1 the age
 
 *Phase 2 quality pass (Q1) update: how the forced finish works now.* It used to name `submit_program` in `tool_choice`. On Qwen3.5 Flash's provider that crashed with a 404. Now a forced step offers only the submit tool, and one nudge if the model chats instead. The forced path had never run in the model test, because every run passed first try. See [Test rare paths](#test-rare-paths-not-just-the-happy-path).
 
-*First seen: Phase 2, step 1. Extended: Phase 2, step 2, quality pass Q1.*
+*Phase 2 quality pass (Q2) update: a third forcing trigger.* A plain-text reply after a successful lookup now forces the next move to be a submission. See [Narrating instead of acting](#narrating-instead-of-acting-progress-based-forcing).
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2, quality pass Q1, Q2.*
 
 ### The message list is the memory (stateless model, stateless server)
 The model remembers nothing between calls. Each call sends the whole message list: the system prompt, the profile note, every client message, every tool call and result. That list is the agent's only memory, and it grows with every tool call, which is why each call in a turn costs more input tokens than the one before. The server is stateless too: it keeps no conversation. The client (here, `scripts/program_chat.py`) holds the conversation and sends all of it every turn; `run_turn` rebuilds the profile from it each time.
@@ -1160,7 +1168,16 @@ A domain model is how the data describes the real world: here, each exercise has
 
 **In an interview:** "A rule I wrote for full-body days broke upper/lower splits, because my data couldn't tell a bench press from an overhead press. I didn't loosen the rule; I added movement direction to the data, so the rule can say what a coach actually means."
 
-*First seen: Phase 2 quality pass, Q1.*
+*Phase 2 quality pass (Q2) update: it worked.* Direction was added as its own column ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)) and the rule now counts "horizontal push" and "vertical push" separately. Full-gym upper/lower replays went from 0/3 passing every check to 2/3 (18/18 checks, first try), then 4/6 after a separate agent fix. The upper days looked like a coach's: a horizontal and a vertical press, a row and a pulldown. The rule didn't get looser; two flat presses on one day are still flagged.
+
+*First seen: Phase 2 quality pass, Q1. Extended: Q2.*
+
+### Narrating instead of acting (progress-based forcing)
+An agent can say what it is about to do instead of doing it. After gathering exercises and sources, one run replied "Perfect! I have the information I need. Let me summarize..." as plain text, which ended the turn with no program. A prompt already asked for a submission; the model ignored it once. The fix is in code and is based on progress: once a lookup has actually succeeded, a text reply isn't accepted as the end of the turn; the next call offers only the submit tool. Lookups that were refused (because the client's details were missing) don't count, so asking the client a question at the start still works. That exception was found because an existing test failed. See [0061](decisions/0061-narration-forces-a-submission.md).
+
+**In an interview:** "My agent once announced 'let me summarize the program' and stopped, with no program. I didn't add another line to the prompt. Once it has done real work, a text reply now forces the next step to be a submission. Questions before any work are still allowed, and a test caught that I'd first broken that."
+
+*First seen: Phase 2 quality pass, Q2.*
 
 ---
 
@@ -1178,7 +1195,9 @@ Pushes and pulls come in two directions. Horizontal: pressing forward or rowing 
 
 **In an interview:** "For programming, 'push' isn't one thing: overhead and forward presses train the shoulders differently. My data didn't know that, so my checker couldn't either."
 
-*First seen: Phase 2 quality pass, Q1.*
+*Phase 2 quality pass (Q2) update: built.* All 16 push and pull exercises in the 60-exercise catalog now carry a direction. Horizontal includes push-up, bench presses (barbell, dumbbell, incline dumbbell, machine), and rows (one-arm, bent-over, inverted, seated cable, chest-supported) plus the band pull-apart. Vertical includes the dumbbell overhead press, pull-up, band-assisted pull-up, lat pulldown, and bench dip. The coach put the incline press with horizontal; the bench dip's vertical label is still a draft. Day names now use it too: a "Push" day can't have rows.
+
+*First seen: Phase 2 quality pass, Q1. Extended: Q2.*
 
 ---
 
@@ -1492,7 +1511,9 @@ Semantic passage MRR also fell (0.70 → 0.65), for a real reason: 53 new passag
 
 *Phase 1F F2 update: keys regenerated from the catalog's own fields.* F2 rewrote the stale keys for the 42-exercise catalog. Mechanical keys were generated by a script from each exercise's `equipment` and `difficulty` fields: "no equipment" now expects all 11 bodyweight exercises and forbids the other 31; "dumbbells only" expects 12 and forbids 9; the 9 new questions' keys were made the same way. Judgment keys (biceps, hinge, grip, and others) were updated by hand and approved by the coach. Generating the mechanical part from data keeps keys consistent with the catalog and fixes the F1 blind spot where stale forbidden lists missed new equipment exercises.
 
-*First seen: after Step 15. Extended: Eval walkthrough part 1, Phase 1F F1, Phase 1F F2.*
+*Phase 2 quality pass (Q2) update: 42 → 60 exercises.* The F2 approach was reused: a script placed the 18 new exercises in the 11 catalog-dependent questions by the coach's existing rules (for example, "no equipment" +4 expected bodyweight exercises and +14 forbidden; the three beginner-population questions +18 acceptable each). What a rule can't decide (is the bird dog anti-rotation? does the lat pulldown count for biceps?) went to the coach as a list of judgment calls. Until those are answered, the 1-run regression shows "no extras" at 20/29, because answers cite new exercises the keys don't mention yet. The integration test now counts the catalog from `exercises.json` instead of hard-coding 42.
+
+*First seen: after Step 15. Extended: Eval walkthrough part 1, Phase 1F F1, Phase 1F F2, Phase 2 quality pass Q2.*
 
 ### System failures vs eval-expectation errors
 When a score drops, either the system did something wrong or the eval expected the wrong thing. The only way to tell is to read the actual answer and evidence. From the eval v2 round:
@@ -1606,7 +1627,9 @@ Scores can move with no change to the system, just because the ruler changed. Du
 
 *Going-public update: a data change rippled into the keys.* When the coach made the broad jump a beginner exercise, three keys had to change with it: it moved from forbidden to acceptable for "beginner at home", and became acceptable for the beginner-adult and youth-start questions. It stays forbidden for older adults (the coach's rule: no jumps). Otherwise a correct answer would have been marked as a forbidden citation. The final eval was run after the change, so all reported final numbers use one key.
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01).*
+*Phase 2 quality pass (Q2) update: recall fell, search didn't change.* Semantic + filter exercise recall went from 0.87 to 0.84 after the catalog grew to 60. The expected lists grew with it ("no equipment": 11 → 15 expected), and search still returns 5 exercises, so the share it can find dropped. Forbidden exercises retrieved stayed at 0.00 and exercise MRR was 0.93.
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01), Phase 2 quality pass Q2.*
 
 ### Source-anchored vs judgment-based keys
 Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
@@ -2061,7 +2084,16 @@ A Pydantic model is a Python class that describes the exact shape of some data: 
 
 *Phase 1F F1 update:* `MovementPattern` gained `isolation` and `sprint`; `Equipment` gained `rack`, `pullup-bar`, and `anchor`, in the same commits as the schema change. Because `ClientProfile` reuses `Equipment`, the profile step can now name these too.
 
-*First seen: Step 5. Extended: Steps 6 and F1.*
+*Phase 2 quality pass (Q2) update:* `Equipment` gained `machine` and `cable`; a new `Direction` Literal; and `Exercise` got its first rule that looks at two fields together. See [Cross-field validation](#cross-field-validation-a-model-level-rule).
+
+*First seen: Step 5. Extended: Steps 6, F1, Phase 2 quality pass Q2.*
+
+### Cross-field validation (a model-level rule)
+Most validation checks one field at a time ("difficulty must be beginner, intermediate or advanced"). A cross-field rule checks fields against each other. In Pydantic this is a `model_validator`: a function that runs after the fields are read and can see all of them. In Q2, `Exercise` got one: `direction` is required when the movement pattern is push or pull, and forbidden otherwise. It paid off at once. Three queries (`SEARCH_SQL`, `KEYWORD_EXERCISE_SQL` in `retrieval.py`, and the one in `scripts/embed_exercises.py`) built `Exercise` objects without selecting the new column, so every push and pull row failed validation. Embedding crashed instead of quietly storing exercises with no direction. The fix was one column name in each query.
+
+**In an interview:** "When I added a direction column, I made the data model require it for push and pull exercises. That rule immediately crashed my embedding script, which is what I wanted: it showed three queries that had forgotten the new column, before any of them could hand the agent incomplete data."
+
+*First seen: Phase 2 quality pass, Q2.*
 
 ### Config module (pydantic-settings)
 A config module is the one place in the code that knows where settings come from. `src/ragmotion/config.py` defines a pydantic-settings `Settings` class that reads environment variables and the `.env` file; everything else imports `settings` from it. Non-secret settings get defaults: `database_url` defaults to the local Docker URL (`localhost:5434`), so the database works before `.env` exists. Secrets (API keys) are optional in `Settings`, and each later step checks for the key it needs, so early steps don't fail because of a key they don't use.
@@ -2369,7 +2401,9 @@ A migration is a change to the structure of a database that already holds data. 
 
 *Phase 1F F5 update: a list column with a default and a rule.* `document_chunk.populations text[] NOT NULL DEFAULT '{}'` was added to a table that already held 200 rows. The default (an empty list, meaning "general") lets the existing rows satisfy `NOT NULL` at once; a separate back-fill script then set the real tags. The CHECK constraint is dropped and re-added with `IF EXISTS`, so the schema file stays re-runnable.
 
-*First seen: Step 8. Extended: Phase 1F, F5.*
+*Phase 2 quality pass (Q2) update: a column with its own rule.* `ALTER TABLE exercise ADD COLUMN IF NOT EXISTS direction text CHECK (direction IN ('horizontal', 'vertical'));` adds the column and its allowed values in one line. It can be empty (NULL) because most exercises aren't push or pull; the rule that push and pull *must* have one lives in the Pydantic model, not the database.
+
+*First seen: Step 8. Extended: Phase 1F, F5; Phase 2 quality pass, Q2.*
 
 ### Controlled vocabulary
 A controlled vocabulary is a fixed, agreed list of words allowed in a field, instead of free text. rag-motion has several: movement pattern (10 values), equipment (10 values), difficulty, laterality, body region. It makes filters reliable, because "dumbbell" is always spelled the same way. It also forces design choices: each value has to mean one clear thing a filter can act on. In F1 the Nordic curl uses no weights but needs a partner or an anchoring device to hold the heels. Labeled `bodyweight`, it would appear for "no equipment"; so the coach added the value `anchor`. The vocabulary lives in two places, the CHECK constraints in `db/schema.sql` and the `Literal` types in `models.py`, and both must change together. See [0010](decisions/0010-exercise-table-check-constraints.md).
@@ -2378,7 +2412,9 @@ A controlled vocabulary is a fixed, agreed list of words allowed in a field, ins
 
 *Phase 1F F5 update: a population vocabulary.* Four values: `adults`, `older-adults`, `youth`, `pregnancy`. As with equipment, it lives in two places that must match: a CHECK on `document_chunk.populations` and the `Population` `Literal` in `models.py`. The question reader can only return one of these (or null), so the filter always compares like with like.
 
-*First seen: Phase 1F, F1 (the lists themselves date from Step 4). Extended: Phase 1F, F5.*
+*Phase 2 quality pass (Q2) update: gym equipment and direction.* Equipment gained `machine` and `cable` (12 values), and a new two-value vocabulary, `direction` (`horizontal`, `vertical`), was added for push and pull. Equipment words now also appear in three prompts (profile reader, question reader, the agent's equipment question), so a new value means updating the schema, `models.py`, and the prompts together. One value can be too coarse: "machine" covers every machine, so a client with only a leg press would be offered a chest press machine too ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)).
+
+*First seen: Phase 1F, F1 (the lists themselves date from Step 4). Extended: Phase 1F, F5; Phase 2 quality pass, Q2.*
 
 ### Migration: changing allowed values (drop and re-add a CHECK)
 Adding a value to a CHECK constraint on a table that already has data is a migration. Postgres can't edit a constraint in place, so you drop it and add a new one. In F1, `db/schema.sql` does this for the movement-pattern and equipment lists: `ALTER TABLE exercise DROP CONSTRAINT IF EXISTS exercise_equipment_check1;` then `ADD CONSTRAINT exercise_equipment_check1 CHECK (...)` with the longer list. Two details matter. The names are Postgres's defaults (it named them when the table was created in Step 4), so the script must use exactly those names. And `IF EXISTS` keeps the file re-runnable. The lists inside `CREATE TABLE` were updated too, so a fresh install gets the same rules. When the new constraint is added, Postgres checks every existing row against it, so a new list that dropped a value still in use would fail loudly.

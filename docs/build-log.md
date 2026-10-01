@@ -5077,3 +5077,131 @@ The exact replay command for the 3 live runs below wasn't in the brief.
 - New: [0059. A quality pass (Q1–Q3) before the program page](decisions/0059-quality-pass-before-the-program-page.md)
 - Updated: [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (how forcing works now), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (three new checks), [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (named `tool_choice` unsupported)
 - Next: Q2, catalog expansion with machine and cable equipment and horizontal/vertical labels, coach review.
+
+## Phase 2 quality pass, Q2: machine and cable equipment, push/pull direction, 18 new exercises, and a narration guardrail
+**Date:** 2026-10-01 · **Commit:** `e752d7c` feat: machine/cable equipment, push/pull direction, 18 new exercises (Q2, pending coach review) · `51bac45` feat: coach-reviewed Q2 exercises; agent can't narrate instead of submitting
+
+**Goal.** Give the program builder the exercises and movement detail real gym programs need, so upper/lower programs can pass the quality checks.
+
+**What we did.**
+
+*Part 1: new vocabulary and a direction label (`e752d7c`).*
+- **Equipment values.** The equipment CHECK constraint (the database rule listing allowed values) gained `machine` and `cable`, both in `CREATE TABLE` and in the F1 drop-and-re-add migration in `db/schema.sql`. Equipment now has 12 values. `models.py`'s `Equipment` list gained the same two.
+- **Direction column.** New column `exercise.direction text CHECK (direction IN ('horizontal','vertical'))`, added with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Applied with psql. This builds the plan in [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md). See [0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md).
+- **Validator on the data model.** `models.py` gained a `Direction` Literal (a fixed list of allowed values) and `Exercise.direction`, with a `model_validator` (a Pydantic rule that looks at several fields together): direction is required for push and pull, and forbidden for every other pattern.
+- **Seeding.** `seed_exercises.py` sets direction with its own `DIRECTION_SQL` update. The main upsert clears an exercise's embedding when its content changes; direction isn't part of the embedded text, so changing it must not throw a good vector away.
+- **Prompts.**
+  - `extract_profile` maps weight machines to `machine` and cable stations or lat pulldowns to `cable`, and lists `rack`, `pullup-bar`, `anchor`.
+  - `extract_limits` (the question reader from F3) got the same allowed names.
+  - The agent's equipment question now mentions weight machines and a cable station.
+  - New agent rule: one squat, lunge, or hinge per day; at most one horizontal and one vertical push, and one horizontal and one vertical pull, per day.
+- **Checker (`program.py`).**
+  - `find_exercises` returns each exercise's direction.
+  - The one-per-day rule now counts by pattern, and for push and pull by pattern plus direction ("horizontal push", "vertical pull"). The check is now named "one exercise per movement pattern (and push/pull direction) per day".
+  - Day-name rules extended beyond upper and lower: upper, lower, leg(s), push (no lower body, no pull), pull (no lower body, no push). Names are matched as whole words. Check name: "day names match their exercises (upper/lower/push/pull/legs)".
+- **Directions on the 9 existing push/pull exercises** in `data/exercises.json`:
+  - Horizontal: push-up, barbell bench press, one-arm DB row, band pull-apart, inverted row, barbell bent-over row (DB = dumbbell).
+  - Vertical: DB overhead press, pull-up, bench dip. Bench dip's direction is a draft still waiting for the coach.
+- **18 new original exercises, all beginner** (60 in total):
+  - Push: DB bench press (H), incline DB press (H), machine chest press (H). Also DB lateral raise and cable triceps pushdown.
+  - Pull: lat pulldown (V), seated cable row (H), chest-supported DB row (H), band-assisted pull-up (V; pull-up bar plus band).
+  - Lower body: bodyweight squat, box squat, leg press, leg extension, leg curl, calf raise.
+  - Core and carry: side plank, bird dog, suitcase carry.
+- **A bug the new validator caught.** `retrieval.py`'s `SEARCH_SQL` and `KEYWORD_EXERCISE_SQL`, and `scripts/embed_exercises.py`, didn't select the `direction` column. So every push or pull row arrived without a direction and failed validation. Embedding crashed; search would have too. Fixed by selecting `direction` everywhere. See [Cross-field validation](concepts.md#cross-field-validation-a-model-level-rule).
+- **Tests.**
+  - The integration test now counts the catalog from `exercises.json` instead of hard-coding 42; its search limit `k` went from 50 to 1000.
+  - `test_push_and_pull_count_per_direction_and_push_pull_days_are_checked`: flat press + overhead press on one day passes; two horizontal presses are flagged ("horizontal push x2"); rows on a day named "Push" are flagged.
+  - `test_every_push_and_pull_exercise_has_a_direction`.
+  - 75 tests pass after this commit.
+- **Answer keys.** A script placed the 18 new exercises in the 11 eval questions whose keys depend on the catalog, using the coach's existing rules:
+  - `constraint-no-equipment`: +4 expected (bodyweight), +14 forbidden.
+  - `constraint-dumbbells-only`: +2 expected (lower-body bodyweight), +4 forbidden (lower body).
+  - bands-only, one-kettlebell, beginner-home, pull-up-bar-only: +4 acceptable (bodyweight), +14 forbidden each.
+  - dumbbells-bench: +5 expected, +4 acceptable, +9 forbidden.
+  - `pop-beginner-adult`, `pop-youth-start`, `pop-older-adult-new`: +18 acceptable (all beginner).
+  - `full-gym-intermediate`: +6 acceptable (lower body).
+
+*Part 2: coach review and the narration guardrail (`51bac45`).*
+- **Coach review.** The developer's reply: *"horizontal 2, 9 is beginner, 11 loadable"*. So:
+  - Incline DB press: horizontal.
+  - Band-assisted pull-up: beginner.
+  - Box squat: loadable. Claude kept its equipment as `['box']` and added the loading to the description and instructions (hold a dumbbell or kettlebell at the chest), so a client with only a box still gets it. See [0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md).
+  - The other 15 were approved implicitly. All 60 exercises have now been coach-reviewed (bench dip's direction label aside) and re-embedded.
+- **Narration instead of submitting.** One replay ended with a text message instead of a program: `"</think>\n\nPerfect! I have the information I need. Let me summarize..."`. Two problems in one reply: the agent described the program instead of calling `submit_program`, and leaked reasoning (`</think>`) would have been shown to the client.
+- **The fix, in `agent.py`** ([0061](decisions/0061-narration-forces-a-submission.md)):
+  - Once a successful `find_exercises` or `search_sources` has run, a plain-text reply sets `must_submit`. The text is kept in the conversation, a system message says "Don't describe the program. Call submit_program with it now.", and the next call offers only the submit tool.
+  - **Refused lookups don't count.** If the building tools refused because details were missing, asking the client is the right move, so text is allowed. This exception was found when an existing test failed after the first version of the guardrail.
+  - `_visible()` strips `<think>...</think>` blocks, and everything before a stray `</think>`, from anything shown or stored as the agent's reply.
+  - Tests: `test_narrating_instead_of_submitting_forces_a_submission` (the real narration message, scripted; the third call offers only `submit_program`; the program passes) and `test_leaked_reasoning_is_never_shown`. 77 tests pass.
+
+**Commands.**
+```bash
+uv run pytest                            # 75 tests pass after e752d7c, 77 after 51bac45
+uv run python scripts/program_chat.py    # full-gym 4-day conversation replays (see table below)
+```
+- The schema change was applied with psql; the exact command isn't in the brief.
+- The seed and re-embed commands (`scripts/seed_exercises.py`, `scripts/embed_exercises.py`) aren't quoted in the brief. The first embed run crashed on the missing `direction` column (above).
+- The exact replay command isn't in the brief; `program_chat.py` is the terminal chat used for replays in earlier steps.
+- Regression eval, 1 run, no judge. Saved as `evals/results/retrieval-20261001-165929-323989.json` and `evals/results/answers-semantic-filtered-rw-dictionary-20261001-170002-869412.json`. The exact flags used aren't in the brief.
+
+**What we saw.**
+
+*Full-gym 4-day replays.*
+
+| When | Runs | Passed every check | Notes |
+|---|---|---|---|
+| After Q1, before Q2 | 3 | 0/3 | upper/lower days fought the one-push, one-pull rule |
+| After Q2 | 3 | 2/3, both accepted first try | 18/18 checks, 16 s, $0.0016 each; the third run narrated instead of submitting |
+| After the narration guardrail | 6 | 4/6 | 3 passed on the first submission, 1 on the second; 2 failed after 3 submissions; 22–64 s; $0.0017–0.0059 |
+
+- **The programs now look like real upper/lower splits.** Upper days had a horizontal and a vertical press and pull: push-up + DB overhead press; DB bench + DB overhead press; one-arm row + lat pulldown; band pull-apart + band-assisted pull-up. Lower days: a squat, a lunge or step-up, and a hinge.
+- **Weekly sets** (counted in code), for example: chest 6–9, back 12, shoulders 12, quads 12, glutes/hamstrings 18–20.
+- **The two failures** after the guardrail: one double pattern on a day; one exercises-per-day count.
+
+*Regression on the 52-question eval (1 run, no AI judge).*
+
+| Measure | Result |
+|---|---|
+| Valid citations | 52/52 |
+| No forbidden advice | 15/15 |
+| Expected evidence cited | 49/51 |
+| Coverage claim correct | 46/52 |
+| Completeness | 0.78 |
+| No extras | 20/29 |
+| Retrieval (semantic + filters): exercise recall | 0.84 (was 0.87) |
+| Exercise MRR | 0.93 |
+| Passage recall | 0.95 |
+| Forbidden exercises retrieved | 0.00 |
+
+- **Exercise recall fell from 0.87 to 0.84 because the expected lists grew**, not because search got worse. For example, "no equipment" went from 11 to 15 expected exercises, so each 5-result search can find a smaller share. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+- **"No extras" 20/29**: answers cite new exercises that the keys don't list yet. These are the judgment calls still waiting for the coach (below), not mistakes found so far.
+- One run with no judge, so these aren't directly comparable with the final 3-run numbers with the judge (2026-10-01, going public).
+
+**Problems and fixes.**
+- **Queries that forgot a column.** Three SQL queries didn't select `direction`, so validated push/pull rows failed. The embed script crashed. Fixed by selecting `direction` in all three. The validator made a silent gap into a loud error.
+- **Upper/lower programs failed the one-per-pattern rule.** Fixed with richer data (direction), not a looser rule: 0/3 → 2/3, then 4/6 passing every check.
+- **The agent narrated instead of submitting, with leaked reasoning.** Fixed by forcing a submission after a text reply once building has started, and by stripping `<think>` text before display.
+- **The first version of the narration guardrail broke asking for missing details.** An existing test failed; refused lookups are now exempt.
+- **A box squat that can be loaded but is listed as box only.** Handled in the text, not the equipment list ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)).
+
+**Open questions.**
+- **Bench dip direction.** Drafted as vertical; the coach hasn't confirmed it.
+- **Answer-key judgment calls for the coach:**
+  - BW squat progression: should the bodyweight squat be expected?
+  - Upper back: seated cable row and chest-supported row expected, lat pulldown acceptable?
+  - Grip: add the suitcase carry?
+  - Biceps: lat pulldown and assisted pull-up acceptable as secondary?
+  - Anti-rotation: bird dog yes? side plank no?
+- **The 2 failed replays after the guardrail.** The brief names the failing checks (a double pattern; exercises per day) but not why the agent couldn't fix them in 3 submissions.
+- **Not tested:** whether the narration guardrail ever stops a legitimate text reply after building has started (for example, the agent asking a follow-up question mid-build).
+- **Whether the regression's 9 "extras" are acceptable** depends on the coach's key calls above.
+
+**Learned.**
+- New: [Cross-field validation (a model-level rule)](concepts.md#cross-field-validation-a-model-level-rule), [Narrating instead of acting](concepts.md#narrating-instead-of-acting-progress-based-forcing)
+- Extended: [Rules must fit the domain model](concepts.md#rules-must-fit-the-domain-model-richer-data-not-looser-rules) (it worked), [Movement direction](concepts.md#movement-direction-horizontal-vs-vertical-push-and-pull) (built), [Thinking (reasoning) models](concepts.md#thinking-reasoning-models) (leaked reasoning), [Loop guardrails](concepts.md#loop-guardrails-step-budget-repeat-refusal-forced-finish) (narration), [Eval maintenance when the corpus grows](concepts.md#eval-maintenance-when-the-corpus-grows) (60 exercises), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change) (recall 0.87 → 0.84), [Controlled vocabulary](concepts.md#controlled-vocabulary) (machine, cable, direction), [Pydantic model and Literal types](concepts.md#pydantic-model-and-literal-types), [Migration: adding a column](concepts.md#migration-adding-a-column-alter-table), [Stale embeddings](concepts.md#stale-embeddings) (metadata that isn't embedded)
+
+**Decisions.**
+- New: [0060. Machine and cable equipment, and push/pull direction as its own column](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)
+- New: [0061. A text reply after building has started forces a submission](decisions/0061-narration-forces-a-submission.md)
+- Updated: [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md) (built), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (direction and day names), [0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md) (narration forcing)
+- Next: the coach's remaining answer-key calls; Q3 (sources on time-efficient design and proximity to failure).

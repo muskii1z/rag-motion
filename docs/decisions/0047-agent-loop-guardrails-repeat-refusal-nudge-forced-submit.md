@@ -37,3 +37,6 @@ Run 2 after the change: 7 + 3 tool calls, then submit, $0.0012, a complete 3-day
 ## Update 2026-10-01 (Phase 2 quality pass, Q1): forcing by offering one tool
 - The named `tool_choice` crashed on Qwen3.5 Flash: its only OpenRouter provider returned 404 "No endpoints found that support the provided 'tool_choice' value". The forced path had never run in the model test, because every run passed first try.
 - A forced step (after 10 tool calls, or right after a rejection) now sends only the submit tool (`tools=[SUBMIT_TOOL]`, `tool_choice="auto"`), plus one nudge if the model replies in text. Test: `test_forcing_a_submission_offers_only_the_submit_tool` (commit `da55637`).
+
+## Update 2026-10-01 (Phase 2 quality pass, Q2): narration forces a submission
+- A third trigger for forcing: a plain-text reply after a successful lookup. Refused lookups don't count, so asking for missing details still works. Leaked `<think>` reasoning is stripped from replies. See [0061](0061-narration-forces-a-submission.md).

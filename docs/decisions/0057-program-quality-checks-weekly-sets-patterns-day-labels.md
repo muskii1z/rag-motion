@@ -27,3 +27,8 @@ Code attaches the weekly-set table to every program; the prompt tells the agent 
 - Direction labels land in Q2 (update the one-per-pattern rule).
 - The P4 program eval shows the coach disagreeing with the volume count or the minimums.
 - Retry cost or failure rate stays high after Q2.
+
+## Update 2026-10-01 (Phase 2 quality pass, Q2): direction and more day names
+- The one-per-pattern check now counts push and pull by direction (check name: "one exercise per movement pattern (and push/pull direction) per day"); see [0058](0058-push-and-pull-get-horizontal-vertical-labels.md), [0060](0060-machine-and-cable-equipment-and-a-direction-column.md).
+- Day names now cover upper, lower, leg(s), push (no lower body, no pull) and pull (no lower body, no push), matched as whole words.
+- Replays: 0/3 passing every check before Q2; 2/3 after (18/18 checks, first try, $0.0016, 16 s); 4/6 after the narration fix, $0.0017–0.0059.

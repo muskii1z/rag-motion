@@ -126,6 +126,9 @@ Evidence so far:
 - [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **a new field instead of a word list, and a reader that guessed.** `ClientProfile` gained `health_issues` (injuries, pain, conditions, surgeries, pregnancy, in the client's words, never a diagnosis), because a word list missed "tweaked my back". The same reader guessed equipment `['bodyweight']` for "beginner to the gym" in 1 of 3 reads at temperature 0. The prompt now says never to default to bodyweight, and code resets that guess unless the client said it ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
   - Point to make: "Structured output gives me fields I can check in code, so when the reader guessed a value, I could write a rule against that exact guess. A typed field is only trustworthy if something checks how it got filled."
 
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **cleaning what the model shows.** An agent reply leaked a `</think>` tag from the model's hidden reasoning. `_visible()` strips reasoning blocks from anything shown or stored, with a test using the exact leaked text. See [Thinking (reasoning) models](concepts.md#thinking-reasoning-models).
+  - Point to make: "Even plain-text replies get post-processed. Reasoning models can leak their thinking tags, so I strip them in code before a user sees anything."
+
 ## RAG
 
 ### Why did you use RAG instead of simply prompting the model?
@@ -401,6 +404,9 @@ Evidence so far:
 - [Phase 1F, F1](build-log.md#phase-1f-begins-f1-exercise-catalog-expanded-to-42): the CHECK constraints paid off and were changed for the first time. Widened on a live table by dropping and re-adding them by their generated names, with `IF EXISTS`, so `schema.sql` still runs on fresh and existing databases. See [Migration: changing allowed values](concepts.md#migration-changing-allowed-values-drop-and-re-add-a-check) and the [0010 update](decisions/0010-exercise-table-check-constraints.md).
 - [Phase 1F, F5](build-log.md#phase-1f-f5-population-tags-on-passages-and-a-population-filter): **a list column with a controlled vocabulary.** `document_chunk.populations text[] NOT NULL DEFAULT '{}'` with `CHECK (populations <@ ARRAY['adults','older-adults','youth','pregnancy'])`, added to a live 200-row table. The filter uses `= ANY(populations)` for membership and `cardinality(populations) = 0` for "general". A side bug: `'{}'` inside a Python f-string was read as a placeholder; `cardinality` avoids braces. See [Multi-valued tags](concepts.md#multi-valued-tags-text-arrays-any-and-cardinality), [Migration: adding a column](concepts.md#migration-adding-a-column-alter-table) (extended).
 
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **another live schema change.** Equipment's CHECK constraint gained `machine` and `cable`; a new `direction` column carries its own CHECK (`horizontal`, `vertical`) and may be NULL, because only push and pull exercises need it. The "must have one" rule lives in the Pydantic model ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md), [Cross-field validation](concepts.md#cross-field-validation-a-model-level-rule)).
+  - Point to make: "The database guarantees a direction is one of two values; the data model guarantees push and pull exercises have one. Each layer checks what it can express."
+
 ## Evaluation
 
 ### How do you know your RAG system works?
@@ -577,6 +583,10 @@ Evidence so far:
   - 4 errored question-runs reported and not re-run ([Reporting errored runs honestly](concepts.md#reporting-errored-runs-honestly-not-re-running-until-clean)).
   - Point to make: "My final numbers come from the exact configuration the app ships with, averaged over three runs, with the errors listed. That's the version of the numbers I'd defend."
 
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **a regression check after the catalog grew to 60.** One run, no judge: citations 52/52, no forbidden advice 15/15, expected evidence 49/51, coverage 46/52, completeness 0.78, no extras 20/29. Retrieval: exercise recall 0.84 (was 0.87), exercise MRR 0.93, passage recall 0.95, forbidden 0.00.
+  - The recall drop came from bigger expected lists ("no equipment" 11 → 15), not worse search. The "extras" are new exercises the keys don't list yet, waiting on the coach's judgment calls. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+  - Point to make: "After adding 18 exercises I re-ran the eval before trusting anything. Safety held at 15 of 15; the scores that moved, moved because the answer key grew, and I can show which keys."
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -644,6 +654,9 @@ Evidence so far:
 - [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **test rare paths.** The 6-model test only ever took the happy path (first-try passes), so the forced-submit branch shipped untested and crashed on Qwen3.5 Flash's provider. Now a test walks into it. The developer's real program became a regression test, and the test suite went from 70 to 73. See [Test rare paths](concepts.md#test-rare-paths-not-just-the-happy-path).
   - Point to make: "My model comparison proved the normal path worked. It said nothing about the retry path, and that's where it broke."
 
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **a data-model rule found three bugs.** Requiring a direction for push/pull exercises crashed the embedding script, exposing three queries that never selected the new column. And the first narration guardrail broke an existing test (asking for missing details), which is how the refused-lookup exception was found. 77 tests pass. See [Cross-field validation](concepts.md#cross-field-validation-a-model-level-rule).
+  - Point to make: "Two of my bugs this step were caught by things I'd built earlier: a validator and an old test. Neither was written for these bugs."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -659,6 +672,9 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **an agent's output can be valid and still poor.** A 15/15 program gave chest 3 sets a week and claimed "10–13 sets per muscle group". Code now counts weekly sets and checks quality, and the model is told not to state totals. See [Count, don't trust](concepts.md#count-dont-trust-compute-the-models-claims-in-code).
   - Point to make: "An agent will tell you its work is balanced. Mine said 10 to 13 sets per muscle; chest had 3. Whatever can be counted, my code counts."
+
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **an agent that announces instead of acting.** After gathering exercises and sources, one run replied "Let me summarize..." and stopped, with no program. Now, once real work has been done, a text reply forces the next move to be a submission ([0061](decisions/0061-narration-forces-a-submission.md), [Narrating instead of acting](concepts.md#narrating-instead-of-acting-progress-based-forcing)).
+  - Point to make: "A chatbot is allowed to just talk. My agent has a job, so code decides when talking is acceptable: before it has started building, yes; after, it has to deliver."
 
 ## LangGraph
 
@@ -700,6 +716,9 @@ Evidence so far (partial: no program generation yet):
 - [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **stricter checks, more failures shown.** Three quality checks ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md)) made every replay use all 3 submissions; 0 of 3 passed fully and were shown with 1–2 failed checks, at $0.0038–0.0076 vs $0.0015 first try. One check (one push/pull per day) turned out to fight upper/lower splits; the fix is richer data, not a looser rule ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
   - **A crash on the retry path itself.** The forced submit named a tool in `tool_choice`, which the new model's only provider rejects (404). Now it offers only the submit tool ([0047 update](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)).
   - Point to make: "When a program fails validation, the failure branch itself has to work. Mine crashed the first time it ran on a new model, because no test had reached it."
+
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **failures dropped once the data could express the rule.** Full-gym upper/lower replays: 0/3 passing every check before Q2, 2/3 after (18/18 first try, 16 s, $0.0016), then 4/6 after the narration fix (2 shown with failures after 3 submissions: a double pattern; exercises per day; $0.0017–0.0059).
+  - Point to make: "When most programs failed a check, the fix wasn't more retries. The data was missing movement direction, so the rule fought normal practice. With it, upper/lower programs pass."
 
 ## Human-in-the-loop
 
@@ -748,6 +767,9 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **the coach found what 15 checks missed.** The developer read a passing program and asked whether it was "actually good". The review found 3 chest sets a week, no horizontal press on Upper A, glute bridge + hip thrust on one day, and an unverified volume claim. Each became a rule or a planned data change ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md), [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)), and the coach chose the thresholds (6 or 4 weekly sets).
   - Point to make: "Every quality rule in my checker started as a coach looking at a program the code had approved. The human finds the gap; the code makes sure it stays closed."
+
+- [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **the coach reviewed 18 new exercises before they counted.** Three short calls ("horizontal 2, 9 is beginner, 11 loadable"): incline press is horizontal; band-assisted pull-up is beginner; box squat can be loaded. Claude kept the box squat's equipment as box only and put the loading in its instructions, so box-only clients keep it ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)). Still open for the coach: the bench dip's direction and five answer-key judgment calls (bodyweight squat progression, upper back, grip, biceps, anti-rotation).
+  - Point to make: "A script can place new exercises in the answer key by the coach's rules. Whether a bird dog counts as anti-rotation is still the coach's call."
 
 ## Observability
 
@@ -1209,5 +1231,10 @@ Evidence so far:
 - **Strict pattern rule vs satisfiable rule** ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)): satisfiable. Given up: a program can pass without a pull movement when nothing in the catalog fits. Gained: no retries burned on an impossible check; the program says what equipment would add it.
 - **Strict quality rules vs retry cost** ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md), [Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan)): three quality checks. Given up: first-try passes; replays cost about 2–5x ($0.0038–0.0076) and took 35–67 s. Gained: real volume numbers; chest went from 3 to 6–9 weekly sets.
 - **Looser rule vs richer data** ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)): horizontal/vertical labels instead of allowing two pushes and pulls per day. Given up: a quick fix; costs catalog work and coach review in Q2.
+  - Result after Q2 built it: full-gym upper/lower replays passing every check went 0/3 → 2/3 → 4/6 (the last after the narration fix).
   - Point to make: "When a rule misfires, I ask whether the data is too coarse before I weaken the rule."
 - **Ship the program page vs improve quality first** ([0059](decisions/0059-quality-pass-before-the-program-page.md)): quality first (Q1–Q3). Given up: an earlier demo.
+
+- **Direction as a column vs new pattern values** ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md), [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail)): a column. Given up: one more field every query must select (three forgot). Gained: "push" and "pull" kept their meaning in every filter, prompt, and key.
+- **Box squat: box only vs box plus dumbbell** ([0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md)): box only, loading in the text. Given up: filters can't see that it can be loaded. Gained: box-only clients still get it.
+- **Narration: allow text vs force a submission** ([0061](decisions/0061-narration-forces-a-submission.md)): force, once a lookup has succeeded. Given up: the agent can't ask a follow-up question mid-build (not seen yet, not tested). Gained: no turn ends with a promise instead of a program.
