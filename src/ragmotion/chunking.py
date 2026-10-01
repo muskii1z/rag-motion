@@ -121,6 +121,9 @@ SKIP_ARTICLE_SECTIONS = {
     "authors' contributions", "funding", "availability of data and materials", "declarations", "footnotes",
     "references", "associated data", "supplementary information", "ethics approval and consent to participate",
     "consent for publication", "competing interests",
+    # Added when ingesting MDPI and Frontiers articles (2026-09-30): boilerplate, not training content.
+    "data availability statement", "conflicts of interest", "conflict of interest", "funding statement",
+    "publisher's note", "publisher’s note", "institutional review board statement", "informed consent statement",
 }
 
 
@@ -317,6 +320,9 @@ def embed_text_for(source: Source, chunk: Chunk) -> str:
 
 POPULATIONS = ("adults", "older-adults", "youth", "pregnancy")
 
+# Program-design research studied healthy adults; keep it out of youth, older-adult and pregnancy answers.
+ADULT_RESEARCH = {"schoenfeld2021-loading", "singer2024-rest", "pelland2024-volume"}
+
 # The Guidelines' summary lists every group's key guidelines, several per chunk.
 _SUMMARY_MARKERS = {
     "youth": ("Key Guidelines for Preschool", "Key Guidelines for Children and Adolescents"),
@@ -331,8 +337,10 @@ def populations_for(source_id: str, chapter: str, headings: list[str], text: str
         return ["older-adults"]
     if source_id == "notes-nsca-youth-ltad":
         return ["youth"]
+    if source_id in ADULT_RESEARCH:
+        return ["adults"]
     if source_id != "pag2":
-        return []  # research articles and the weightlifting notes: athletes in general
+        return []  # sprint/plyometric research and the weightlifting notes: athletes in general
     if chapter.startswith("Chapter 3."):
         return ["youth"]
     if chapter.startswith("Chapter 4."):

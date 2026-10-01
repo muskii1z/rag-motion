@@ -105,3 +105,59 @@ download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC6872694/full
 local_path = "data/raw/PMC6872694.xml"
 sha256 = "35b563363fe09e6cace7f8738470f733378c9d8155392d27f0ee2a231701373f"
 retrieved = "2026-09-25"
+
+# ---- Program-design sources (added 2026-09-30, developer approved the downloads) ----
+
+[[source]]
+id = "schoenfeld2021-loading"
+type = "document"
+format = "jats-xml"
+title = "Loading Recommendations for Muscle Strength, Hypertrophy, and Local Endurance: A Re-Examination of the Repetition Continuum (Schoenfeld et al., 2021)"
+publisher = "Sports (MDPI)"
+year = 2021
+url = "https://doi.org/10.3390/sports9020032"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'open access article distributed under the terms and conditions of the Creative Commons Attribution (CC BY) license'."
+attribution = "Schoenfeld BJ, Grgic J, Van Every DW, Plotkin DL. Loading Recommendations for Muscle Strength, Hypertrophy, and Local Endurance: A Re-Examination of the Repetition Continuum. Sports (Basel). 2021;9(2):32. doi:10.3390/sports9020032. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7927075/fullTextXML"
+local_path = "data/raw/PMC7927075.xml"
+sha256 = "7ae51bc169d5d5aabc3f15a7b2bcd5160ec30dfe9ff2681b7f448843d85a3080"
+retrieved = "2026-09-30"
+
+[[source]]
+id = "singer2024-rest"
+type = "document"
+format = "jats-xml"
+title = "Give it a rest: a systematic review with Bayesian meta-analysis on the effect of inter-set rest interval duration on muscle hypertrophy (Singer et al., 2024)"
+publisher = "Frontiers in Sports and Active Living"
+year = 2024
+url = "https://doi.org/10.3389/fspor.2024.1429789"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'open-access article distributed under the terms of the Creative Commons Attribution License (CC BY)'."
+attribution = "Singer A, Wolf M, Generoso L, et al. Give it a rest: a systematic review with Bayesian meta-analysis on the effect of inter-set rest interval duration on muscle hypertrophy. Front Sports Act Living. 2024;6:1429789. doi:10.3389/fspor.2024.1429789. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11349676/fullTextXML"
+local_path = "data/raw/PMC11349676.xml"
+sha256 = "325ac35e8ce4cef9fb4cd5fd482817cc40210ac6283ede809d07975207f2f5c6"
+retrieved = "2026-09-30"
+
+[[source]]
+id = "pelland2024-volume"
+type = "document"
+title = "The Resistance Training Dose-Response: Meta-Regressions Exploring the Effects of Weekly Volume and Frequency on Muscle Hypertrophy and Strength Gain (Pelland et al., 2024 preprint, not peer reviewed)"
+publisher = "SportRxiv (preprint; a peer-reviewed version was later published in Sports Medicine, paywalled)"
+year = 2024
+url = "https://doi.org/10.51224/SRXIV.460"
+landing_page = "https://sportrxiv.org/index.php/server/preprint/view/460"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "SportRxiv preprint page: 'This work is licensed under a Creative Commons Attribution 4.0 International License' (links creativecommons.org/licenses/by/4.0). The PDF's cover marks it 'Preprint, not peer reviewed'."
+attribution = "Pelland JC, Remmert JF, Robinson ZP, Hinson S, Zourdos MC. The Resistance Training Dose-Response: Meta-Regressions Exploring the Effects of Weekly Volume and Frequency on Muscle Hypertrophy and Strength Gain. SportRxiv preprint, version 2, 2024. doi:10.51224/SRXIV.460. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://sportrxiv.org/index.php/server/preprint/download/460/967"
+local_path = "data/raw/pelland2024-dose-response-preprint.pdf"
+sha256 = "219064b8fb4198fb4eb5690b9cfb36a3a4ef66375263f8a8dddb7ea5f33efb5d"
+retrieved = "2026-09-30"
+# Skipped: cover (1), exercise-classification tables (8-9), formulas (11), PRISMA diagram (15),
+# data statement and references (33-45).
+skip_pages = [1, 8, 9, 11, 15, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
