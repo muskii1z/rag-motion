@@ -9,3 +9,8 @@ def test_slang_dictionary_expands_longest_terms_first_and_whole_words_only():
     assert expand_slang("RFESS with DBs").endswith("with DBs (dumbbells)")  # plural before singular
     assert expand_slang("Sandbag carries") == "Sandbag carries"  # "SA" inside a word is left alone
     assert expand_slang("I only have dumbbells") == "I only have dumbbells"
+
+
+def test_programming_terms_are_expanded():
+    assert expand_slang("3 sets at 80% 1RM, RPE 8") == "3 sets at 80% 1RM (one-repetition maximum), RPE (rating of perceived exertion) 8"
+    assert expand_slang("leave 2 RIR") == "leave 2 RIR (reps in reserve)"

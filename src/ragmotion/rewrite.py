@@ -35,6 +35,9 @@ GLOSSARY = {
     "SL": "single-leg",
     "DL": "deadlift",
     "GB": "glute bridge",
+    "1RM": "one-repetition maximum",
+    "RPE": "rating of perceived exertion",
+    "RIR": "reps in reserve",
 }
 
 # One regex, longest term first, whole words only (\b), case-insensitive ("sl rdl" works too).
