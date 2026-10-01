@@ -58,7 +58,7 @@ Update the Status column as steps complete.
 | Step | What | Status |
 |---|---|---|
 | P1 | Agent loop: conversation + tools (find_exercises, search_sources, ask_user, submit_program), loop guardrails | done (`src/ragmotion/agent.py`, `program.py`, `scripts/program_chat.py`); run 2 hit the forced submit at 10 tool calls |
-| P2 | Program checker in code; agent fixes failures | done: 16 code checks with exact fix instructions; missing-details refusal, empty-reply retry, forced resubmit after rejection; agent model Gemini 2.5 Flash (3/3 first try vs Flash-Lite 2/3 after retries) |
+| P2 | Program checker in code; agent fixes failures | done: 16 code checks with exact fix instructions; missing-details refusal, empty-reply retry, forced resubmit after rejection; agent model Qwen3.5 Flash after a 6-model test (3/3 first try, ~0.14c per program; Gemini 2.5 Flash also 3/3 at ~4x the cost) |
 | P3 | Program page (chat + program table) | next |
 | P4 | Program eval: ~10 fictional clients, code checks, coach review; optional model comparison | |
 

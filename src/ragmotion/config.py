@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # at most this many times. Without a limit, a hung call would wait the library's default 10 minutes.
     # A normal answer takes 2-5 s, so 25 s with 1 retry means a clear error within about a minute.
     # Phase 2: the model the program agent runs on (None = same as llm_model).
-    agent_model: str | None = "google/gemini-2.5-flash"  # Flash-Lite passed 2/3 programs after retries; Flash 3/3 first try (2026-10-01)
+    agent_model: str | None = "qwen/qwen3.5-flash-02-23"  # 3/3 first try, ~0.14c/program, 19 s; Gemini 2.5 Flash also 3/3 but ~4x cost (2026-10-01)
 
     # Phase 1F filters (equipment, age group). Only turned off to show the "before" behavior,
     # e.g. for a demo recording: USE_FILTERS=false uv run uvicorn ragmotion.app:app ...
