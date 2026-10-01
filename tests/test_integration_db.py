@@ -64,7 +64,7 @@ def test_population_filter_skips_other_groups_but_keeps_general_passages():
     with get_connection() as conn:
         q = conn.execute("SELECT embedding FROM document_chunk WHERE 'older-adults' = ANY(populations) LIMIT 1").fetchone()[0]
         cur = conn.cursor(row_factory=dict_row)
-        rows = cur.execute(CHUNK_SEARCH_SQL, {"q": q, "model": settings.embedding_model, "k": 300, "population": "adults"}).fetchall()
+        rows = cur.execute(CHUNK_SEARCH_SQL, {"q": q, "model": settings.embedding_model, "k": 5000, "population": "adults"}).fetchall()
         tags = {r["passage_id"]: r for r in rows}
         pops = conn.execute("SELECT source_id || '-' || chunk_index, populations FROM document_chunk").fetchall()
     kept = {pid for pid, p in pops if not p or "adults" in p}

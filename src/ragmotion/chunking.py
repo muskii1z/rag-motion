@@ -131,7 +131,9 @@ def _xml_text(elem: ET.Element) -> str:
     """Paragraph text without in-text reference markers like [12] (xref to the bibliography)."""
     parts = [elem.text or ""]
     for child in elem:
-        if not (child.tag == "xref" and child.get("ref-type") == "bibr"):
+        # Skip bibliography markers, and tables/figures nested inside a paragraph (some journals do that;
+        # seen in Bastos 2024): they're read separately, row by row, instead of being flattened into the text.
+        if not (child.tag == "xref" and child.get("ref-type") == "bibr") and child.tag not in ("table-wrap", "fig"):
             parts.append(_xml_text(child))
         parts.append(child.tail or "")
     text = "".join(parts)
@@ -168,6 +170,8 @@ def jats_blocks(source: Source) -> Iterator[Block]:
                 text = _xml_text(child)
                 if text:
                     yield Block(text, False, 0, None)
+                for table in child.iter("table-wrap"):  # tables nested inside the paragraph
+                    yield Block(_table_text(table), False, 0, None)
             elif child.tag == "table-wrap":
                 yield Block(_table_text(child), False, 0, None)
             elif child.tag == "list":
@@ -321,7 +325,8 @@ def embed_text_for(source: Source, chunk: Chunk) -> str:
 POPULATIONS = ("adults", "older-adults", "youth", "pregnancy")
 
 # Program-design research studied healthy adults; keep it out of youth, older-adult and pregnancy answers.
-ADULT_RESEARCH = {"schoenfeld2021-loading", "singer2024-rest", "pelland2024-volume", "notes-program-design"}
+ADULT_RESEARCH = {"schoenfeld2021-loading", "singer2024-rest", "pelland2024-volume", "notes-program-design",
+                  "iversen2021-time-efficient", "refalo2023-failure", "bastos2024-rir-scales"}
 
 # The Guidelines' summary lists every group's key guidelines, several per chunk.
 _SUMMARY_MARKERS = {

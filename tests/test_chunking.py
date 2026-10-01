@@ -97,3 +97,19 @@ def test_population_tags_come_from_where_a_passage_sits():
     assert populations_for("pag2", "Chapter 7. Active and Safe", [], "") == []  # general: never filtered out
     assert populations_for("notes-nsca-youth-ltad", "Youth", [], "") == ["youth"]
     assert populations_for("kons2023-plyo", "Results", [], "") == []
+
+
+def test_tables_nested_in_a_paragraph_are_read_row_by_row_not_flattened(tmp_path):
+    from ragmotion.chunking import jats_blocks
+    from ragmotion.ingestion import Source
+    xml = tmp_path / "a.xml"
+    xml.write_text("""<article><body><sec><title>Method</title>
+      <p>Studies were charted. <table-wrap><label>Table 1</label><caption><p>Sample</p></caption>
+        <table><tr><th>Sex</th><th>Studies</th></tr><tr><td>Male only</td><td>16</td></tr></table></table-wrap></p>
+    </sec></body></article>""")
+    src = Source(id="t", type="document", format="jats-xml", title="T", publisher="P", year=2024, license="CC BY 4.0",
+                 license_group="A", attribution="a", local_path=str(xml))
+    texts = [b.text for b in jats_blocks(src)]
+    assert "Studies were charted." in texts
+    assert "Table 1 Sample\nSex | Studies\nMale only | 16" in texts
+    assert not any("Male only16" in t for t in texts)

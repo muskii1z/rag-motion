@@ -173,3 +173,56 @@ license = "Original project notes drafted from general strength and conditioning
 license_group = "A"
 attribution = "Project notes on program design, drafted with AI assistance from widely taught principles and reviewed by the coach (M. Saraswat)."
 local_path = "data/notes/program-design.md"
+
+# ---- Q3 program-design sources (added 2026-10-01, developer approved the downloads) ----
+
+[[source]]
+id = "iversen2021-time-efficient"
+type = "document"
+format = "jats-xml"
+title = "No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review (Iversen et al., 2021)"
+publisher = "Sports Medicine (Springer)"
+year = 2021
+url = "https://doi.org/10.1007/s40279-021-01490-1"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'licensed under a Creative Commons Attribution 4.0 International License'."
+attribution = "Iversen VM, Norum M, Schoenfeld BJ, Fimland MS. No Time to Lift? Designing Time-Efficient Training Programs for Strength and Hypertrophy: A Narrative Review. Sports Med. 2021;51(10):2079-2095. doi:10.1007/s40279-021-01490-1. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC8449772/fullTextXML"
+local_path = "data/raw/PMC8449772.xml"
+sha256 = "e7337fb0b5405affec762a4cca37734a9b0120ee95c929b0292568a79db9a37c"
+retrieved = "2026-10-01"
+
+[[source]]
+id = "refalo2023-failure"
+type = "document"
+format = "jats-xml"
+title = "Influence of Resistance Training Proximity-to-Failure on Skeletal Muscle Hypertrophy: A Systematic Review with Meta-analysis (Refalo et al., 2023)"
+publisher = "Sports Medicine (Springer)"
+year = 2023
+url = "https://doi.org/10.1007/s40279-022-01784-y"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'licensed under a Creative Commons Attribution 4.0 International License'."
+attribution = "Refalo MC, Helms ER, Trexler ET, Hamilton DL, Fyfe JJ. Influence of Resistance Training Proximity-to-Failure on Skeletal Muscle Hypertrophy: A Systematic Review with Meta-analysis. Sports Med. 2023;53(3):649-665. doi:10.1007/s40279-022-01784-y. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC9935748/fullTextXML"
+local_path = "data/raw/PMC9935748.xml"
+sha256 = "3a587b40c61fbe17f498313566fcf1e8a9364d2977f99850eb57b0b2aca3c692"
+retrieved = "2026-10-01"
+
+[[source]]
+id = "bastos2024-rir-scales"
+type = "document"
+format = "jats-xml"
+title = "Feasibility and Usefulness of Repetitions-In-Reserve Scales for Selecting Exercise Intensity: A Scoping Review (Bastos et al., 2024)"
+publisher = "Perceptual and Motor Skills (SAGE)"
+year = 2024
+url = "https://doi.org/10.1177/00315125241241785"
+license = "CC BY 4.0"
+license_group = "A"
+license_evidence = "License statement inside the article XML: 'distributed under the terms of the Creative Commons Attribution 4.0 License'."
+attribution = "Bastos V, Machado S, Teixeira DS. Feasibility and Usefulness of Repetitions-In-Reserve Scales for Selecting Exercise Intensity: A Scoping Review. Percept Mot Skills. 2024;131(3):940-970. doi:10.1177/00315125241241785. CC BY 4.0. Text extracted and chunked for this project."
+download_url = "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11127506/fullTextXML"
+local_path = "data/raw/PMC11127506.xml"
+sha256 = "c64bc428f2e1b013424a025bab012f761a86af33a69bdae5473ddd962bb0c2b3"
+retrieved = "2026-10-01"

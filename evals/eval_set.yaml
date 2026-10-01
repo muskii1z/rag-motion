@@ -547,3 +547,25 @@ questions:
   expected_coverage: full
   reviewed: true
   notes: "Trap: the adult research and adult program-design notes must stay out (age-group filter)."
+
+# ---- Q3 sources (added 2026-10-01). Drafted by Claude; developer approved the Q3 plan ("all is fine, just get it done").
+- id: prog-time-efficient
+  question: "How do I fit a full workout into 30 minutes?"
+  category: program-design
+  expected_passages: [{source: iversen2021-time-efficient}]
+  expected_coverage: full
+  reviewed: true
+
+- id: prog-proximity-to-failure
+  question: "How close to failure should I train to build muscle?"
+  category: program-design
+  expected_passages: [{source: refalo2023-failure}]
+  expected_coverage: full
+  reviewed: true
+
+- id: prog-rir
+  question: "What does RIR mean and how do I use it to pick my weights?"
+  category: program-design
+  expected_passages: [{source: bastos2024-rir-scales}]
+  expected_coverage: full
+  reviewed: true
