@@ -22,6 +22,7 @@ def show(turn) -> None:
         print(f"\nProgression: {p['progression']}\nWhy: {p['rationale']}")
         if p.get("safety_notes"):
             print(f"Safety: {p['safety_notes']}")
+        print("Weekly sets (counted in code): " + ", ".join(f"{g} {n}" for g, n in p.get("weekly_sets", {}).items()))
         bad = [c for c in turn.checks if not c["passed"]]
         print(f"\nProgram checks: {len(turn.checks) - len(bad)}/{len(turn.checks)} passed")
         for c in bad:

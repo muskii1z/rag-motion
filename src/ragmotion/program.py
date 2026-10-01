@@ -111,6 +111,41 @@ def search_sources(query: str, profile: ClientProfile, k: int = 5) -> list[dict]
 MAIN_PATTERNS = {"squat or lunge": {"squat", "lunge"}, "hinge": {"hinge"}, "push": {"push"}, "pull": {"pull"}}
 CORE_PATTERNS = {"core", "carry"}
 TIMED = {"front-plank", "farmer-carry"}  # prescribed in seconds or metres, not reps
+ONE_PER_DAY = {"squat", "lunge", "hinge", "push", "pull"}  # at most one of each per day (coach, 2026-10-01)
+LOWER_PATTERNS, UPPER_PATTERNS = {"squat", "lunge", "hinge"}, {"push", "pull"}
+
+# Major muscle groups for weekly volume, built from the catalog's primary muscles (Q1, 2026-10-01).
+MUSCLE_GROUPS = {
+    "chest": {"chest"},
+    "back": {"latissimus dorsi", "rhomboids", "middle trapezius", "rear deltoids"},
+    "shoulders": {"deltoids", "front deltoids", "upper trapezius"},
+    "quads": {"quadriceps"},
+    "glutes/hamstrings": {"glutes", "hamstrings", "adductors", "spinal erectors"},
+}
+MUSCLE_GOAL = re.compile(r"muscle|hypertroph|size|strength|stronger|strong", re.IGNORECASE)
+
+
+def first_number(text: str) -> int:
+    """'3' -> 3, '2-3' -> 2 (the lower bound, so weekly totals are never overstated)."""
+    m = re.search(r"\d+", text or "")
+    return int(m.group()) if m else 0
+
+
+def weekly_sets(draft: "ProgramDraft") -> dict[str, int]:
+    """Hard sets per major muscle group per week, counted in code from the catalog's primary muscles."""
+    cat, totals = catalog(), {g: 0 for g in MUSCLE_GROUPS}
+    for day in draft.days:
+        for x in day.exercises:
+            muscles = set(cat.get(x.slug, {}).get("primary_muscles", []))
+            for group, members in MUSCLE_GROUPS.items():
+                if muscles & members:
+                    totals[group] += first_number(x.sets)
+    return totals
+
+
+def weekly_set_minimum(profile: ClientProfile) -> int:
+    """6 sets a week per group for muscle or strength goals, 4 otherwise (coach, from Pelland's minimum effective dose)."""
+    return 6 if MUSCLE_GOAL.search(profile.goal or "") else 4
 # Backup for the AI-read health_issues field: broad on purpose. For a safety reminder a false alarm
 # (an extra "check with a professional" line) costs little; a miss skips a warning someone needed.
 # Phrases where "back" means returning ("coming back to lifting") are excluded.
@@ -169,6 +204,37 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
                         fix="; ".join(f"'{k}' has {n} exercises: remove {n - hi}" if n > hi else f"'{k}' has {n} exercises: add {lo - n}"
                                       for k, n in sizes.items() if not lo <= n <= hi)))
     add("no exercise repeated within a day", [d.name for d in draft.days if len({x.slug for x in d.exercises}) != len(d.exercises)])
+
+    # Q1: program quality.
+    pattern_of = lambda x: cat[x.slug]["movement_pattern"] if x.slug in cat else None
+    doubles = []
+    for d in draft.days:
+        for pattern in ONE_PER_DAY:
+            same = [x.slug for x in d.exercises if pattern_of(x) == pattern]
+            if len(same) > 1:
+                doubles.append((d.name, pattern, same))
+    checks.append(Check(name="one exercise per movement pattern per day", passed=not doubles,
+                        detail="; ".join(f"{n}: {p} x{len(s)}" for n, p, s in doubles),
+                        fix="; ".join(f"'{n}' has {len(s)} {p} exercises ({', '.join(s)}): keep one, and swap the other for "
+                                      f"a different pattern or move it to another day" for n, p, s in doubles)))
+    mislabeled = []
+    for d in draft.days:
+        name = d.name.lower()
+        wrong = (LOWER_PATTERNS if "upper" in name else UPPER_PATTERNS if "lower" in name else set())
+        mislabeled += [(d.name, x.slug) for x in d.exercises if pattern_of(x) in wrong]
+    checks.append(Check(name="day names match their exercises (upper/lower)", passed=not mislabeled,
+                        detail=", ".join(f"{n}: {s}" for n, s in mislabeled),
+                        fix="; ".join(f"'{n}' is named upper/lower but includes {s}: move it to a matching day or rename the day"
+                                      for n, s in mislabeled)))
+
+    sets, minimum = weekly_sets(draft), weekly_set_minimum(profile)
+    reachable = {g for g, members in MUSCLE_GROUPS.items()
+                 if any(usable(e, profile) and set(e["primary_muscles"]) & members for e in cat.values())}
+    short = {g: n for g, n in sets.items() if g in reachable and n < minimum}
+    checks.append(Check(name=f"at least {minimum} weekly sets per major muscle group", passed=not short,
+                        detail=", ".join(f"{g}: {n}" for g, n in sets.items()),
+                        fix="; ".join(f"{g} has {n} weekly sets: add {minimum - n} more (extra sets on an exercise that trains it, "
+                                      f"or add one)" for g, n in short.items())))
     add("every exercise has sets, reps and rest", [x.slug for x in used if not (x.sets.strip() and x.reps.strip() and x.rest.strip())])
     untimed = sorted({x.slug for x in used if x.slug in TIMED and not any(u in x.reps.lower() for u in ("s", "sec", "m"))})
     checks.append(Check(name="planks and carries in seconds or metres, not reps", passed=not untimed, detail=", ".join(untimed),

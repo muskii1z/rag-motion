@@ -141,3 +141,47 @@ def test_forcing_a_submission_offers_only_the_submit_tool(monkeypatch):
     turn, model = run(monkeypatch, script, profile())
     assert model.tools_offered[2] == ["submit_program"]  # after the rejection: submit only, chatting nudged away
     assert turn.kind == "program" and turn.passed_checks
+
+
+# ---- Q1: program quality ----
+
+def ex(slug, sets="3", reps="8-12"):
+    return {"slug": slug, "sets": sets, "reps": reps, "rest": "90 s"}
+
+
+# The developer's real 4-day program (2026-10-01): passed the old checks, but a coach spotted
+# almost no chest work and a glute bridge + hip thrust on the same day.
+DEVELOPERS_PROGRAM = {**GOOD, "title": "Beginner 4-Day Upper/Lower", "days": [
+    {"name": "Day 1: Upper Body A", "exercises": [ex("dumbbell-overhead-press"), ex("one-arm-dumbbell-row"), ex("dead-bug", reps="10-15"), ex("dumbbell-biceps-curl", "2")]},
+    {"name": "Day 2: Lower Body A", "exercises": [ex("goblet-squat"), ex("dumbbell-romanian-deadlift"), ex("farmer-carry", reps="30 m"), ex("dumbbell-step-up")]},
+    {"name": "Day 3: Upper Body B", "exercises": [ex("push-up"), ex("band-pull-apart"), ex("front-plank", reps="30 s"), ex("hammer-curl", "2")]},
+    {"name": "Day 4: Lower Body B", "exercises": [ex("dumbbell-reverse-lunge"), ex("glute-bridge"), ex("pallof-press"), ex("dumbbell-hip-thrust")]},
+]}
+
+
+def test_the_developers_chest_light_program_is_now_rejected_with_exact_fixes():
+    gym = profile(sessions_per_week=4, equipment=[], unmapped_equipment=["full gym"], goal="build muscle and get stronger")
+    bad = {c.name: c for c in failed(check_program(ProgramDraft.model_validate(DEVELOPERS_PROGRAM), gym, {"notes-program-design-1"}))}
+    assert "chest: 3" in bad["at least 6 weekly sets per major muscle group"].detail
+    assert "add 3 more" in bad["at least 6 weekly sets per major muscle group"].fix
+    assert "glute-bridge, dumbbell-hip-thrust" in bad["one exercise per movement pattern per day"].fix
+
+
+def test_an_upper_day_with_a_squat_is_flagged():
+    draft = json.loads(json.dumps(GOOD))
+    draft["days"][0]["name"] = "Day 1: Upper"
+    names = {c.name for c in failed(check_program(ProgramDraft.model_validate(draft), profile(), {"notes-program-design-1"}))}
+    assert "day names match their exercises (upper/lower)" in names
+
+
+def test_weekly_sets_use_the_lower_bound_and_skip_unreachable_groups():
+    from ragmotion.program import weekly_sets
+    draft = json.loads(json.dumps(GOOD))
+    draft["days"][0]["exercises"][2]["sets"] = "2-3"  # push-up: counts as 2
+    assert weekly_sets(ProgramDraft.model_validate(draft))["chest"] == 5
+    # No equipment: no back exercise exists in the catalog, so back volume isn't required.
+    day = [x("split-squat"), x("glute-bridge"), x("push-up"), x("dead-bug"), x("front-plank", "30 s")]
+    bw = {**GOOD, "days": [{"name": "Day 1", "exercises": day}, {"name": "Day 2", "exercises": day}]}
+    volume = next(c for c in check_program(ProgramDraft.model_validate(bw), profile(equipment=["bodyweight"]), {"notes-program-design-1"})
+                  if c.name.startswith("at least"))
+    assert volume.passed and "back: 0" in volume.detail

@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from ragmotion.config import settings
 from ragmotion.llm import extract_profile, get_client
 from ragmotion.models import ClientProfile
-from ragmotion.program import (ProgramDraft, catalog, check_program, failed, find_exercises, max_level,
+from ragmotion.program import (ProgramDraft, catalog, check_program, failed, find_exercises, max_level, weekly_sets,
                                missing_for_program, owned_equipment, population, search_sources)
 
 MAX_STEPS = 18
@@ -54,6 +54,10 @@ Rules:
 - Cover squat or lunge, hinge, push and pull on at least 2 days (every day if only 1 day), and core or
   carry at least once. Beginners: 4-6 exercises per day. Never more than 8.
 - Use the client's own day count. Don't add days.
+- At most one squat, one lunge, one hinge, one push and one pull per day. Name days to match their content
+  (an "Upper" day has no squats, lunges or hinges).
+- Major muscle groups (chest, back, shoulders, quads, glutes/hamstrings) need enough weekly sets: code counts
+  them and checks. Don't state weekly set totals yourself; code calculates and shows the real ones.
 - If find_exercises returns nothing for a main pattern (e.g. no pull exercises with no equipment), leave it
   out and say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - Fat loss: build the training side, and say plainly that nutrition is not covered by the sources.
@@ -141,6 +145,7 @@ def _profile_note(profile: ClientProfile) -> str:
 def _enrich(draft: ProgramDraft) -> dict:
     """Add each exercise's name, equipment and level from the catalog, for display."""
     cat, out = catalog(), draft.model_dump()
+    out["weekly_sets"] = weekly_sets(draft)  # counted in code, never stated by the model
     for day in out["days"]:
         for x in day["exercises"]:
             e = cat.get(x["slug"], {})
