@@ -56,11 +56,12 @@ Sports Medicine OA articles (Springer), Frontiers in Physiology, PLOS ONE, MDPI 
 
 | Topic | Article | Year | Link | License |
 |---|---|---|---|---|
-| Strength | Loading recommendations: the repetition continuum re-examined (Schoenfeld et al.) | 2021 | [doi](https://doi.org/10.3390/sports9020032) | **A** CC BY |
+| Strength | Loading recommendations: the repetition continuum re-examined (Schoenfeld et al.) | 2021 | [doi](https://doi.org/10.3390/sports9020032) | **A** CC BY. **Ingested 2026-09-30** (`schoenfeld2021-loading`) |
+| Rest intervals | Give it a rest: inter-set rest and hypertrophy, Bayesian MA (Singer et al.) | 2024 | [doi](https://doi.org/10.3389/fspor.2024.1429789) | **A** CC BY. **Ingested 2026-09-30** (`singer2024-rest`) |
 | Strength | RT prescription for strength & hypertrophy, Bayesian network MA (Currier et al., BJSM) | 2023 | [doi](https://doi.org/10.1136/bjsports-2023-106807) | **B** CC BY-NC |
 | Strength | ACSM Position Stand: RT prescription (Med Sci Sports Exerc) | 2026 | [doi](https://doi.org/10.1249/mss.0000000000003897) | **C** CC BY-NC-ND |
 | Strength (youth) | Dose-response of RT in youth athletes (Lesinski et al., BJSM) | 2016 | [doi](https://doi.org/10.1136/bjsports-2015-095497) | **B** CC BY-NC |
-| Strength volume | Weekly volume & frequency dose-response (Pelland et al.) **preprint only** | 2024 | [SportRxiv](https://sportrxiv.org/index.php/server/preprint/view/460) | **A** CC BY (published version is not open) |
+| Strength volume | Weekly volume & frequency dose-response (Pelland et al.) **preprint only** | 2024 | [SportRxiv](https://sportrxiv.org/index.php/server/preprint/view/460) | **A** CC BY (published version is not open). **Preprint v2 ingested 2026-09-30** (`pelland2024-volume`), labeled not peer reviewed |
 | Plyometrics | Effects of plyometric training: umbrella review | 2023 | [doi](https://doi.org/10.1186/s40798-022-00550-8) | **A** CC BY |
 | Plyometrics (youth) | Plyometric-jump training by maturity (Ramirez-Campillo et al.) | 2023 | [doi](https://doi.org/10.1186/s40798-023-00568-6) | **A** CC BY |
 | Power | Strength vs power training in youth (Behm et al.) | 2017 | [doi](https://doi.org/10.3389/fphys.2017.00423) | **A** CC BY |
@@ -85,7 +86,9 @@ Sports Medicine OA articles (Springer), Frontiers in Physiology, PLOS ONE, MDPI 
 
 Not every ISSN stand is CC BY: the 2023 female athlete and 2024 ketogenic diet stands are CC BY-NC.
 Well-known but paywalled (cite only): Suchomel "Importance of Muscular Strength," IOC youth athletic
-development (2015), IOC load and injury (2016), Behm 2016 stretching review.
+development (2015), IOC load and injury (2016), Behm 2016 stretching review, ACSM 2009 progression-models
+position stand, Moesgaard 2022 periodization (Sports Medicine). The last two were checked and rejected for
+program design on 2026-09-30.
 
 ## 4. Open textbooks
 

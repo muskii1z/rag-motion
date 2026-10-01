@@ -90,7 +90,9 @@ A hallucination is confident output with no real source. When a model is asked t
 
 *NSCA notes update: checked again, now in a committed note.* When the NSCA coaching notes were written from the extracted text, Claude spot-checked the older-adults figure independently: 70–85% of 1RM for healthy adults over 60 appears at lines 407–408 of the source text. That is the value in the committed note `data/notes/nsca/resistance-training-for-older-adults.md`. The invented 60–80% never entered the project. See the [build log](build-log.md#nsca-coaching-notes-written-from-local-text-alongside-step-11).
 
-*First seen: before Step 11. Extended: Step 11, NSCA notes (alongside Step 11).*
+*Pre-Phase 2 update: the writing side.* Asked for notes on NSCA chapters it couldn't read, Claude declined to attribute anything to the book. See [Attribution honesty](#attribution-honesty-dont-cite-what-you-cant-read).
+
+*First seen: before Step 11. Extended: Step 11, NSCA notes (alongside Step 11), Pre-Phase 2.*
 
 ### Verify agent output independently
 An agent (here, a background Claude session given a task) reports what it did, but that report is itself model output and can be wrong in the same ways as anything else a model writes. So a claim like "every number was checked against the source" is not treated as proof. Instead you recheck a sample yourself, with a method the agent didn't use. For the NSCA notes, the agents returned a line-by-line list of where each number appeared in the source. Claude still ran its own [verbatim-overlap check](#verbatim-overlap-n-gram-check-as-a-copyright-guardrail) on the wording and spot-checked three numbers against the source lines (all three matched). The reason was concrete: before Step 11, a web tool had confidently reported figures from a PDF it couldn't read ([Hallucination from unreadable input](#hallucination-from-unreadable-input-and-verification-by-quotation)).
@@ -708,7 +710,23 @@ The practical legal risk to a small project is small, but the portfolio signal i
 
 *Step 12 update: real document vs notes.* The developer asked, "So we do have real docs, not notes, right?" One real document so far: the Physical Activity Guidelines, its actual full text (public domain). The NSCA material is our own notes, about 1,100 words each, citing NSCA. So answers from the Guidelines cite the real source, and answers from NSCA material cite our notes, which point back to NSCA. In the database this shows as `source_type` = `document` or `notes` on every chunk. The notes are registered in the manifest as license group A (project-owned original text), while NSCA's own statements stay group D and are never stored; the `document_chunk` table rejects any group outside A–C. More group A documents are ready once chunking works: the US Army's ATP 7-22.02 drills, CC BY research papers (plyometrics, sprinting, stretching, weightlifting, nutrition), and the CC BY textbook *Introduction to Exercise Science for Fitness Professionals*.
 
-*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11), Step 12.*
+*Pre-Phase 2 update: three program-design papers, and where the license is written.* For the program-design evidence, every candidate was license-checked before download. Schoenfeld 2021 and Singer 2024 state CC BY inside their Europe PMC XML. Pelland 2024's published version (Sports Medicine) is paywalled, but its SportRxiv preprint is CC BY 4.0, stated on the preprint server's page. So one paper can be off limits as published and allowed as a preprint ([Preprint vs peer-reviewed version](#preprint-vs-peer-reviewed-version)). ACSM 2009 and Moesgaard 2022 were skipped as paywalled. See [0038](decisions/0038-program-design-sources-three-cc-by-papers-pelland-preprint.md).
+
+*First seen: Step 4. Extended: Step 5, after Step 10, before Step 11 (twice), Step 11, NSCA notes (alongside Step 11), Step 12, Pre-Phase 2.*
+
+### Preprint vs peer-reviewed version
+A preprint is a version of a paper shared publicly before, or alongside, journal peer review (review by other researchers before publication). The peer-reviewed version can change numbers, wording, or conclusions. Licenses can differ too: Pelland 2024's preprint on SportRxiv is CC BY 4.0, while the version published in Sports Medicine is paywalled. rag-motion ingests the preprint and labels it in the source title, "(Pelland et al., 2024 preprint, not peer reviewed)", so every citation shows its status to the coach reading the answer.
+
+**In an interview:** "My best source on weekly volume was only openly licensed as a preprint. I used it, but put 'preprint, not peer reviewed' in its title, so every answer that cites it carries that warning."
+
+*First seen: Pre-Phase 2.*
+
+### Attribution honesty (don't cite what you can't read)
+Attribution means saying where content came from. In a RAG system the attribution travels with the text into every answer, so a wrong label becomes a wrong citation that looks real. When the developer asked Claude to write notes "on NSCA Essentials ch. 18–19", Claude had no access to the book. Labeling notes as NSCA-based would have been a false citation, the same failure the citation checks exist to catch. Instead the notes were drafted from widely taught principles and labeled "not copied from or checked against any book; pending review". It is the writing-side version of [Hallucination from unreadable input](#hallucination-from-unreadable-input-and-verification-by-quotation).
+
+**In an interview:** "I was asked to produce notes from a textbook my tools couldn't access. I wrote general notes and labeled them as exactly that, because in a RAG system a made-up source label becomes a citation in every answer that uses it."
+
+*First seen: Pre-Phase 2.*
 
 ### Source manifest and provenance fields on chunks
 A source manifest is a small committed file listing every document the system ingests: its URL, license, and the attribution to show. Provenance means "where did this come from". The pattern proposed before Step 11: commit the manifest and the ingestion script, but keep the downloaded files themselves in a git-ignored `data/raw/` folder, so anyone can rebuild the data from the repo without the repo redistributing the originals. Then store `source_url` and `license` on every chunk in the database. That lets answers cite and attribute correctly, and lets code filter out restricted chunks (for example NonCommercial ones) with a simple query. It is the same idea as the `source` column on exercises and the `embedding_model` column on vectors ([Embedding provenance](#embedding-provenance-embedding_model-column)). Proposed, not built.
@@ -727,7 +745,9 @@ A source manifest is a small committed file listing every document the system in
 
 *Step 16 update: `download_url`.* The two XML papers now carry a `download_url` in the manifest (and `Source` has the field), so `scripts/download_sources.py` can fetch every missing external document and verify its sha256. The manifest is now enough to rebuild `data/raw/` on a fresh clone. See [Reproducible setup from a fresh clone](#reproducible-setup-from-a-fresh-clone).
 
-*First seen: before Step 11. Extended: Steps 11 and 12, after Step 15, Step 16.*
+*Pre-Phase 2 update: status in the title, evidence per source.* Each new entry quotes where its license was found: inside the XML for the two journal articles, the SportRxiv page for the preprint. Pelland's `title` says "preprint, not peer reviewed" and its `publisher` notes that the peer-reviewed version is paywalled. Its `skip_pages` drops 18 of 45 pages (cover, classification tables, formulas, the PRISMA screening flowchart, references).
+
+*First seen: before Step 11. Extended: Steps 11 and 12, after Step 15, Step 16, Pre-Phase 2.*
 
 ### Text and data mining (TDM) reservations
 Text and data mining means using software to read large amounts of text and extract information from it, which is what RAG ingestion and AI training do. Some publishers now state explicitly that they reserve (keep for themselves) these rights. Wolters Kluwer, publisher of the *Journal of Strength and Conditioning Research* (JSCR), reserves "text and data mining and artificial intelligence training." So even an article you can legally read can't be fed into a RAG pipeline without permission. It is a specific case of [free to read is not free to reuse](#content-licensing-in-rag).
@@ -749,6 +769,13 @@ An n-gram is a run of n consecutive words; "cannot play themselves into shape" i
 **In an interview:** "To show my notes on copyrighted position statements weren't disguised copies, I compared them to the source text for any 8-word run in common. Almost every hit was a paper title in the references; outside those, only name lists and one marked quote. It's a cheap, repeatable check that turns 'I wrote it in my own words' into evidence."
 
 *First seen: NSCA notes (alongside Step 11).*
+
+### Draft content in the knowledge base (review status)
+Anything stored and embedded can be retrieved, whether or not anyone has checked it. A "pending review" label in a file's frontmatter (the metadata block at the top of the file) doesn't stop it from ranking. In Pre-Phase 2, the AI-drafted program-design notes went live with 3 passages. Two of them then ranked ahead of the Guidelines for the old `pop-beginner-adult` question, and the `prog-frequency` answer cited them. Ways to handle it: review before ingesting, filter on a review-status field, or ingest and review soon while the repo is private. rag-motion chose the last, with both coach reviews scheduled before going public ([0041](decisions/0041-both-coach-reviews-before-going-public.md)).
+
+**In an interview:** "A 'draft' label doesn't stop retrieval. My unreviewed notes started outranking government guidelines on one question, so expert review became a release gate before the repo went public."
+
+*First seen: Pre-Phase 2.*
 
 ### Why RAG beats a plain chatbot here
 A general chatbot like ChatGPT already knows general training principles and would write a decent explosive lower-body program. So the advantage of RAG here is not that the model knows more. It is four things: (1) every claim has a source a coach can check; (2) it only uses exercises from the catalog that fit the client's equipment and level; (3) the developer controls and has vetted the knowledge, instead of trusting whatever the model absorbed from the internet; (4) it is measurable, through an evaluation set. This is the honest answer, recorded before any of it is built; Steps 10 and 15 are where points 1 and 4 get real evidence (evaluation moved from Step 11 to Step 15 in Step 5).
@@ -874,7 +901,9 @@ Training guidance is population-specific: the right dose for older adults, youth
 
 **In an interview (with evidence):** "My population-mixing bug is fixed by structure, not wording. Every passage is tagged with who it's about, from the chapter it came from, and search skips other groups' passages. Wrong-group results went to zero on my 40-question eval, and the adult guideline passage now ranks higher because older-adult passages stopped crowding it out."
 
-*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4, F5.*
+*Pre-Phase 2 update: a trap for the new research.* Adding adult research created a new way to mix populations: weekly-set numbers from studies on younger adults given to a 70-year-old. The eval question `prog-older-adult-sets` forbids Pelland, Schoenfeld, Singer, and the program-design notes, and expects the older-adult notes or Guidelines chapter 5. In the first run it passed, and no forbidden citations held at 15/15.
+
+*First seen: Step 13. Extended: Step 15, Phase 1F F3 + F4, F5, Pre-Phase 2.*
 
 ### Query understanding (reading limits from the question)
 Query understanding means turning the words of a question into structured information before searching. Here it's an intake form: a small LLM call (`extract_limits`) reads the question and fills in `QuestionLimits`: is equipment limited (true only if the question says what the person has, or that they have nothing), which equipment they own (allowed names only), and the exact phrase that says so. The filter then uses the form. An LLM does this instead of keyword rules because people phrase limits in many ways ("a pair of dumbbells", "at home with no equipment"). "Limited" is read strictly: "dumbbell exercises for glutes" names equipment but doesn't say it's all the person has, so no filter.
@@ -1027,7 +1056,9 @@ Metadata tagging means attaching labels to each passage so search can filter on 
 
 **In an interview:** "I didn't need a model to tag passages by population. The government guidelines are already organised by population, so the chapter tells me. That's deterministic, testable, and free, and it worked because I'd stored chapter and headings on every chunk from the start."
 
-*First seen: Phase 1F, F5.*
+*Pre-Phase 2 update: a whole-source rule.* The program-design papers studied healthy adults, so `ADULT_RESEARCH` in `chunking.py` tags every passage from those sources (and the draft program-design notes) `adults`. The tag comes from the source, not its chapters. This closes the earlier limit "research papers are tagged general" for these sources; the sprint and plyometric papers stay general.
+
+*First seen: Phase 1F, F5. Extended: Pre-Phase 2.*
 
 ### Contextual labels instead of overlap
 Overlap repeats some text between neighboring chunks so a chunk isn't stranded without context. Step 12 uses a different fix: every chunk's embedded text starts with a label showing where it sits, "title > chapter > sections", for example "Physical Activity Guidelines for Americans, 2nd edition > Chapter 4. Active Adults > Key Guidelines for Adults". The label tells the embedding what the passage is about, even if the passage itself never says "adults". The database stores both `text` (shown to the LLM and user) and `embed_text` (label + text, exactly what gets embedded). One bug came up: a note's `# Title` is also its source title, so note labels repeated it ("Notes: Resistance Training for Older Adults > Resistance Training for Older Adults > ..."). The fix skips the chapter when it's already contained in the title.
@@ -1064,7 +1095,9 @@ JATS (Journal Article Tag Suite) is a standard XML format that archives such as 
 
 **In an interview:** "For research papers I skipped the PDFs and used the archive's JATS XML, which labels sections, paragraphs, and tables. Two-column PDFs would have needed new layout rules; the XML needed none. Same lesson as my first document: if a structured version exists, use it."
 
-*First seen: after Step 15.*
+*Pre-Phase 2 update: publishers name boilerplate differently.* MDPI and Frontiers articles have administrative sections the skip list didn't know, and they became 13–18-word passages. Added to the list: "data availability statement", "conflicts of interest", "conflict of interest", "funding statement", "publisher's note" (straight and curly apostrophe), "institutional review board statement", "informed consent statement". After re-chunking, every passage from the new papers was at least 66 words. Each new publisher can bring new section names, so check the shortest chunks after ingesting.
+
+*First seen: after Step 15. Extended: Pre-Phase 2.*
 
 ### Stripping bibliography markers to protect citation checks
 Research articles cite their own references inline, as markers like `[12]`. rag-motion's answers use square brackets for *its* citations (`[pag2-57]`), checked by code ([Citation validation](#citation-validation)). If `[12]` reached the model, it could copy it into an answer, and the checker would flag it as an invented source (or a reader might take it as a real citation). So `jats_blocks()` removes the bibliography reference tags (`xref ref-type="bibr"`) and the empty brackets they leave behind. General rule: clean the source text so nothing in it collides with your own citation format.
@@ -2143,7 +2176,16 @@ Before the first commit, three checks: preview what git would track (`git add -A
 
 **In an interview:** "Before the first commit I previewed the tracked files, confirmed .env was ignored, and grepped for key patterns. A pushed secret counts as leaked even if you delete it, so the cheap time to catch it is before the commit."
 
-*First seen: Step 2.*
+*Pre-Phase 2 update:* before going public, the same idea runs over the whole history, not just the next commit. See [Pre-public checklist](#pre-public-checklist-secrets-in-history-tracked-files-licenses).
+
+*First seen: Step 2. Extended: Pre-Phase 2.*
+
+### Pre-public checklist (secrets in history, tracked files, licenses)
+Making a private repo public publishes every past commit, not just the current files. A key committed once and deleted later is still readable in history. So the checks before flipping the switch cover all of history: search every commit for key patterns (`sk-or-` for OpenRouter, `lsv2_` for LangSmith, `sk-ant-` for Anthropic, AWS keys, private keys, `KEY=value` lines); confirm `.env` was never tracked; confirm downloaded third-party files (`data/raw/`) were never tracked; and check that every committed text's license allows publishing. The read-only pre-check on 2026-10-01 found all 85 commits clean. It also checked the README against reality: a to-do item said the README claims Claude, but it already says Gemini; its counts are stale.
+
+**In an interview:** "Before making the repo public I scanned all 85 commits for key patterns, not just the current files, because history ships too. I also confirmed that no .env and none of the downloaded source files had ever been committed."
+
+*First seen: Pre-Phase 2.*
 
 ### Binding the database to localhost only
 A network interface is one of the ways a computer is connected (for example, the Wi-Fi connection, or the internal "this computer only" connection called 127.0.0.1). When Docker publishes a port without saying which interface, it listens on all of them (written 0.0.0.0), so other devices on the same network can try to connect. Writing the port as `"127.0.0.1:5434:5432"` limits it to programs on this Mac. That is also why the plain-text password `postgres` in `docker-compose.yml` is acceptable: it is a local development credential for a database no other device can reach. A deployed database would get its password from a secret manager (a service that stores and hands out secrets), never from a committed file. See [0009](decisions/0009-local-db-port-5434-localhost-only.md).
@@ -2540,7 +2582,9 @@ The README is the first file anyone sees on GitHub, so it is the project's front
 
 *Phase 1F F6 update: the README kept honest as the system changed.* A README goes stale like an answer key. After the filters, three claims were no longer true: "doesn't respect limits" (removed from Limitations), "no LLM judge" (replaced by "code checks for facts, an AI judge only for the coach's labeling rules"), and "20 exercises". The Evaluation section now shows the before/after table averaged over 3 runs, and names what still fails (breadth: 5 exercises can't list everything) and two process lessons (stale keys after the catalog grew; single runs are noisy). New limitations were added: limits are read from the current question only, and the level is read but not filtered.
 
-*First seen: Step 16. Extended: Phase 1F, F6.*
+*Pre-Phase 2 update: check the README's claims against the code.* The developer's to-do list said the README still claims the app uses Claude. Checking showed it already says Gemini, so that item was out of date; but its counts (questions, passages) are stale. A README rewrite is step 6 of the finish plan ([0041](decisions/0041-both-coach-reviews-before-going-public.md)).
+
+*First seen: Step 16. Extended: Phase 1F, F6, Pre-Phase 2.*
 
 ---
 

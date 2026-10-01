@@ -4290,3 +4290,156 @@ Answers, 3 runs each, judge skipped, semantic (F7c dictionary runs) vs split 2:1
 - New: [0037. Semantic search stays the default after re-testing hybrid with filters](decisions/0037-semantic-stays-default-after-hybrid-retest.md)
 - Updated: [0021](decisions/0021-evaluation-design-code-scored-langsmith-semantic-default.md) and [0012](decisions/0012-keyword-baseline-and-query-rewriting.md) (the tuned-hybrid experiment they planned is done)
 - Next: program-design sources (Schoenfeld 2021, Pelland 2024, coach's notes on NSCA Essentials ch. 18–19), then the Phase 2 program generator.
+
+## Pre-Phase 2: Program-design sources, six eval questions, and the plan to go public
+**Date:** 2026-09-30 to 2026-10-01 · **Commits:** `f99ec15` feat: add program-design sources (Schoenfeld 2021 loading, Singer 2024 rest, Pelland 2024 volume/frequency preprint); `2fa143b` feat: program-design notes (draft) and 6 program-design eval questions
+
+**Goal.** Give the system evidence on sets, reps, rest, weekly volume and frequency (what a future program generator will need), measure it, and plan the path to a finished, public portfolio project.
+
+**What we did.**
+
+*1. Found sources and checked their licenses.* The developer asked, "what do we need for program design sources?" Claude searched Europe PMC (a public archive of biomedical papers) and SportRxiv (a preprint server for sport science) and checked each license before downloading anything.
+
+| Source | What it covers | License and where it was confirmed | Format |
+|---|---|---|---|
+| Schoenfeld BJ, Grgic J, Van Every DW, Plotkin DL. 2021. *Loading Recommendations for Muscle Strength, Hypertrophy, and Local Endurance* (Sports, MDPI), PMC7927075 | Rep ranges and load by goal | CC BY, statement inside the article XML | JATS XML |
+| Singer A et al. 2024. *Give it a rest* (Bayesian meta-analysis of rest between sets and muscle growth; Front Sports Act Living), PMC11349676 | Rest between sets | CC BY, statement inside the article XML | JATS XML |
+| Pelland JC, Remmert JF, Robinson ZP, Hinson S, Zourdos MC. 2024. *The Resistance Training Dose-Response* (weekly volume and frequency) | Weekly sets and days per week | The published Sports Medicine version is paywalled. The SportRxiv preprint v2 (doi 10.51224/SRXIV.460) is CC BY 4.0, stated on the SportRxiv page | PDF |
+
+- **Pelland is a preprint.** A preprint is a version shared before (or outside) journal peer review. Its PDF cover says "Preprint, not peer reviewed", so the source title in the manifest says so too: "(Pelland et al., 2024 preprint, not peer reviewed)". See [Preprint vs peer-reviewed version](concepts.md#preprint-vs-peer-reviewed-version).
+- **Rejected as paywalled:** the ACSM 2009 progression-models position stand and Moesgaard 2022 on periodization (Sports Medicine). The NSCA *Essentials* program-design chapters are a copyrighted book (license group D, never ingested).
+- The developer approved all three downloads.
+
+*2. Registered and ingested them* (commit `f99ec15`).
+- Three manifest entries in `data/sources.toml`, each with sha256 (a fingerprint of the exact file), license, license evidence (the quoted license sentence and where it was found), and full attribution. `scripts/download_sources.py` verified all three.
+- **Pelland PDF (45 pages):** `skip_pages` drops the cover (1), exercise-classification tables (8–9), formulas (11), the PRISMA diagram (15, a flowchart of how studies were screened), and the data statement and references (33–45). Extraction found 40 headings.
+- **Population tag.** In `src/ragmotion/chunking.py`, a new set `ADULT_RESEARCH` tags every passage from these sources `adults`. The studies were on healthy adults, so their numbers must stay out of youth, older-adult, and pregnancy answers. This is a source-level rule (the whole source gets one tag), unlike the chapter rules used for the Guidelines. See [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm) (extended).
+- **Boilerplate removed.** The first chunking produced 13–18-word passages made of journal boilerplate. The JATS skip list was extended with MDPI and Frontiers section names: "data availability statement", "conflicts of interest", "conflict of interest", "funding statement", "publisher's note" (both apostrophe styles), "institutional review board statement", "informed consent statement". Re-chunked. See [Structured XML (JATS) vs PDF](concepts.md#structured-xml-jats-vs-pdf-for-research-papers) (extended).
+- **Result:** Schoenfeld 28 passages, Singer 18, Pelland 29, all at least 66 words. 275 passages in total, all embedded.
+
+*3. Drafted program-design notes, and declined to call them NSCA notes* (commit `2fa143b`).
+- The developer asked Claude to "make the notes" for NSCA *Essentials* chapters 18–19. Claude has no access to the book. Writing notes labeled as NSCA-based would have been a false citation, exactly the kind of error the project's citation checks exist to prevent. See [Attribution honesty](concepts.md#attribution-honesty-dont-cite-what-you-cant-read).
+- Instead Claude drafted `data/notes/program-design.md` from widely taught program-design principles: needs analysis, specificity, overload, multi-joint exercises first, load, reps and rest by goal, sets, frequency of at least 2 times a week per muscle, splits, session order, a "2-for-2" progression rule of thumb, periodization and deloads, exercise progressions, safety, and common myths.
+- Its frontmatter says "Drafted with AI assistance from widely taught program-design principles; not copied from or checked against any book; pending review by M. Saraswat".
+- Registered as `notes-program-design` (license group A, project-owned), tagged `adults`. 3 passages; 278 in total.
+
+*4. Six program-design eval questions* (category `program-design`; 52 questions in total). The coach approved them ("all fine").
+
+| Question id | Expected evidence |
+|---|---|
+| `prog-weekly-sets` | Pelland |
+| `prog-rest-intervals` | Singer; coverage full |
+| `prog-rep-ranges` | Schoenfeld |
+| `prog-light-vs-heavy` | Schoenfeld |
+| `prog-frequency` | Pelland, or Guidelines chapter 4, or page 8 |
+| `prog-older-adult-sets` | **Trap:** older-adult notes or Guidelines chapter 5. Pelland, Schoenfeld, Singer, and the program-design notes are forbidden |
+
+The last one checks that the new `adults` tag works: a 70-year-old's question must not be answered from research on younger adults. See [Population mixing](concepts.md#population-mixing-context-bleed-across-populations) (extended).
+
+*5. Planned the finish.* The developer shared their remaining to-do list (more slang questions, slang dictionary, README rewrite, final secrets check, make the repo public and pin it). The approved plan:
+1. Commit pending work (done: `f99ec15`, `2fa143b`).
+2. Coach reviews the program-design notes.
+3. Coach reviews the original 20 exercises. The developer chose to do **both** reviews before going public.
+4. Add 1RM, RPE, and RIR to the slang glossary.
+5. Final evals: 3 answer runs with the AI judge.
+6. README rewrite.
+7. Pre-public checks.
+8. The developer makes the repo public and pins it.
+
+The Phase 2 program generator becomes a separate next project. See [0041](decisions/0041-both-coach-reviews-before-going-public.md).
+
+*6. Read-only pre-check for going public.* Nothing was changed.
+- Secrets scan of all 85 commits: no `sk-or-` (OpenRouter), `lsv2_` (LangSmith), `sk-ant-` (Anthropic), AWS keys, private keys, or `KEY=value` lines.
+- `.env` was never tracked. Nothing in `data/raw/` is tracked. The repo is still private.
+- The to-do list said the README claims the app uses Claude. It doesn't: the README already says Gemini. But its counts are stale.
+- See [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses).
+
+**Commands.**
+
+```bash
+# Europe PMC REST search: find open-access versions and their license statements
+# curl: download the two XML articles and the Pelland preprint PDF (after developer approval)
+
+uv run python scripts/download_sources.py
+# Verified all three files against their sha256 in the manifest.
+
+uv run python scripts/extract_document.py pelland2024-volume
+# 45-page PDF, skip_pages applied, 40 headings detected.
+
+uv run python scripts/chunk_documents.py <ids>
+# First pass: 13-18-word boilerplate chunks. After the skip list: 28 / 18 / 29 passages, all >= 66 words.
+# Re-run later for notes-program-design: 3 passages, 278 total.
+
+uv run python scripts/embed_chunks.py
+# All passages embedded.
+
+uv run python evals/run_retrieval_eval.py --rewrite dictionary
+# Search only, 52 questions. Saved: evals/results/retrieval-20261001-111730-240835.json
+
+uv run python evals/run_answer_eval.py --no-judge
+# One answer run, AI judge skipped. Saved: evals/results/answers-semantic-filtered-20261001-111813-657742.json
+
+uv run pytest
+# 54 passed.
+
+# git history grep for key patterns across all 85 commits: nothing found.
+```
+
+The answer-eval command is as recorded in the brief. It has no `--rewrite` flag, and the saved file says the dictionary was off (see Open questions).
+
+**What we saw.**
+
+*Spot check by eye (search only):*
+
+| Question | Top source |
+|---|---|
+| "sets per week for hypertrophy" | Pelland (about 6 weekly sets per muscle as the minimum effective dose, with diminishing returns above that) |
+| "rest between sets" | Singer |
+| "rep range strength vs hypertrophy" | Schoenfeld |
+| "days per week per muscle" | Pelland |
+
+*One answer run (semantic search, filters on, judge skipped), 52 questions:*
+
+| Check | Result |
+|---|---|
+| Citations valid | 49/51 |
+| Coverage claim correct | 47/51 |
+| Used expected evidence | 46/50 |
+| No forbidden citations | 15/15 (the older-adult trap held) |
+| Exercise completeness | 0.83 |
+| No extra exercises | 24/29 |
+
+- The denominators are 51, not 52, because one question errored. The saved file shows `prog-rest-intervals` failed with "The AI sent back an unreadable answer 2 times in a row" (the model's JSON couldn't be read twice). So the Singer question has no answer score in this run.
+- **`prog-frequency` failed "used expected evidence".** The answer cited the draft program-design notes, which are not in its key. Citations and coverage passed. The coach decided to keep the key strict: research or Guidelines only. See [0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md).
+- `prog-older-adult-sets` passed all four of its checks, including no forbidden citations.
+
+*Retrieval:* passage recall 0.95, MRR 0.84. Recall is the share of expected items found in the top 5. MRR (mean reciprocal rank) measures how high the first right item ranks; 1.0 means always first. See [Retrieval metrics](concepts.md#retrieval-metrics-recall-hit-rate-mrr). `prog-frequency` had recall 0.33: of its three matchers (Pelland, Guidelines chapter 4, page 8), only Pelland was retrieved.
+
+*A side effect on an old question:* `pop-beginner-adult` now retrieves 2 program-design-notes passages ahead of the Guidelines. Its recall is still 1.0. But it means the unreviewed draft notes can already reach real answers before the coach has checked them. See [Draft content in the knowledge base](concepts.md#draft-content-in-the-knowledge-base-review-status).
+
+**Problems and fixes.**
+- **Boilerplate chunks.** MDPI and Frontiers articles have administrative sections the JATS skip list didn't know. They became 13–18-word passages. Fixed by extending the skip list and re-chunking.
+- **The NSCA notes request.** Not a code bug, but a near-miss: producing "NSCA notes" without the book would have put a false citation into the knowledge base. Handled by drafting clearly labeled general notes instead ([0039](decisions/0039-program-design-notes-from-general-practice-not-nsca.md)).
+
+**Developer questions.**
+- **"What do we need for program design sources?"** Evidence on load and rep ranges, rest, and weekly volume and frequency. Three CC BY papers cover those. The best-known alternatives (ACSM 2009, Moesgaard 2022, NSCA *Essentials*) are paywalled or copyrighted.
+- **"Make the notes [for NSCA Essentials ch. 18–19]."** Claude declined to attribute anything to a book it can't read. It offered general program-design notes instead, labeled as AI-drafted, not checked against any book, and pending the coach's review.
+
+**Open questions.**
+- **Was the slang dictionary on in the answer run?** The brief says "dictionary rewrite". But the saved answer file's metadata says `"rewrite": "none"`, its name has no `-rw-dictionary` part, and `run_answer_eval.py` defaults to `--rewrite none`. If the dictionary was off, this run isn't directly comparable to the F7c/F7d dictionary runs. (The retrieval file doesn't record the rewrite setting.)
+- `prog-rest-intervals` errored, so the Singer answer is unmeasured. The planned 3 final runs should show whether this repeats.
+- The answer numbers are one run. By [0028](decisions/0028-before-after-averaged-over-three-runs.md), comparisons need 3 runs; those are planned (step 5 of the finish plan).
+- Two citations were invalid (49/51) and four coverage claims wrong (47/51). The brief doesn't say which questions.
+- The brief doesn't give the reason for doing both coach reviews before going public.
+
+**Learned.**
+- New: [Preprint vs peer-reviewed version](concepts.md#preprint-vs-peer-reviewed-version), [Attribution honesty (don't cite what you can't read)](concepts.md#attribution-honesty-dont-cite-what-you-cant-read), [Draft content in the knowledge base (review status)](concepts.md#draft-content-in-the-knowledge-base-review-status), [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses)
+- Extended: [Content licensing in RAG](concepts.md#content-licensing-in-rag), [Source manifest and provenance fields on chunks](concepts.md#source-manifest-and-provenance-fields-on-chunks), [Tagging passages from document structure](concepts.md#tagging-passages-from-document-structure-rules-not-an-llm), [Population mixing](concepts.md#population-mixing-context-bleed-across-populations), [Structured XML (JATS) vs PDF](concepts.md#structured-xml-jats-vs-pdf-for-research-papers), [Hallucination from unreadable input](concepts.md#hallucination-from-unreadable-input-and-verification-by-quotation), [Secret check before the first commit](concepts.md#secret-check-before-the-first-commit), [README as the project's front page](concepts.md#readme-as-the-projects-front-page)
+
+**Decisions.**
+- New: [0038. Program-design evidence: three CC BY papers, Pelland as a labeled preprint; paywalled sources skipped](decisions/0038-program-design-sources-three-cc-by-papers-pelland-preprint.md)
+- New: [0039. Program-design notes drafted from general practice, not attributed to NSCA, pending coach review](decisions/0039-program-design-notes-from-general-practice-not-nsca.md)
+- New: [0040. prog-frequency answer key stays strict: research or Guidelines only](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md)
+- New: [0041. Both coach reviews before going public; Phase 2 as a separate project](decisions/0041-both-coach-reviews-before-going-public.md)
+- Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (three more group A sources; general notes not attributed to NSCA), [0027](decisions/0027-population-tags-from-structure-keep-general-filter.md) (source-level `adults` tag for research)
+- Next: coach reviews the program-design notes, then the original 20 exercises.

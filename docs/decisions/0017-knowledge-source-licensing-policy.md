@@ -65,3 +65,8 @@ The developer approved the policy (groups A–D, committed source manifest, git-
 - The download was done only after asking the developer, with file names, source, license, and estimated size.
 - US Army ATP 7-22.02 was not added: armypubs.army.mil did not resolve on the Mac's DNS, and Claude did not route around the developer's network settings. Its license remains UNVERIFIED.
 - See the [build log](../build-log.md#after-step-15-trace-cleanup-two-research-papers-eval-set-v2) and [0022](0022-research-papers-europe-pmc-jats-xml-not-pdfs.md).
+
+## Update 2026-09-30 to 2026-10-01 (Pre-Phase 2): program-design sources and general notes
+- Three more group A (CC BY) sources: `schoenfeld2021-loading` and `singer2024-rest` (license sentence verified inside the Europe PMC XML) and `pelland2024-volume` (SportRxiv preprint v2; CC BY 4.0 stated on the SportRxiv page; the published Sports Medicine version is paywalled). Pelland's title says "preprint, not peer reviewed". See [0038](0038-program-design-sources-three-cc-by-papers-pelland-preprint.md).
+- Skipped as paywalled: ACSM 2009 progression models, Moesgaard 2022 periodization. NSCA *Essentials* stays group D.
+- New rule in practice: notes are attributed only to sources someone actually read. The program-design notes were drafted from general practice and say so; they are not labeled as NSCA notes. See [0039](0039-program-design-notes-from-general-practice-not-nsca.md).

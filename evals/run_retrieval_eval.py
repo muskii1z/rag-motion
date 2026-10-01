@@ -45,7 +45,7 @@ def main() -> None:
     parser.add_argument("--details", action="store_true")
     parser.add_argument("--k", type=int, default=5, help="results per search (F7 test)")
     parser.add_argument("--weight", type=float, default=1.0, help="hybrid: semantic weight vs keyword (F7d)")
-    parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting for the filtered row (F7c)")
+    parser.add_argument("--rewrite", default=settings.query_rewrite, choices=["none", "dictionary", "llm"], help="slang rewriting for the filtered rows (F7c); default = what the app uses")
     args = parser.parse_args()
     global K
     K = args.k

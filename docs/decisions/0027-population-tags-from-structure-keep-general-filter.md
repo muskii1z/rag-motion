@@ -46,3 +46,6 @@ Same 40 questions as the F2 baseline ([build-log entry](../build-log.md#phase-1f
 - Population mixing shows up again in the eval or in use.
 - A question names a group outside the four values (for example a specific chronic condition), or a coach wants exercises filtered by population.
 - Coverage labels on filtered questions stay "wrong" after the coach settles the keys.
+
+## Update 2026-09-30 (Pre-Phase 2): a source-level tag for adult research
+The program-design papers (Schoenfeld 2021, Singer 2024, Pelland 2024) and the draft program-design notes are tagged `adults` as whole sources, through the `ADULT_RESEARCH` set in `chunking.py`. Their studies were on healthy adults. This answers the earlier tradeoff "research papers are general even if a study used a specific group" for these sources. A trap question, `prog-older-adult-sets` (a 70-year-old's weekly sets), forbids all four; in the first run it passed (no forbidden citations 15/15 across the limit questions). The sprint and plyometric papers stay general.

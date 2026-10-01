@@ -245,7 +245,7 @@ def main() -> None:
     parser.add_argument("--k-exercises", type=int, default=5, help="exercises retrieved per question (F7 test)")
     parser.add_argument("--no-filters", action="store_true", help="skip the F4/F5 filters (the F2 baseline)")
     parser.add_argument("--weight", type=float, default=1.0, help="hybrid/split: semantic weight vs keyword (F7d)")
-    parser.add_argument("--rewrite", default="none", choices=["none", "dictionary", "llm"], help="slang rewriting (F7c)")
+    parser.add_argument("--rewrite", default=settings.query_rewrite, choices=["none", "dictionary", "llm"], help="slang rewriting (F7c); default = what the app uses")
     parser.add_argument("--no-judge", action="store_true", help="skip the AI judge (saves ~8c when rules aren't being measured)")
     parser.add_argument("--langsmith", action="store_true", help="also record the run as a LangSmith experiment")
     args = parser.parse_args()
