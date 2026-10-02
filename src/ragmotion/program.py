@@ -359,7 +359,7 @@ def build_skeleton(profile: ClientProfile, avoid_bodyweight: bool = False) -> li
     smallest = 4 if max_level(profile) == "beginner" else 3
     if any(len(d["slots"]) < smallest for d in days) and n >= 4:
         rotation = LAYOUTS[3]
-        days = _fill([(f"{rotation[i % 3][0]}", rotation[i % 3][1]) for i in range(n)], profile, avoid_bodyweight)
+        days = _fill([(f"Full body {chr(65 + i)}", rotation[i % 3][1]) for i in range(n)], profile, avoid_bodyweight)
     return days
 
 

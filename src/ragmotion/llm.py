@@ -41,7 +41,9 @@ Rules:
   to null and record the exact wording in context_notes.
 - Equipment: record only equipment the text actually mentions. Never assume or default to bodyweight;
   use bodyweight only if the text says so ("no equipment", "bodyweight only", "at home with nothing").
-  Being "new to the gym" says nothing about equipment: leave it empty.
+  Being "new to the gym" says nothing about equipment: leave it empty. "Full gym", "gym access" or "I train at a
+  gym" -> put "full gym" in unmapped_equipment. Never infer equipment from exercise names ("back squats" is
+  not a statement about owning a barbell).
   Use an allowed name only for a true equivalent:
   bodyweight, dumbbell, band (resistance bands, mini bands), kettlebell, barbell, bench, box, rack,
   pullup-bar, anchor, machine, cable.

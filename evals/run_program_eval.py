@@ -56,6 +56,8 @@ def score(turn: dict, expect: dict) -> dict[str, bool]:
         "has_referral": lambda want: "professional" in (p.get("safety_notes") or "").lower(),
         "no_referral": lambda want: not any(c["name"] == REFERRAL_CHECK for c in checks),
         "question_mentions": lambda words: all(re.search(w, turn.get("text", ""), re.IGNORECASE) for w in words),
+        "includes_any": lambda slugs: any(x.get("slug") in slugs for x in exercises),
+        "min_exercises_per_day": lambda n: bool(p.get("days")) and all(len(d["exercises"]) >= n for d in p["days"]),
     }
     return {name: rules[name](value) for name, value in expect.items()}
 

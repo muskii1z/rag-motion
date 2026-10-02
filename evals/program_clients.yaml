@@ -10,6 +10,8 @@
 #   has_referral          a health-professional reminder is present
 #   no_referral           no conditions flagged (exercise names like "back squats" aren't injuries)
 #   question_mentions     for kind=question: the question asks about each of these words
+#   includes_any          the program includes at least one of these exercises (e.g. lifts the client says they love)
+#   min_exercises_per_day every day has at least this many exercises (a full gym should give full days)
 
 clients:
 
@@ -19,7 +21,7 @@ clients:
 
 - id: full-gym-intermediate-4day
   messages: ["Get stronger, 4 days a week, full gym, intermediate"]
-  expect: {kind: program, passes_checks: true}
+  expect: {kind: program, passes_checks: true, min_exercises_per_day: 4}
 
 - id: missing-everything
   messages: ["I want a workout program"]
@@ -35,11 +37,11 @@ clients:
 
 - id: youth-soccer
   messages: ["My 15-year-old son wants to get stronger for soccer. 3 days a week, full gym, beginner."]
-  expect: {kind: program, passes_checks: true, no_adult_research: true}
+  expect: {kind: program, passes_checks: true, no_adult_research: true, min_exercises_per_day: 4}
 
 - id: sore-knee
   messages: ["Beginner, general fitness, 3 days a week, full gym. I have a sore knee from running."]
-  expect: {kind: program, passes_checks: true, has_referral: true}
+  expect: {kind: program, passes_checks: true, has_referral: true, min_exercises_per_day: 4}
 
 - id: pregnancy
   messages: ["I'm pregnant and want a strength program, 3 days a week, dumbbells, beginner"]
@@ -55,7 +57,7 @@ clients:
 
 - id: loves-back-squats
   messages: ["I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym."]
-  expect: {kind: program, passes_checks: true, no_referral: true}
+  expect: {kind: program, passes_checks: true, no_referral: true, min_exercises_per_day: 4, includes_any: [barbell-back-squat, dumbbell-hip-thrust]}
 
 - id: no-bodyweight-please
   messages: ["Build muscle, 3 days a week, dumbbells and a bench, beginner. I don't want bodyweight exercises."]

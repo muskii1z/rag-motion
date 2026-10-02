@@ -61,6 +61,7 @@ Rules:
 - If the skeleton notes that a pattern has no exercises with this equipment (e.g. no pull exercises with no
   equipment), say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - If the profile says nothing is missing, don't ask questions: build. A "full gym" means all equipment.
+- If the client mentioned exercises they like (exercises_the_client_mentioned), use them where a slot offers them.
 - Fat loss: build the training side, and say plainly that nutrition is not covered by the sources.
 - If the client mentions an injury or health condition, fill safety_notes with a reminder to check with
   a health professional. No diagnoses or medical advice.
@@ -119,7 +120,7 @@ class AgentTurn:
     passed_checks: bool = False
 
 
-GYM = re.compile(r"\bgym\b", re.IGNORECASE)
+GYM = re.compile(r"(?<!home )\bgym\b", re.IGNORECASE)  # "full gym", "at the gym"; not "home gym"
 AVOID_BODYWEIGHT = re.compile(r"\b(no|don'?t want|not|without|avoid|hate)\b[^.]{0,30}\bbody ?weight\b", re.IGNORECASE)
 NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
                           r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
@@ -163,17 +164,31 @@ def read_profile(conversation: list[dict]) -> ClientProfile:
     client_text = " ".join(m["content"] for m in conversation if m["role"] == "user")
     if profile.equipment == ["bodyweight"] and not NO_EQUIPMENT.search(client_text):
         profile.equipment = []
-    # Backstop: "full gym" was dropped by the reader in a P3 live test, so the agent asked about equipment.
-    if not profile.equipment and not profile.unmapped_equipment and GYM.search(client_text):
-        profile.unmapped_equipment = ["gym"]
+    # Backstop: a gym means all equipment, even if the reader also listed some. The reader dropped "full gym"
+    # in a P3 live test, and in the P4 eval turned "back squats ... full gym" into just barbell + machine.
+    if GYM.search(client_text) and not any("gym" in u.lower() for u in profile.unmapped_equipment):
+        profile.unmapped_equipment = [*profile.unmapped_equipment, "gym"]
     return profile
 
 
-def _profile_note(profile: ClientProfile) -> str:
+def mentioned_exercises(conversation: list[dict]) -> list[str]:
+    """Catalog exercises the client names ("back squats" -> barbell-back-squat), matched in code."""
+    text = " ".join(m["content"] for m in conversation if m["role"] == "user").lower()
+    found = []
+    for slug, e in catalog().items():
+        core = re.sub(r"\b(barbell|dumbbell|kettlebell|cable|machine|band|bodyweight|one-arm|single-arm)\b", "", e["name"].lower()).strip()
+        if core and re.search(r"\b" + re.escape(core) + r"(e?s)?\b", text):
+            found.append(slug)
+    return found
+
+
+def _profile_note(profile: ClientProfile, mentioned: list[str] | None = None) -> str:
     known = profile.model_dump(exclude={"unmapped_equipment"})
     known["equipment_available"] = sorted(owned_equipment(profile)) if profile.equipment or profile.unmapped_equipment else []
     known["max_exercise_level"] = max_level(profile)
     known["age_group"] = population(profile) or "not stated"
+    if mentioned:
+        known["exercises_the_client_mentioned"] = mentioned
     return (f"Client profile (read from the conversation by code):\n{json.dumps(known, indent=1)}\n"
             f"Missing for a program: {missing_for_program(profile) or 'nothing'}")
 
@@ -202,7 +217,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
         return turn
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "system", "content": _profile_note(profile)}, *conversation]
+                {"role": "system", "content": _profile_note(profile, mentioned_exercises(conversation))}, *conversation]
     retrieved: set[str] = set()
     searched: set[str] = set()
     skeleton = None  # built by code on first request (needs a complete profile)

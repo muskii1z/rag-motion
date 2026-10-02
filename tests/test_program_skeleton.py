@@ -70,3 +70,19 @@ def test_no_bodyweight_preference_removes_bodyweight_options_where_alternatives_
     # With no equipment there's no alternative, so bodyweight options stay.
     bw = build_skeleton(profile(equipment=["bodyweight"]), avoid_bodyweight=True)
     assert all(s["options"] for d in bw for s in d["slots"])
+
+
+def test_gym_means_all_equipment_even_if_the_reader_listed_some(monkeypatch):
+    from ragmotion import agent
+    partial = profile(equipment=["barbell", "machine"])
+    monkeypatch.setattr(agent, "extract_profile", lambda text: (partial.model_copy(), None))
+    p = agent.read_profile([{"role": "user", "content": "I love back squats. 4 days, full gym, intermediate"}])
+    assert "gym" in p.unmapped_equipment
+    home = agent.read_profile([{"role": "user", "content": "I have a home gym with dumbbells"}])
+    assert "gym" not in home.unmapped_equipment
+
+
+def test_exercises_the_client_names_are_found():
+    from ragmotion.agent import mentioned_exercises
+    found = mentioned_exercises([{"role": "user", "content": "I love back squats and hip thrusts"}])
+    assert "barbell-back-squat" in found and "dumbbell-hip-thrust" in found
