@@ -5572,3 +5572,113 @@ Numbers in brackets are submissions to the checker and seconds, from the saved J
 - New: [0072. Exercise names are excluded from the health backup pattern](decisions/0072-exercise-names-excluded-from-the-health-backup.md)
 - Updated: [0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md) (the accepted false alarm happened and was narrowed), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (weekly-set fix names exercises)
 - Next: coach review of the sheet; README update for Phase 2; make the repo public.
+
+## Phase 2 structure fix: code builds the program skeleton, the agent fills the slots
+**Date:** 2026-10-02 · **Commit:** `4506ba2` fix: core/carry check names exercises to add; docs for P4 · `8923f63` feat: code builds the program skeleton, the agent fills the slots (structure fix)
+
+**Goal.** Remove the structural failures (about 1 in 4 programs after P4) so the program builder is good enough to make public.
+
+**Why this step happened.** After P4 the developer said: "You said about one in four programs still fail a structural rule. That's 25%. What are we supposed to do with that? How are we supposed to solve that? We can't go public with this. It's not complete."
+
+The explanation given: the model was designing the whole week in one go while juggling about 18 rules. Structural rules (one exercise per pattern per day, every main pattern on 2+ days, enough weekly sets per muscle) are math, and code never gets math wrong. Coaching judgment (which exercise, what dosage, how to explain it) is what the model is good at. Proposal: code builds the week's **skeleton** (the days and the empty slots in each day), and the AI fills the slots. This is the same lesson as the Phase 1F filters: hard rules go in code. The developer said "yes".
+
+**What we did.**
+
+*Part 1: the core/carry fix text (commit `4506ba2`).* The check "core or carry at least once a week" had no fix instruction; the P4 build-log entry flagged this as an open question. The check now says "Add one core or carry exercise to any day, e.g. ..." and names up to 4 core or carry exercises this client can use. A test confirms Farmer Carry is named for a dumbbell client.
+
+*Part 2: the skeleton, in `src/ragmotion/program.py` (commit `8923f63`).*
+- **Slots.** A `Slot` is one place in a day for one kind of movement: squat, lunge, hinge, horizontal push, vertical push, horizontal pull, vertical pull, core, carry.
+- **Layouts by days per week** (`LAYOUTS`), taken from the coach-reviewed program-design notes:
+
+| Days | Layout |
+|---|---|
+| 1 | Full body: squat, hinge, h-push, h-pull, core |
+| 2 | Full body A: squat, hinge, h-push, v-pull, core · Full body B: lunge, hinge, h-push, h-pull, v-push, carry |
+| 3 | A: squat, hinge, h-push, v-pull, core · B: lunge, hinge, v-push, h-pull, carry · C: squat, hinge, h-push, h-pull, core |
+| 4 | Lower A: squat, hinge, lunge, core · Upper A: h-push, v-pull, v-push, h-pull, core · Lower B: squat, hinge, lunge, carry · Upper B: h-push, h-pull, v-push, v-pull, core |
+| 5 | the 4-day layout + Full body: squat, hinge, h-push, h-pull, carry |
+| 6 | the 4-day layout + Lower C: squat, hinge, lunge, core + Upper C: h-push, v-pull, v-push, h-pull, carry |
+
+  Chest gets a horizontal push on 2+ days, and every main pattern appears on 2+ days. Each layout satisfies the structural rules **by construction**: the rules hold because of how the layout is built, not because a later check catches mistakes.
+- **`slot_options(slot, profile)`** lists the catalog exercises that match the slot's pattern (and direction, for push and pull) and that this client can use (equipment, level, age rules, the same `usable()` filter as before).
+- **`build_skeleton(profile, avoid_bodyweight)`** fills the layout with options:
+  - **Fallbacks** (`FALLBACKS`) when a slot has no options for this client: squat ↔ lunge, vertical push ↔ horizontal push, vertical pull ↔ horizontal pull, carry ↔ core. A fallback is used only if it doesn't put a second exercise of the same pattern and direction on that day. Otherwise the slot is dropped and the day gets a note (e.g. "no vertical pull exercise with this equipment").
+  - **Full-body rotation for small days.** For 4+ days, if any day of the split would be too small (fewer than 4 slots for a beginner, fewer than 3 otherwise), the week uses the 3-day full-body A/B/C rotation instead. This was found by the new all-combinations test: bodyweight-only clients on 4–6 days got "Upper" days with only 2 exercises.
+  - **`avoid_bodyweight`** drops bodyweight-only options wherever something else exists. If a slot has only bodyweight options (a dumbbell client's core options are all bodyweight), it becomes a carry instead.
+- **`SlotFill` and `ProgramSubmission`.** What the agent now submits: for each slot, the day, the slot number, the exercise slug, sets, reps, rest, and an optional note; plus title, progression, rationale, cited ids, and safety notes.
+- **`assemble(submission, skeleton)`** builds the `ProgramDraft` (the program shape the checker reads). Code owns the days, their names ("Day 1: Lower A"), and the order. It returns problems instead of a program when: a slot is empty, a slot is filled twice, the slug isn't one of the slot's options (the message lists the allowed ones), the same exercise appears twice on one day, or a fill names a slot that doesn't exist.
+- **Two smaller changes.** `TIMED` (exercises prescribed in seconds or metres) gained side plank and suitcase carry. `weekly_set_minimum` is halved for one-session weeks: 6 sets per muscle group can't fit in one session. This is a judgment call for the coach to confirm ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)).
+
+*Part 3: the agent, in `src/ragmotion/agent.py`.*
+- The tool `find_exercises` was replaced by **`get_plan_skeleton`**, which returns the days, notes, and slots with their options.
+- `submit_program` now takes a `ProgramSubmission`. Code assembles it, and only then does the existing checker run. Bad picks are rejected with the exact changes to make.
+- The refusal guardrail (no building until goal, days, equipment, and level are known) and the narration guardrail (a text reply after building has started forces a submission) were updated to the new tool names.
+- The prompt was rewritten: get the skeleton, do 2–3 source searches, fill every slot. Prefer the client's level, vary choices across days, prescribe planks and carries as time or distance, use 3 sets on main lifts, say which equipment would add a missing pattern, and don't state weekly set totals. The old prompt rules about layouts, patterns per day, and day names were removed; code now owns them.
+- **`AVOID_BODYWEIGHT`**, a regex (a text pattern), reads phrases like "I don't want bodyweight..." from the client's messages and passes `avoid_bodyweight` to the skeleton ([0074](decisions/0074-no-bodyweight-preference-read-by-code.md)).
+- **Questions labeled from state.** If details are still missing, a plain text reply is labeled kind "question", whatever tool the agent used. The agent sometimes asked by text instead of through `ask_user` ([0076](decisions/0076-reply-kind-labeled-from-state.md)).
+
+*Part 4: tests.*
+- New `tests/test_program_skeleton.py`. For every combination of days 1–6 and 7 fictional clients (42 cases: full gym beginner, full gym intermediate, dumbbells + bench, bodyweight only, bands + pull-up bar, a 70-year-old with dumbbells + bands, one kettlebell for fat loss), code fills each slot plainly (first unused option, 3 sets) and the full checker runs. Every case passes every check, with no model involved.
+- Wrong picks come back with the allowed options; a missing fill is reported as an empty slot.
+- The no-bodyweight preference: the regex matches "I don't want bodyweight exercises" and "no body weight stuff" but not "I'm at home with bodyweight only"; a dumbbell + bench skeleton then has no bodyweight-only options; with bodyweight only, every slot still has options.
+- The agent-loop tests were moved to slot-fill submissions. 139 tests pass.
+
+**Commands.**
+```bash
+uv run python evals/run_program_eval.py --runs 3   # three times: after the skeleton, after the no-bodyweight preference, after question labeling
+uv run pytest                                      # 139 passed (re-run by the scribe: 139 passed in 1.46 s)
+```
+- The exact eval invocations aren't in the brief. The `runs: 3` value and the model (`google/gemini-2.5-flash`) are saved in each results file: `programs-20261002-154521.json`, `-154739.json`, `-154909.json`, each with a matching `programs-review-*.md` sheet.
+
+**What we saw.**
+
+| | Runs | Expectations met | Programs passing every check | Accepted on first submission | Median time | Total cost |
+|---|---|---|---|---|---|---|
+| Before (P4 after fixes) | 2 | 19/24 | 15/20 | not compared | 11.5 s | $0.20 |
+| Skeleton (`154521`) | 3 | 33/36 | 30/30 | 25/30 | 8.3 s | $0.163 |
+| + no-bodyweight preference (`154739`) | 3 | 33/36 | 30/30 | 26/30 | 8.7 s | $0.150 |
+| + questions labeled from state (`154909`) | 3 | **36/36** | **30/30** | 26/30 | 8.4 s | $0.159 |
+
+- **The skeleton fixed structure in one move.** From the first skeleton run on, every program passed every check, in all 90 program runs across the three files.
+- **Each later run found exactly one new miss, and each was fixed in code:**
+  - Skeleton run: `no-bodyweight-please` missed 3/3. The programs passed every check but included bodyweight core and push options, so "no bodyweight-only exercises" failed.
+  - After the no-bodyweight preference: that client passed 3/3, but `missing-everything` came back as kind "message" instead of "question" 3/3. The agent asked for the details as plain text rather than through `ask_user`. The question itself still mentioned every missing detail (`question_mentions` passed).
+  - After labeling: 36/36, 0 errors.
+- **Final run costs.** Per program: 0.24–0.89 cents, median 0.51 cents; 18 of 30 programs fell between 0.4 and 0.6 cents. Program times 7.0–13.7 s.
+- **Final run, what a no-bodyweight program looks like:** every core slot became a carry (Farmer Carry, Suitcase Carry), and the other slots used dumbbells.
+- **Two answers to P4 open questions (from the brief).** The pregnancy reply is a fixed code message by design, which is why it costs $0. The 4th submit step in one P4 run was a malformed submission sent back before the checker, so it wasn't counted as a submission.
+- Scribe notes from the saved JSON and review sheets (not in the brief):
+  - **`older-adult-new` needed 2 submissions in all 9 runs**, and `sore-knee` in 2 of 9. What the first rejection was isn't saved in the results file.
+  - **`loves-back-squats` passed every check in all 9 runs, but the program doesn't match what the client asked for.** The client said "I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym." In every run: no back squat and no hip thrust; both Upper days had 3 exercises (a machine chest press, a barbell row, and a core exercise); the only equipment used was barbell, machine, and bodyweight. The run-1 rationale said "there are no vertical push exercises available with the client's equipment" and "A pull-up bar or resistance bands would add vertical pull exercises", which doesn't fit a full gym, and "variations of these movements are included". A possible cause, from reading `agent.py` (not tested): the "full gym" backstop only applies when the profile reader returned no equipment at all, so if the reader turned "full gym" into a short list (for example barbell and machine), the client isn't treated as having a full gym. The other full-gym client (`full-gym-intermediate-4day`) got the full 4/5/4/5 layout.
+
+**Problems and fixes.**
+- About 1 in 4 programs failed a structural rule after 3 tries → code builds the skeleton; the agent only fills slots. Programs passing every check: 15/20 → 30/30.
+- The plain-fill test found 4–6-day "Upper" days with only 2 exercises for bodyweight-only clients → small splits switch to the full-body A/B/C rotation.
+- A no-bodyweight client got bodyweight core and push options 3/3 → `AVOID_BODYWEIGHT` read in code; bodyweight-only core slots become carries.
+- The agent asked for missing details as text, so the reply was labeled "message" 3/3 → the label now comes from whether details are missing.
+- "Core or carry at least once a week" had no fix text → it now names usable core and carry exercises.
+- A single session can't hold 6 sets per muscle group → the minimum halves for 1-session weeks (coach to confirm).
+
+**Open questions.**
+- **Coach review of the layouts** (the table above) and of the program sheet `evals/results/programs-review-20261002-154909.md`.
+- **The halved minimum for one-session weeks** needs the coach's confirmation ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)).
+- **Does a plank count as a "bodyweight exercise" the client meant to avoid?** The code now treats it as one (core slots become carries). The brief doesn't say the coach agreed.
+- **`loves-back-squats`:** why does a "full gym" client get no back squat, no hip thrust, 3-exercise Upper days, and a rationale suggesting a pull-up bar? Is it the profile reading (see the scribe note above)? The eval passed because no expectation checks that a stated favorite exercise appears or that a full-gym client gets the full layout.
+- **Why `older-adult-new` is always rejected once** before passing.
+- **Repeated day names in the rotation.** From the code (not seen in the eval): when a 4–6-day week switches to the full-body rotation, names repeat ("Full body A" on day 1 and day 4). Whether the coach wants that isn't asked.
+- **The before/after comparison mixes run counts** (2 runs before, 3 after). The direction is clear (5 programs failing vs none), but the totals aren't on the same base.
+
+**Developer questions.**
+- "We can't go public with this. It's not complete." (about 1 in 4 programs failing structure) → Answer: stop asking the model to do math it can get wrong. Code lays out the week so the structural rules hold by construction; the model chooses exercises and dosage and explains them. Same lesson as the filters in Phase 1F.
+
+**Learned.**
+- New: [Code for constraints, model for judgment (slot filling)](concepts.md#code-for-constraints-model-for-judgment-slot-filling), [Correct by construction](concepts.md#correct-by-construction), [Code-owned assembly](concepts.md#code-owned-assembly-the-model-cant-break-what-it-doesnt-produce), [Preferences as data read by code](concepts.md#preferences-as-data-read-by-code), [Labels from state, not from how the model replied](concepts.md#labels-from-state-not-from-how-the-model-replied), [Property-style test (check every combination)](concepts.md#property-style-test-check-every-combination), [Training split and program skeleton](concepts.md#training-split-and-program-skeleton)
+- Extended: [Workflow vs guided agent vs autonomous agent](concepts.md#workflow-vs-guided-agent-vs-autonomous-agent) (moved toward a workflow), [Guardrails in tools vs in prompts](concepts.md#guardrails-in-tools-vs-in-prompts) (the tool returns slots), [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) (core/carry fix; slot picks), [Rules must be satisfiable](concepts.md#rules-must-be-satisfiable-every-valid-input-must-be-able-to-pass) (fallbacks; one-session minimum), [Structural vs quality checks](concepts.md#structural-vs-quality-checks) (passing every check isn't the same as matching the client), [Run-to-run noise](concepts.md#run-to-run-noise) (structure stopped varying)
+
+**Decisions.**
+- New: [0073. Code builds the program skeleton; the agent fills the slots](decisions/0073-code-builds-the-program-skeleton-agent-fills-slots.md)
+- New: [0074. A "no bodyweight" preference is read by code](decisions/0074-no-bodyweight-preference-read-by-code.md)
+- New: [0075. Weekly-set minimum halved for one-session weeks](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)
+- New: [0076. A text reply is labeled a question when details are missing](decisions/0076-reply-kind-labeled-from-state.md)
+- Updated: [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) (its "revisit when" signal happened), [0046](decisions/0046-client-limits-enforced-in-tools-profile-read-by-code.md) (`find_exercises` replaced), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (core/carry fix; slot problems before the checker), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (new results)
+- Next: coach review of the layouts and the program sheet, README update for Phase 2, make the repo public.

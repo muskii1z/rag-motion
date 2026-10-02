@@ -21,3 +21,6 @@ Code reads the profile from the conversation and computes the limits; the tools 
 ## Revisit when
 - The step 4 test set shows profiles read wrongly often enough to matter.
 - The coach's rules grow beyond a few lines: move them into data (a rules table or config).
+
+## Update 2026-10-02 (Phase 2 structure fix): `find_exercises` replaced by `get_plan_skeleton`
+The same filters now apply per slot: `slot_options()` lists the exercises this client can use for each slot of the code-built week, and the agent can only submit one of them ([0073](0073-code-builds-the-program-skeleton-agent-fills-slots.md)). A client preference read by code ("I don't want bodyweight exercises") also narrows the options ([0074](0074-no-bodyweight-preference-read-by-code.md)).

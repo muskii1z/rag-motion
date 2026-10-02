@@ -23,3 +23,6 @@ The program builder (an agent: a model that picks its own tool calls) had been t
 - The coach's verdicts disagree with the code scores often (the expectations miss what matters).
 - The app gets a new behavior (for example program edits or approval) that needs new scenarios.
 - Results need to be compared across models or prompts; then add more runs per client.
+
+## Update 2026-10-02 (Phase 2 structure fix)
+Three more runs, 3 repeats each, after the skeleton change ([0073](0073-code-builds-the-program-skeleton-agent-fills-slots.md)): 33/36, 33/36, then 36/36 expectations; 30/30 programs passed every check in each; 0 errors; final median 8.4 s, $0.159 total. Each run found one new miss, both fixed in code ([0074](0074-no-bodyweight-preference-read-by-code.md), [0076](0076-reply-kind-labeled-from-state.md)). The review sheet for the coach is now `evals/results/programs-review-20261002-154909.md`. A gap in the expectations: `loves-back-squats` passed in 9 of 9 runs without any back squat or hip thrust, because no expectation checks that a client's stated favorites appear.

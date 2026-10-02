@@ -1029,7 +1029,9 @@ A **workflow** is a fixed sequence written in code: step 1, then step 2, every t
 
 **In an interview:** "I didn't want a fully autonomous agent. The model chooses which tools to call and asks the client for missing details, but the prompt sets the order of work and everything that must never break is in code: the tools only return allowed exercises, and the checks run in code, not in the model's judgment."
 
-*First seen: Phase 2, step 1.*
+*Phase 2 structure fix update: closer to a workflow.* [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) said to move more steps into fixed code if the agent's choices varied too much. The P4 eval showed that: about 1 in 4 programs broke a structural rule. Now code lays out the week and the agent fills slots ([Code for constraints, model for judgment](#code-for-constraints-model-for-judgment-slot-filling)). The agent still decides when to ask, what to search, and which exercise and dosage to pick, so it is still a guided agent, with less to decide.
+
+*First seen: Phase 2, step 1. Extended: Phase 2 structure fix.*
 
 ### Guardrails in tools vs in prompts
 A guardrail is anything that stops the system from doing something it shouldn't. A prompt guardrail asks the model to behave ("use only the client's equipment"); the model can still slip. A tool guardrail builds the rule into what the tool can return: `find_exercises` filters by the client's equipment, level, and age before the model sees anything, so whatever the model asks for, it only gets usable exercises. The client's profile is also read by separate code (`extract_profile`), not by the agent, so the agent can't change the limits it is filtered by. This is the agent version of [pre-filtering](#pre-filtering-vs-prompt-rules-vs-post-filtering).
@@ -1038,7 +1040,9 @@ A guardrail is anything that stops the system from doing something it shouldn't.
 
 *Phase 2, step 2 update: a tool that says no.* The prompt told the agent to ask for everything missing; it asked for goal and days but not equipment, and built a program from bodyweight only. Now the building tools refuse with "Not enough information yet. Ask the client about: ..." until goal, days, equipment, and level are known. A filter controls *what* a tool returns; a refusal controls *when* it can be used. See [Input guardrails vs output guardrails](#input-guardrails-vs-output-guardrails).
 
-*First seen: Phase 2, step 1. Extended: Phase 2, step 2.*
+*Phase 2 structure fix update: the tool returns the plan, not a search.* `find_exercises` (one movement pattern at a time) was replaced by `get_plan_skeleton`, which returns the whole week's days and slots, each with the exercises this client can use. The agent can't choose the layout at all, and `submit_program` only accepts an exercise that is one of its slot's options.
+
+*First seen: Phase 2, step 1. Extended: Phase 2, step 2; Phase 2 structure fix.*
 
 ### Loop guardrails (step budget, repeat refusal, forced finish)
 An agent runs in a loop, and a small model can get stuck in it. In run 1 the agent made 7 exercise searches, then 8 source searches including exact repeats, and never submitted; it stopped only at the 15-step cap. Loop guardrails are code rules that keep the loop moving toward an end: a **step budget** (a hard cap, here `MAX_STEPS = 15`), **repeat refusal** (an identical search gets "Already searched; use the earlier results"), a **nudge** (after 3 different searches, a system message says to submit), and a **forced finish** (after 10 tool calls, `tool_choice` allows only `submit_program`). With them, run 2 finished in 11 calls for $0.0012.
@@ -1080,8 +1084,9 @@ When a check fails, what you tell the model decides whether it can fix it. At fi
 
 *Phase 2, P4 update: name the options.* "Chest has 3 weekly sets: add 3 more" left a 70-year-old client's program stuck at 3 chest sets for 3 submissions. The fix now names up to 4 exercises this client can use that train the short group ("... e.g. Push-Up"). After the change, 1 of 2 runs passed. One check still sends no fix at all ("core or carry at least once a week"), and it was one of the remaining failures.
 
+*Structure-fix update: every check has a fix, and bad picks get the menu.* The core/carry check now names up to 4 core or carry exercises the client can use. Slot picks that break the skeleton come back as "Day 1 (Lower A) slot 1 (squat): 'barbell-back-squat' isn't an option; choose one of ...". In the final eval, 26 of 30 programs were accepted on the first submission.
 
-*First seen: Phase 2, step 2. Extended: Phase 2, P4.*
+*First seen: Phase 2, step 2. Extended: Phase 2, P4; Phase 2 structure fix.*
 
 ### Role confusion (the agent hands its job to the user)
 An agent sees several voices in its message list: the system prompt, the client, and tool results. It can mix them up. When the checker rejected a program, the agent read the feedback as something for the client and asked the *client* to fix the program. Two fixes: the prompt says "fix it yourself, never ask the client to fix the program", and code forces the next call to be `submit_program` ([forced tool choice](#tool-calling-function-calling)), so replying to the client isn't possible at that moment.
@@ -1174,14 +1179,18 @@ A check has to be passable for every input it can see; otherwise it fails foreve
 
 *Phase 2 quality pass (Q1) update:* the weekly-set check was built this way from the start. It only requires a muscle group if the client's usable exercises can train it; with no equipment, back isn't required (tested).
 
-*First seen: Phase 2, step 2 fixes. Extended: quality pass Q1.*
+*Phase 2 structure fix update: build the rule's possibility into the plan.* The skeleton applies the same idea before the model starts: a slot with no usable exercise gets a close substitute or is dropped with a note ("no vertical pull exercise with this equipment"). And the weekly-set minimum (6 per group) couldn't fit a one-session week, so it halves for 1-day weeks; that number is a judgment call waiting on the coach ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)).
+
+*First seen: Phase 2, step 2 fixes. Extended: quality pass Q1; Phase 2 structure fix.*
 
 ### Structural vs quality checks
 A structural check asks whether a result is complete and allowed: right number of days, real exercises, the client's equipment, a pull on 2+ days. A quality check asks whether it is *good*: balanced volume, no near-duplicate exercises on one day, days that make sense. A program can pass every structural and safety check and still be poorly designed. The developer's 4-day program passed 15/15 checks and gave chest 3 sets a week and two near-identical hip exercises on one day. Q1 added three quality checks ([0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md)). Quality is harder to put in code, because it needs domain knowledge someone has to write down as a rule.
 
 **In an interview:** "My checker passed a program I'd never give a client. It checked safety and structure, not quality. So I turned the coaching problems I spotted into rules: weekly sets per muscle group, one exercise per pattern per day, and days that match their names."
 
-*First seen: Phase 2 quality pass, Q1.*
+*Phase 2 structure fix update: now structure is guaranteed, "passes every check" means less.* With the skeleton, all 90 eval programs passed every check. But one of them shows the gap: a client who said "I love back squats and hip thrusts ... full gym" got neither, in 9 of 9 runs, with 3-exercise upper days, and still passed everything. Checks cover what someone wrote down; the coach's review covers the rest.
+
+*First seen: Phase 2 quality pass, Q1. Extended: Phase 2 structure fix.*
 
 ### Count, don't trust (compute the model's claims in code)
 When a model states a number about its own output, treat it as a claim, not a fact. The agent's rationale said the program gave "10–13 sets per muscle group". Chest actually got 3. Now code counts weekly sets from the catalog (`weekly_sets()` in `src/ragmotion/program.py`), attaches the table to every program, and the prompt tells the model not to state totals. Anything that can be computed should be computed, not generated. The same idea as [Verify agent output independently](#verify-agent-output-independently).
@@ -1219,6 +1228,41 @@ A rule in the prompt is a request; the model can skip it. When a skipped rule wo
 
 *First seen: Phase 2, P4.*
 
+### Code for constraints, model for judgment (slot filling)
+Split the work by what each side is reliable at. **Constraint satisfaction** (making sure a set of hard rules all hold at once) is math, and code gets it right every time. **Judgment** (which exercise suits this client, what dosage, how to explain it) is where a language model is useful. **Slot filling**, also called constrained generation, puts this into practice: code builds a template with empty slots and a list of allowed choices for each, and the model only fills the slots. In rag-motion, code lays out the week (days, and slots like "horizontal push" or "hinge" with the exercises this client can use), and the agent picks one option per slot plus sets, reps, and rest ([0073](decisions/0073-code-builds-the-program-skeleton-agent-fills-slots.md)). Before this, about 1 in 4 programs failed a structural rule after 3 tries; after it, 30/30 passed every check in each of three 3-run evals.
+
+**In an interview:** "My agent was designing the whole week while juggling 18 rules, and a quarter of programs broke one. I stopped asking the model to do math. Code builds the week so the rules hold by construction; the model picks exercises and dosage and explains them. Failures went from 5 in 20 to 0 in 90."
+
+*First seen: Phase 2 structure fix.*
+
+### Correct by construction
+A result is correct by construction when the way it is built makes a mistake impossible, instead of a later check catching it. Retrying until a check passes hopes the model gets it right eventually; building it right never needs the retry. Each of the program layouts puts every main pattern on 2+ days and at most one per pattern and direction on a day, so those checks pass whatever exercise the model picks. The checker still runs on every program, as a second line of defense, and the all-combinations test ([Property-style test](#property-style-test-check-every-combination)) is what proves the construction holds.
+
+**In an interview:** "Instead of hoping retries would fix structural mistakes, I made them impossible: the week's layout satisfies the rules before the model touches it. The checker still runs, but now it confirms rather than corrects."
+
+*First seen: Phase 2 structure fix.*
+
+### Code-owned assembly (the model can't break what it doesn't produce)
+If the model writes the whole output, every part of it can be wrong. If it only writes the parts that need judgment, the rest can't be. The agent now submits slot picks (day number, slot number, exercise, sets, reps, rest); code `assemble()`s the program: the days, their names ("Day 1: Lower A"), and the order. Mislabeled days, missing days, and an extra day are no longer possible. Bad picks (an empty slot, a slot filled twice, an exercise that isn't one of the options, the same exercise twice in a day) come back with the exact allowed options before the checker runs.
+
+**In an interview:** "The model used to write the day names and order, and sometimes got them wrong. Now it can't: it only sends picks per slot, and code builds the program around them."
+
+*First seen: Phase 2 structure fix.*
+
+### Preferences as data read by code
+A client preference ("I don't want bodyweight exercises") is a limit, just softer than equipment. Left in the conversation, it depends on the model noticing; the agent ignored this one in every run after the skeleton change. Read by code and applied before the model sees the options, it can't be ignored: `AVOID_BODYWEIGHT` (a regex, i.e. a text pattern) spots the phrase, and the skeleton drops bodyweight-only options wherever something else exists, turning core slots into carries ([0074](decisions/0074-no-bodyweight-preference-read-by-code.md)). The cost: only phrasings the pattern knows are caught.
+
+**In an interview:** "A client said no bodyweight exercises and the agent kept giving planks. I didn't add a prompt line. Code reads the preference and removes those options before the model chooses, so it went from 0 of 3 to 3 of 3."
+
+*First seen: Phase 2 structure fix.*
+
+### Labels from state, not from how the model replied
+When code labels a model's output (question, message, program), base the label on facts code already knows, not on which path the model happened to take. The turn's kind used to come from the tool used: `ask_user` meant "question", plain text meant "message". The agent sometimes asked for missing details as plain text, so a correct question was labeled "message" 3/3. Code already knows whether details are missing (`missing_for_program`), so a text reply then is labeled a question ([0076](decisions/0076-reply-kind-labeled-from-state.md)).
+
+**In an interview:** "My eval caught the agent asking the right question but through the wrong channel, so the app called it a plain message. I made the label depend on state code already tracks, not on which tool the model chose."
+
+*First seen: Phase 2 structure fix.*
+
 ## Program design
 
 ### Weekly sets per muscle group (training volume)
@@ -1245,6 +1289,13 @@ Pushes and pulls come in two directions. Horizontal: pressing forward or rowing 
 **In an interview:** "My program builder could pick sets and reps from the research, but had no research on effort: how close to failure each set should end. So I added openly licensed reviews on proximity to failure and RIR scales, with eval questions that only those papers can answer."
 
 *First seen: Phase 2 quality pass, Q3.*
+
+### Training split and program skeleton
+A **training split** is how a week's training is divided across days. **Full body** trains every main movement each session (common for 1–3 days a week). **Upper/lower** alternates upper-body and lower-body days (common for 4 days). A **program skeleton** is the split written out as days and empty slots ("Lower A: squat, hinge, lunge, core"). rag-motion has six layouts, one per day count from 1 to 6, taken from the coach-reviewed program-design notes; 5 and 6 days add a full-body day or a third lower and upper day to the 4-day split. When a client's equipment leaves a slot empty, code tries a close substitute (squat ↔ lunge, vertical ↔ horizontal push or pull, carry ↔ core) without doubling a pattern that day; if a 4–6-day split would leave a day too small, the week uses the full-body rotation instead, as a coach would for a client with no equipment.
+
+**In an interview:** "The week's shape comes from my coach's notes, written as six layouts in code: full body for up to 3 days, upper/lower for 4, extra days on top for 5 and 6. Code fills in substitutes when equipment rules a slot out, and falls back to full body when a split would be too thin."
+
+*First seen: Phase 2 structure fix.*
 
 ---
 
@@ -1792,8 +1843,10 @@ The same question can get a different LLM answer on different runs, because answ
 
 *Phase 2, P4 update: agents vary more.* An agent makes many model calls per turn, so small differences compound. With the same code, the full-gym 4-day client met every expectation in one run and missed in the next; the no-bodyweight client passed in the first run and failed both later runs, on different checks each time. So the program eval uses `--runs N` and reports counts over all runs (19/24), not one run per client.
 
+*Structure fix update: noise you can remove by design.* After code took over the week's structure, every program passed every check in all three 3-run evals (30/30 each). The model still varies (exercise picks, dosage, 1 or 2 submissions), but it can no longer vary the structure. Moving a decision into code removes its run-to-run noise.
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6; Step 16 revisit; Phase 2, P4.*
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6; Step 16 revisit; Phase 2, P4; Phase 2 structure fix.*
 
 ### Coverage label drift (a metric drop that may not be a regression)
 A score can fall because the answer key is debatable, not because the answers got worse. In F5, filters changed what the model sees: for "bands only, full-body workout" it now sees only the few band and bodyweight exercises and says coverage is `partial`, while the key says `full`. `coverage_correct` fell from 36/40 to 33/40 while forbidden citations improved to 13/13. Before calling that a regression, check each miss: is the key right, is the label honest given the evidence, or is it run-to-run noise? Here that needs the coach.
@@ -2037,6 +2090,13 @@ Unit tests check what someone thought to write down. Using the product the way a
 
 
 *First seen: Phase 2, P3. Extended: Phase 2, P4.*
+
+### Property-style test (check every combination)
+A normal test checks one example. A **property-style test** states a rule that must hold for every input (a "property") and checks it across many inputs. `tests/test_program_skeleton.py` builds the skeleton for every day count (1–6) and 7 fictional clients (42 cases), fills each slot with a plain choice in code, and runs the full checker: every case must pass every check, with no model involved. It found a real bug on the first run: bodyweight-only clients on 4–6 days got "Upper" days with only 2 exercises, which led to the full-body rotation fallback. (Libraries like Hypothesis generate inputs at random; this test lists them by hand, which is enough when the inputs are few.)
+
+**In an interview:** "To prove my skeleton was correct by construction, I tested all 42 combinations of day counts and client types against the full checker, with no model in the loop. It found days with only two exercises for no-equipment clients, which I'd never have seen from a handful of examples."
+
+*First seen: Phase 2 structure fix.*
 
 ## Terminal basics
 

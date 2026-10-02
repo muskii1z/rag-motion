@@ -30,3 +30,7 @@ Step 1's first finished program passed the schema check and still broke coaching
 
 ## Update 2026-10-01 (Phase 2 quality pass, Q1)
 - The "Revisit when" signal happened: the developer's program passed 15/15 and a coach would still change it (chest 3 sets a week, glute bridge + hip thrust on one day). Three quality checks were added ([0057](0057-program-quality-checks-weekly-sets-patterns-day-labels.md)): one exercise per pattern per day, day names match their exercises, and a weekly-set minimum per major muscle group. Weekly sets are now counted in code and shown with every program.
+
+## Update 2026-10-02 (after P4 and the structure fix)
+- "Core or carry at least once a week" was the only check with no fix text (flagged in the P4 build-log entry). It now names up to 4 core or carry exercises the client can use (commit `4506ba2`).
+- Programs are now assembled by code from slot picks ([0073](0073-code-builds-the-program-skeleton-agent-fills-slots.md)). Bad picks (empty slot, slot filled twice, not an option, same exercise twice in a day) are sent back with the allowed options *before* the checker runs. A malformed submission is also sent back before the checker and isn't counted as one of the 3 submissions; this explains the "4 submit steps" in one P4 run. In the final eval, 26 of 30 programs were accepted on the first submission.

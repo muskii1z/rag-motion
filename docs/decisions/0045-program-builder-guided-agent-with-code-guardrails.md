@@ -21,3 +21,6 @@ A guided agent (`src/ragmotion/agent.py`) with four tools (`find_exercises`, `se
 ## Revisit when
 - The step 4 test set shows the agent's choices vary too much to trust: move more steps into fixed code (closer to a workflow).
 - The loop gains branches (checker feedback, coach approval) that are hard to follow in plain Python: consider a graph framework such as LangGraph.
+
+## Update 2026-10-02 (Phase 2 structure fix): the first "revisit when" signal happened
+The P4 eval showed the agent's week designs varied too much to trust: about 1 in 4 programs failed a structural rule after 3 tries. As this record planned, more steps moved into fixed code: code now lays out the week's days and slots, and the agent fills them ([0073](0073-code-builds-the-program-skeleton-agent-fills-slots.md)). The agent still chooses which tools to call, asks for missing details, searches sources, and picks exercises and dosage, so it is still a guided agent, now closer to a workflow.
