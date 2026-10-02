@@ -22,7 +22,8 @@ from pydantic import ValidationError
 from ragmotion.config import settings
 from ragmotion.llm import extract_profile, get_client
 from ragmotion.models import ClientProfile
-from ragmotion.program import (ProgramDraft, catalog, check_program, failed, find_exercises, max_level, weekly_sets,
+from ragmotion.program import (ProgramDraft, ProgramSubmission, assemble, build_skeleton, catalog, check_program, failed,
+                               max_level, weekly_sets,
                                missing_for_program, owned_equipment, population, search_sources)
 
 MAX_STEPS = 18
@@ -41,29 +42,25 @@ Work in this order:
    For equipment, offer only what the catalog has exercises for: dumbbells, barbell and rack, bench,
    kettlebell, resistance bands, plyo box, pull-up bar, weight machines, cable station, or no equipment.
    Never ask for something the profile already has.
-2. Choose a layout from the days per week: 1-3 days = full body each day; 4 days = upper/lower twice;
-   5-6 days = upper/lower plus full-body days.
-3. Call find_exercises for each movement pattern you need (squat, lunge, hinge, push, pull, core, carry;
-   isolation for arms if there is room). Use only exercise ids it returns. It already filters to the
-   client's equipment, level and age, so anything it returns is allowed.
-4. Call search_sources to find the dosage for this goal: sets, reps and rest; weekly sets or frequency;
+2. Call get_plan_skeleton. Code has laid out the week: the days, and for each day a list of slots (e.g.
+   "horizontal push", "hinge", "core"), each with the exercises this client can use. The layout already
+   satisfies the structural rules, so don't change it.
+3. Call search_sources to find the dosage for this goal: sets, reps and rest; weekly sets or frequency;
    progression. Two or three searches are enough; never repeat a search. Take numbers only from the
    passages, and cite passage ids inline like [pelland2024-volume-19].
-5. Call submit_program with the complete program. Code checks it. If it is rejected, fix the listed
+4. Call submit_program with one fill for EVERY slot of EVERY day: pick one of that slot's options and give
+   sets, reps and rest from the sources. Code builds and checks the program. If it is rejected, fix the listed
    problems yourself and call submit_program again. Never ask the client to fix the program.
 
 Rules:
-- Cover squat or lunge, hinge, push and pull on at least 2 days (every day if only 1 day), and core or
-  carry at least once. Beginners: 4-6 exercises per day. Never more than 8.
+- Choose options that suit the client: prefer exercises at their level, vary choices across days, and don't
+  use the same exercise twice on one day. Planks and carries are prescribed in seconds or metres.
+- Major muscle groups (chest, back, shoulders, quads, glutes/hamstrings) need at least 6 weekly sets for
+  muscle or strength goals (4 otherwise): use 3 sets on main lifts. Code counts them; don't state weekly set
+  totals yourself.
+- If the skeleton notes that a pattern has no exercises with this equipment (e.g. no pull exercises with no
+  equipment), say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - If the profile says nothing is missing, don't ask questions: build. A "full gym" means all equipment.
-- Use the client's own day count. Don't add days.
-- At most one squat, one lunge and one hinge per day, and at most one horizontal and one vertical push and
-  pull per day (find_exercises shows each push/pull exercise's direction). Name days to match their content
-  (an "Upper" day has no squats, lunges or hinges).
-- Major muscle groups (chest, back, shoulders, quads, glutes/hamstrings) need enough weekly sets: code counts
-  them and checks. Don't state weekly set totals yourself; code calculates and shows the real ones.
-- If find_exercises returns nothing for a main pattern (e.g. no pull exercises with no equipment), leave it
-  out and say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - Fat loss: build the training side, and say plainly that nutrition is not covered by the sources.
 - If the client mentions an injury or health condition, fill safety_notes with a reminder to check with
   a health professional. No diagnoses or medical advice.
@@ -87,9 +84,9 @@ def _inline_refs(schema: dict) -> dict:
 
 TOOLS = [
     {"type": "function", "function": {
-        "name": "find_exercises",
-        "description": "Exercises from the coach's catalog for one movement pattern, already filtered to what this client can use.",
-        "parameters": {"type": "object", "properties": {"pattern": {"type": "string", "enum": PATTERNS}}, "required": ["pattern"]}}},
+        "name": "get_plan_skeleton",
+        "description": "The week's layout built by code: days, slots per day, and the exercises this client can use for each slot.",
+        "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {
         "name": "search_sources",
         "description": "Search the guidelines, research and coaching notes. Returns passages with ids to cite.",
@@ -100,8 +97,8 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}}},
     {"type": "function", "function": {
         "name": "submit_program",
-        "description": "Submit the finished program.",
-        "parameters": _inline_refs(ProgramDraft.model_json_schema())}},
+        "description": "Submit the program: one fill (exercise, sets, reps, rest) for every slot of every day in the skeleton.",
+        "parameters": _inline_refs(ProgramSubmission.model_json_schema())}},
 ]
 
 
@@ -123,6 +120,7 @@ class AgentTurn:
 
 
 GYM = re.compile(r"\bgym\b", re.IGNORECASE)
+AVOID_BODYWEIGHT = re.compile(r"\b(no|don'?t want|not|without|avoid|hate)\b[^.]{0,30}\bbody ?weight\b", re.IGNORECASE)
 NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
                           r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
 
@@ -207,6 +205,9 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 {"role": "system", "content": _profile_note(profile)}, *conversation]
     retrieved: set[str] = set()
     searched: set[str] = set()
+    skeleton = None  # built by code on first request (needs a complete profile)
+    # Client preference read by code: "I don't want bodyweight exercises" (P4 eval: the agent ignored it).
+    avoid_bodyweight = bool(AVOID_BODYWEIGHT.search(" ".join(m["content"] for m in conversation if m["role"] == "user")))
     empty_replies = 0
     submissions = 0
     rejected = False
@@ -232,7 +233,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
             forced_nudged = True
             messages.append({"role": "system", "content": "Call submit_program now with the complete, corrected program."})
             continue
-        building = any(st["tool"] in ("find_exercises", "search_sources") and not str(st["result"]).startswith("refused")
+        building = any(st["tool"] in ("get_plan_skeleton", "search_sources") and not str(st["result"]).startswith("refused")
                        for st in turn.steps)  # a refused lookup (details missing) doesn't count: then asking is right
         if not msg.tool_calls and building and not must_submit:
             # Guardrail: once it has started building, a text reply ("Let me summarize...") isn't an answer.
@@ -253,7 +254,9 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
         if not msg.tool_calls:  # plain text: the model is talking to the client
             msg.content = _visible(msg.content)
             if (msg.content or "").strip():
-                turn.kind, turn.text = "message", msg.content
+                # Code knows whether details are missing: a text reply then is a question, however it was sent.
+                turn.kind = "question" if missing_for_program(profile) else "message"
+                turn.text = msg.content
                 return turn
             if empty_replies == 0:  # guardrail: an empty reply gets one nudge, never shown as a blank answer
                 empty_replies += 1
@@ -271,13 +274,17 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
             except json.JSONDecodeError:
                 args = {}
             missing = missing_for_program(profile)
-            if name in ("find_exercises", "search_sources", "submit_program") and missing:
+            if name in ("get_plan_skeleton", "search_sources", "submit_program") and missing:
                 # Guardrail: no building until goal, days, equipment and level are known.
                 result = {"error": f"Not enough information yet. Ask the client about: {', '.join(missing)}."}
                 summary = f"refused: ask about {', '.join(missing)}"
-            elif name == "find_exercises":
-                result = find_exercises(args.get("pattern", ""), profile)
-                summary = f"{len(result)} exercises: " + ", ".join(e["slug"] for e in result)
+            elif name == "get_plan_skeleton":
+                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight)
+                result = [{"day": d["day"], "name": d["name"], "notes": d["notes"],
+                           "slots": [{"slot": sl["slot"], "label": sl["label"],
+                                      "options": [{k: o[k] for k in ("slug", "name", "level", "equipment")} for o in sl["options"]]}
+                                     for sl in d["slots"]]} for d in skeleton]
+                summary = f"{len(skeleton)} days: " + "; ".join(f"{d['name']} ({len(d['slots'])} slots)" for d in skeleton)
             elif name == "search_sources":
                 query = args.get("query", "").strip().lower()
                 if query in searched:  # guardrail: no repeated searches
@@ -293,11 +300,17 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 turn.kind, turn.text = "question", args.get("question", "")
                 return turn
             elif name == "submit_program":
+                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight)
                 try:
-                    draft = ProgramDraft.model_validate(args)
+                    draft, slot_problems = assemble(ProgramSubmission.model_validate(args), skeleton)
                 except ValidationError as e:
+                    draft, slot_problems = None, []
                     result, summary = {"error": f"Program didn't match the required shape: {e.errors()[:3]}"}, "invalid shape, sent back"
-                else:
+                if slot_problems:  # code assembles the program from the picks; bad picks go back with the allowed options
+                    result = {"rejected": "Some slots weren't filled correctly. Fix them and submit again.",
+                              "exactly_what_to_change": slot_problems}
+                    summary, rejected = "rejected: slot picks (" + "; ".join(slot_problems)[:120] + ")", True
+                elif draft is not None:
                     submissions += 1
                     checks = check_program(draft, profile, retrieved)
                     problems = failed(checks)
@@ -317,7 +330,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                         return turn
             else:
                 result, summary = {"error": f"Unknown tool {name}"}, "unknown tool"
-            shown_args = {"title": args.get("title"), "days": len(args.get("days") or [])} if name == "submit_program" else args
+            shown_args = {"title": args.get("title"), "fills": len(args.get("fills") or [])} if name == "submit_program" else args
             turn.steps.append({"tool": name, "args": shown_args, "result": summary})
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
         if len(searched) >= 3 and not forced:

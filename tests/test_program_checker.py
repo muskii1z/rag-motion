@@ -77,11 +77,28 @@ def run(monkeypatch, script, prof):
     return agent.run_turn([{"role": "user", "content": "beginner program please"}]), model
 
 
+# The agent now submits slot fills (structure fix); code assembles the program from the skeleton.
+def _submission(prof, bad=False):
+    from ragmotion.program import TIMED, build_skeleton
+    fills = []
+    for d in build_skeleton(prof):
+        used = set()
+        for s in d["slots"]:
+            opt = next((o for o in s["options"] if o["slug"] not in used), s["options"][0])
+            used.add(opt["slug"])
+            fills.append({"day": d["day"], "slot": s["slot"], "slug": opt["slug"], "sets": "3",
+                          "reps": "30 s" if opt["slug"] in TIMED else "8-12", "rest": "90 s"})
+    if bad:
+        fills[0]["slug"] = "barbell-back-squat"  # not an option for a dumbbell client
+    return {"title": "Two-day beginner", "fills": fills, "progression": "Add load [notes-program-design-1].",
+            "rationale": "8-12 reps for muscle [notes-program-design-1].", "cited_ids": ["notes-program-design-1"]}
+
+
 def test_building_is_refused_until_the_details_are_known(monkeypatch):
-    turn, model = run(monkeypatch, [[call("find_exercises", pattern="squat")], "What equipment do you have?"],
+    turn, model = run(monkeypatch, [[call("get_plan_skeleton")], "What equipment do you have?"],
                       profile(equipment=[]))
     assert turn.steps[0]["result"] == "refused: ask about equipment"
-    assert turn.kind == "message" and "equipment" in turn.text
+    assert turn.kind == "question" and "equipment" in turn.text  # details missing: a text reply is a question
 
 
 def test_an_empty_reply_gets_one_nudge_then_a_clear_error(monkeypatch):
@@ -93,9 +110,9 @@ def test_the_checker_sends_a_bad_program_back_and_accepts_the_fix(monkeypatch):
     too_big = json.loads(json.dumps(GOOD))
     too_big["days"][0]["exercises"] += [x("dumbbell-reverse-lunge"), x("dumbbell-hip-thrust")]
     script = [[call("search_sources", query="sets and reps for muscle")],
-              [call("submit_program", **too_big)], [call("submit_program", **GOOD)]]
+              [call("submit_program", **_submission(profile(), bad=True))], [call("submit_program", **_submission(profile()))]]
     turn, _ = run(monkeypatch, script, profile())
-    assert turn.steps[1]["result"].startswith("rejected: 4 to 6 exercises per day")
+    assert turn.steps[1]["result"].startswith("rejected: slot picks")
     assert turn.kind == "program" and turn.passed_checks
 
 
@@ -137,7 +154,7 @@ def test_forcing_a_submission_offers_only_the_submit_tool(monkeypatch):
     too_big = json.loads(json.dumps(GOOD))
     too_big["days"][0]["exercises"] += [x("dumbbell-reverse-lunge"), x("dumbbell-hip-thrust")]
     script = [[call("search_sources", query="sets and reps for muscle")],
-              [call("submit_program", **too_big)], "Could you remove an exercise?", [call("submit_program", **GOOD)]]
+              [call("submit_program", **_submission(profile(), bad=True))], "Could you remove an exercise?", [call("submit_program", **_submission(profile()))]]
     turn, model = run(monkeypatch, script, profile())
     assert model.tools_offered[2] == ["submit_program"]  # after the rejection: submit only, chatting nudged away
     assert turn.kind == "program" and turn.passed_checks
@@ -207,7 +224,7 @@ def test_every_push_and_pull_exercise_has_a_direction():
 
 def test_narrating_instead_of_submitting_forces_a_submission(monkeypatch):
     script = [[call("search_sources", query="sets and reps for muscle")],
-              "</think>\n\nPerfect! I have the information I need. Let me summarize...", [call("submit_program", **GOOD)]]
+              "</think>\n\nPerfect! I have the information I need. Let me summarize...", [call("submit_program", **_submission(profile()))]]
     turn, model = run(monkeypatch, script, profile())
     assert model.tools_offered[2] == ["submit_program"]
     assert turn.kind == "program" and turn.passed_checks
@@ -232,7 +249,7 @@ def test_stated_volume_numbers_are_rejected_but_citing_research_is_fine():
 
 def test_asking_for_details_it_already_has_gets_one_nudge(monkeypatch):
     script = ["Which equipment would you like me to focus on?", [call("search_sources", query="sets for strength")],
-              [call("submit_program", **GOOD)]]
+              [call("submit_program", **_submission(profile()))]]
     turn, model = run(monkeypatch, script, profile())
     assert turn.kind == "program" and turn.passed_checks
 

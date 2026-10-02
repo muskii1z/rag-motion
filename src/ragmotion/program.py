@@ -118,7 +118,7 @@ def search_sources(query: str, profile: ClientProfile, k: int = 5) -> list[dict]
 
 MAIN_PATTERNS = {"squat or lunge": {"squat", "lunge"}, "hinge": {"hinge"}, "push": {"push"}, "pull": {"pull"}}
 CORE_PATTERNS = {"core", "carry"}
-TIMED = {"front-plank", "farmer-carry"}  # prescribed in seconds or metres, not reps
+TIMED = {"front-plank", "farmer-carry", "side-plank", "suitcase-carry"}  # prescribed in seconds or metres, not reps
 ONE_PER_DAY = {"squat", "lunge", "hinge", "push", "pull"}  # at most one of each per day (coach, 2026-10-01);
 # push and pull count per direction (Q2): a horizontal and a vertical press on one upper day is fine.
 LOWER_PATTERNS, UPPER_PATTERNS = {"squat", "lunge", "hinge"}, {"push", "pull"}
@@ -162,7 +162,9 @@ def weekly_sets(draft: "ProgramDraft") -> dict[str, int]:
 
 def weekly_set_minimum(profile: ClientProfile) -> int:
     """6 sets a week per group for muscle or strength goals, 4 otherwise (coach, from Pelland's minimum effective dose)."""
-    return 6 if MUSCLE_GOAL.search(profile.goal or "") else 4
+    base = 6 if MUSCLE_GOAL.search(profile.goal or "") else 4
+    # One session a week can't reasonably hold 6 sets for every group; the minimum scales down to half.
+    return base if (profile.sessions_per_week or 2) >= 2 else base // 2
 # Backup for the AI-read health_issues field: broad on purpose. For a safety reminder a false alarm
 # (an extra "check with a professional" line) costs little; a miss skips a warning someone needed.
 # Phrases where "back" means returning ("coming back to lifting") are excluded.
@@ -292,3 +294,156 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
 
 def failed(checks: list[Check]) -> list[Check]:
     return [c for c in checks if not c.passed]
+
+
+# ---- Phase 2 structure fix: code builds the week's skeleton, the agent fills the slots ----
+#
+# P4 showed ~1 in 4 programs still failing a structural rule after 3 tries: the model designed the whole week
+# at once and kept missing "one per pattern per day", "every pattern twice a week", etc. Structure is math, so
+# code now lays out the days and slots (each layout satisfies the rules by construction); the agent picks an
+# exercise for each slot from a list code has already filtered for this client, and sets the dosage.
+
+class Slot(BaseModel):
+    label: str  # e.g. "horizontal push"
+    patterns: list[str]
+    direction: str | None = None
+
+
+def _slot(label, patterns, direction=None):
+    return Slot(label=label, patterns=patterns, direction=direction)
+
+
+SQUAT, LUNGE, HINGE = _slot("squat", ["squat"]), _slot("lunge", ["lunge"]), _slot("hinge", ["hinge"])
+HPUSH, VPUSH = _slot("horizontal push", ["push"], "horizontal"), _slot("vertical push", ["push"], "vertical")
+HPULL, VPULL = _slot("horizontal pull", ["pull"], "horizontal"), _slot("vertical pull", ["pull"], "vertical")
+CORE, CARRY = _slot("core", ["core"]), _slot("carry", ["carry"])
+
+# From the coach-reviewed program-design notes: full body for 1-3 days, upper/lower for 4, splits beyond.
+# Chest gets a horizontal push on 2+ days and every main pattern appears on 2+ days.
+_LOWER_A, _LOWER_B = ("Lower A", [SQUAT, HINGE, LUNGE, CORE]), ("Lower B", [SQUAT, HINGE, LUNGE, CARRY])
+_UPPER_A, _UPPER_B = ("Upper A", [HPUSH, VPULL, VPUSH, HPULL, CORE]), ("Upper B", [HPUSH, HPULL, VPUSH, VPULL, CORE])
+LAYOUTS = {
+    1: [("Full body", [SQUAT, HINGE, HPUSH, HPULL, CORE])],
+    2: [("Full body A", [SQUAT, HINGE, HPUSH, VPULL, CORE]), ("Full body B", [LUNGE, HINGE, HPUSH, HPULL, VPUSH, CARRY])],
+    3: [("Full body A", [SQUAT, HINGE, HPUSH, VPULL, CORE]), ("Full body B", [LUNGE, HINGE, VPUSH, HPULL, CARRY]),
+        ("Full body C", [SQUAT, HINGE, HPUSH, HPULL, CORE])],
+    4: [_LOWER_A, _UPPER_A, _LOWER_B, _UPPER_B],
+    5: [_LOWER_A, _UPPER_A, _LOWER_B, _UPPER_B, ("Full body", [SQUAT, HINGE, HPUSH, HPULL, CARRY])],
+    6: [_LOWER_A, _UPPER_A, _LOWER_B, _UPPER_B, ("Lower C", [SQUAT, HINGE, LUNGE, CORE]), ("Upper C", [HPUSH, VPULL, VPUSH, HPULL, CARRY])],
+}
+# If a client has nothing for a slot, try a close alternative (only if it doesn't double a pattern that day).
+FALLBACKS = {"squat": LUNGE, "lunge": SQUAT, "vertical push": HPUSH, "horizontal push": VPUSH,
+             "vertical pull": HPULL, "horizontal pull": VPULL, "carry": CORE, "core": CARRY}
+
+
+def _key(slot: Slot) -> str:
+    return f"{slot.direction} {slot.patterns[0]}" if slot.direction else slot.patterns[0]
+
+
+def slot_options(slot: Slot, profile: ClientProfile) -> list[dict]:
+    """Exercises this client can use for one slot (equipment, level and age rules applied in code)."""
+    return [{"slug": s, "name": e["name"], "level": e["difficulty"], "equipment": e["equipment"],
+             "primary_muscles": e["primary_muscles"]}
+            for s, e in catalog().items() if e["movement_pattern"] in slot.patterns
+            and (slot.direction is None or e.get("direction") == slot.direction) and usable(e, profile)]
+
+
+def build_skeleton(profile: ClientProfile, avoid_bodyweight: bool = False) -> list[dict]:
+    """The week's days and slots for this client, each slot with its exercise options.
+
+    If a split leaves any day too small for this client (e.g. "Upper" days with no equipment hold only push-ups
+    and core), the week uses the full-body rotation instead, as a coach would.
+    """
+    n = max(1, min(profile.sessions_per_week or 3, 6))
+    days = _fill(LAYOUTS[n], profile, avoid_bodyweight)
+    smallest = 4 if max_level(profile) == "beginner" else 3
+    if any(len(d["slots"]) < smallest for d in days) and n >= 4:
+        rotation = LAYOUTS[3]
+        days = _fill([(f"{rotation[i % 3][0]}", rotation[i % 3][1]) for i in range(n)], profile, avoid_bodyweight)
+    return days
+
+
+def _fill(layout, profile: ClientProfile, avoid_bodyweight: bool = False) -> list[dict]:
+    days = []
+    for name, slots in layout:
+        used, filled, notes = set(), [], []
+        for slot in slots:
+            chosen = slot
+            if not slot_options(slot, profile):
+                alt = FALLBACKS.get(slot.label)
+                chosen = alt if alt and slot_options(alt, profile) and _key(alt) not in used else None
+                if chosen is None:
+                    notes.append(f"no {slot.label} exercise with this equipment")
+                    continue
+                if chosen.label != slot.label:
+                    notes.append(f"{slot.label} replaced by {chosen.label} (none available)")
+            if _key(chosen) in used:
+                continue
+            used.add(_key(chosen))
+            options = slot_options(chosen, profile)
+            if avoid_bodyweight:  # client preference: drop bodyweight-only options where something else exists
+                loaded = [o for o in options if o["equipment"] != ["bodyweight"]]
+                alt = FALLBACKS.get(chosen.label)
+                if not loaded and alt and _key(alt) not in used:  # e.g. core is all bodyweight: use a carry instead
+                    alt_loaded = [o for o in slot_options(alt, profile) if o["equipment"] != ["bodyweight"]]
+                    if alt_loaded:
+                        used.discard(_key(chosen))
+                        chosen, loaded = alt, alt_loaded
+                        used.add(_key(chosen))
+                        notes.append(f"{slot.label} replaced by {chosen.label} (no non-bodyweight option)")
+                options = loaded or options
+            filled.append({"slot": len(filled) + 1, "label": chosen.label, "options": options})
+        days.append({"day": len(days) + 1, "name": name, "slots": filled, "notes": notes})
+    return days
+
+
+class SlotFill(BaseModel):
+    day: int = Field(description="Day number from the skeleton, starting at 1.")
+    slot: int = Field(description="Slot number within that day, starting at 1.")
+    slug: str = Field(description="One of the slot's option slugs.")
+    sets: str
+    reps: str = Field(description="e.g. '8-12'; planks and carries as time or distance, e.g. '30 s' or '30 m'.")
+    rest: str
+    note: str | None = None
+
+
+class ProgramSubmission(BaseModel):
+    title: str
+    fills: list[SlotFill] = Field(description="Exactly one fill for every slot of every day in the skeleton.")
+    progression: str = Field(description="How to progress week to week, with citations like [notes-program-design-1].")
+    rationale: str = Field(description="Why these choices and dosage, citing search_sources passages inline by id in square brackets.")
+    cited_ids: list[str]
+    safety_notes: str | None = None
+
+
+def assemble(submission: ProgramSubmission, skeleton: list[dict]) -> tuple[ProgramDraft | None, list[str]]:
+    """Turn slot picks into a program. Returns (program, problems); code owns days, names and slot order."""
+    problems, picks = [], {}
+    for f in submission.fills:
+        picks.setdefault((f.day, f.slot), []).append(f)
+    days = []
+    for d in skeleton:
+        exercises = []
+        for s in d["slots"]:
+            got = picks.pop((d["day"], s["slot"]), [])
+            allowed = {o["slug"] for o in s["options"]}
+            where = f"Day {d['day']} ({d['name']}) slot {s['slot']} ({s['label']})"
+            if not got:
+                problems.append(f"{where} is empty: choose one of {', '.join(sorted(allowed))}")
+                continue
+            f = got[0]
+            if len(got) > 1:
+                problems.append(f"{where} was filled more than once: keep one")
+            if f.slug not in allowed:
+                problems.append(f"{where}: '{f.slug}' isn't an option; choose one of {', '.join(sorted(allowed))}")
+                continue
+            exercises.append(ProgramExercise(slug=f.slug, sets=f.sets, reps=f.reps, rest=f.rest, note=f.note))
+        slugs = [x.slug for x in exercises]
+        if len(slugs) != len(set(slugs)):
+            problems.append(f"Day {d['day']} ({d['name']}) uses the same exercise twice: pick different options")
+        days.append(ProgramDay(name=f"Day {d['day']}: {d['name']}", exercises=exercises))
+    problems += [f"Day {day} slot {slot} doesn't exist in the skeleton" for day, slot in picks]
+    if problems:
+        return None, problems
+    return ProgramDraft(title=submission.title, days=days, progression=submission.progression, rationale=submission.rationale,
+                        cited_ids=submission.cited_ids, safety_notes=submission.safety_notes), []
