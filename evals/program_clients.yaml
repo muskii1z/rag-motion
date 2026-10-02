@@ -11,6 +11,8 @@
 #   no_referral           no conditions flagged (exercise names like "back squats" aren't injuries)
 #   question_mentions     for kind=question: the question asks about each of these words
 #   includes_any          the program includes at least one of these exercises (e.g. lifts the client says they love)
+#   includes_all          the program includes every one of these exercises
+#   excludes              the program includes none of these (e.g. lifts the client says they hate)
 #   min_exercises_per_day every day has at least this many exercises (a full gym should give full days)
 
 clients:
@@ -57,8 +59,16 @@ clients:
 
 - id: loves-back-squats
   messages: ["I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym."]
-  expect: {kind: program, passes_checks: true, no_referral: true, min_exercises_per_day: 4, includes_any: [barbell-back-squat, dumbbell-hip-thrust]}
+  expect: {kind: program, passes_checks: true, no_referral: true, min_exercises_per_day: 4, includes_all: [barbell-back-squat, dumbbell-hip-thrust]}
 
 - id: no-bodyweight-please
   messages: ["Build muscle, 3 days a week, dumbbells and a bench, beginner. I don't want bodyweight exercises."]
   expect: {kind: program, passes_checks: true, no_bodyweight_only: true}
+
+- id: home-dumbbells-not-gym
+  messages: ["I'm new to the gym scene but I train at home with dumbbells. Build muscle, 3 days, beginner."]
+  expect: {kind: program, passes_checks: true, excludes: [barbell-back-squat, barbell-deadlift, barbell-bench-press, leg-press, lat-pulldown, seated-cable-row]}
+
+- id: hates-deadlifts
+  messages: ["Full gym, intermediate, get stronger, 3 days a week. I hate deadlifts."]
+  expect: {kind: program, passes_checks: true, excludes: [barbell-deadlift, kettlebell-deadlift, dumbbell-romanian-deadlift, single-leg-romanian-deadlift]}

@@ -22,7 +22,7 @@ from pydantic import ValidationError
 from ragmotion.config import settings
 from ragmotion.llm import extract_profile, get_client
 from ragmotion.models import ClientProfile
-from ragmotion.program import (ProgramDraft, ProgramSubmission, assemble, build_skeleton, catalog, check_program, failed,
+from ragmotion.program import (weekly_set_minimum, ProgramDraft, ProgramSubmission, assemble, build_skeleton, catalog, check_program, failed,
                                max_level, weekly_sets,
                                missing_for_program, owned_equipment, population, search_sources)
 
@@ -44,7 +44,8 @@ Work in this order:
    Never ask for something the profile already has.
 2. Call get_plan_skeleton. Code has laid out the week: the days, and for each day a list of slots (e.g.
    "horizontal push", "hinge", "core"), each with the exercises this client can use. The layout already
-   satisfies the structural rules, so don't change it.
+   satisfies the structural rules, so don't change it. It also gives weekly_set_minimum_per_muscle_group:
+   choose sets so each major muscle group reaches it across the week (code counts them).
 3. Call search_sources to find the dosage for this goal: sets, reps and rest; weekly sets or frequency;
    progression. Two or three searches are enough; never repeat a search. Take numbers only from the
    passages, and cite passage ids inline like [pelland2024-volume-19].
@@ -61,7 +62,8 @@ Rules:
 - If the skeleton notes that a pattern has no exercises with this equipment (e.g. no pull exercises with no
   equipment), say in the rationale which equipment would add it (e.g. a pull-up bar or resistance bands).
 - If the profile says nothing is missing, don't ask questions: build. A "full gym" means all equipment.
-- If the client mentioned exercises they like (exercises_the_client_mentioned), use them where a slot offers them.
+- If the client likes certain exercises (exercises_the_client_likes), use them where a slot offers them. Never use
+  exercises the client wants to avoid (code already removed them from the options where it could).
 - Fat loss: build the training side, and say plainly that nutrition is not covered by the sources.
 - If the client mentions an injury or health condition, fill safety_notes with a reminder to check with
   a health professional. No diagnoses or medical advice.
@@ -120,7 +122,13 @@ class AgentTurn:
     passed_checks: bool = False
 
 
-GYM = re.compile(r"(?<!home )\bgym\b", re.IGNORECASE)  # "full gym", "at the gym"; not "home gym"
+# Clear gym-access phrases only; any "home" training wording cancels it (build-scribe found the first, looser
+# rule matched "I quit the gym" and "beginner to the gym, I train at home with dumbbells").
+GYM = re.compile(r"\b(full|commercial|public|local)\s+gym\b|\bgym\s+(access|membership)\b|\baccess\s+to\s+(a|the)\s+gym\b"
+                 r"|\b(go|going|train|training|lift|lifting|work out|working out)\s+(to|at|in)\s+(a|the|my)\s+gym\b"
+                 r"|\b(at|in)\s+(a|the)\s+gym\b(?!\s+at\s+home)", re.IGNORECASE)
+AT_HOME = re.compile(r"\bhome[\s-]*gym\b|\bgym\s+at\s+home\b|\b(at|from)\s+home\b", re.IGNORECASE)
+DISLIKE = re.compile(r"\b(hate|hates|dislike|(don'?t|do not|doesn'?t)\s+(like|want|enjoy|do)|can'?t|cannot|avoid|no more|not a fan|never again|skip)\b", re.IGNORECASE)
 AVOID_BODYWEIGHT = re.compile(r"\b(no|don'?t want|not|without|avoid|hate)\b[^.]{0,30}\bbody ?weight\b", re.IGNORECASE)
 NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
                           r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
@@ -166,29 +174,47 @@ def read_profile(conversation: list[dict]) -> ClientProfile:
         profile.equipment = []
     # Backstop: a gym means all equipment, even if the reader also listed some. The reader dropped "full gym"
     # in a P3 live test, and in the P4 eval turned "back squats ... full gym" into just barbell + machine.
-    if GYM.search(client_text) and not any("gym" in u.lower() for u in profile.unmapped_equipment):
+    if GYM.search(client_text) and not AT_HOME.search(client_text) and not any("gym" in u.lower() for u in profile.unmapped_equipment):
         profile.unmapped_equipment = [*profile.unmapped_equipment, "gym"]
     return profile
 
 
-def mentioned_exercises(conversation: list[dict]) -> list[str]:
-    """Catalog exercises the client names ("back squats" -> barbell-back-squat), matched in code."""
-    text = " ".join(m["content"] for m in conversation if m["role"] == "user").lower()
-    found = []
+def mentioned_exercises(conversation: list[dict]) -> tuple[list[str], list[str]]:
+    """Catalog exercises the client names, split into (liked, avoided) by the clause they appear in.
+
+    "I love back squats" -> liked barbell-back-squat; "I hate deadlifts" -> avoided. Names are matched without
+    their equipment word ("back squat", "hip thrust"). A general word on its own ("lunges", "deadlifts") counts
+    only as a dislike, and then covers every exercise of that kind unless the clause names a more specific one.
+    """
+    text = " ".join(m["content"] for m in conversation if m["role"] == "user")
+    clauses = re.split(r"[.!?;]+\s*|,?\s+but\s+|,?\s+and\s+(?=i\b|i'm\b)", text, flags=re.IGNORECASE)
+    cores = {}
     for slug, e in catalog().items():
-        core = re.sub(r"\b(barbell|dumbbell|kettlebell|cable|machine|band|bodyweight|one-arm|single-arm)\b", "", e["name"].lower()).strip()
-        if core and re.search(r"\b" + re.escape(core) + r"(e?s)?\b", text):
-            found.append(slug)
-    return found
+        core = re.sub(r"\b(barbell|dumbbell|kettlebell|cable|machine|band|bodyweight|one-arm|single-arm)\b", "", e["name"].lower())
+        cores[slug] = re.sub(r"\s+", " ", core).strip()
+    def named(name: str, clause: str) -> bool:
+        return bool(name) and re.search(r"\b" + re.escape(name) + r"(e?s)?\b", clause, re.IGNORECASE) is not None
+    liked, avoided = [], []
+    for clause in clauses:
+        specific = [slug for slug, core in cores.items() if (" " in core or "-" in core) and named(core, clause)]
+        if DISLIKE.search(clause):
+            heads = {c.split()[-1] for c in cores.values()}
+            general = {h for h in heads if named(h, clause) and not any(cores[s].endswith(h) for s in specific)}
+            avoided += [s for s, c in cores.items() if s in specific or c.split()[-1:] and c.split()[-1] in general]
+        else:
+            liked += specific
+    avoided = list(dict.fromkeys(avoided))
+    return [s for s in dict.fromkeys(liked) if s not in avoided], avoided
 
-
-def _profile_note(profile: ClientProfile, mentioned: list[str] | None = None) -> str:
+def _profile_note(profile: ClientProfile, mentioned: tuple[list[str], list[str]] | None = None) -> str:
     known = profile.model_dump(exclude={"unmapped_equipment"})
     known["equipment_available"] = sorted(owned_equipment(profile)) if profile.equipment or profile.unmapped_equipment else []
     known["max_exercise_level"] = max_level(profile)
     known["age_group"] = population(profile) or "not stated"
-    if mentioned:
-        known["exercises_the_client_mentioned"] = mentioned
+    if mentioned and mentioned[0]:
+        known["exercises_the_client_likes"] = mentioned[0]
+    if mentioned and mentioned[1]:
+        known["exercises_the_client_wants_to_avoid"] = mentioned[1]
     return (f"Client profile (read from the conversation by code):\n{json.dumps(known, indent=1)}\n"
             f"Missing for a program: {missing_for_program(profile) or 'nothing'}")
 
@@ -216,14 +242,16 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                                            "activity during pregnancy you can ask me about.")
         return turn
 
+    mentions = mentioned_exercises(conversation)  # (liked, avoided) catalog exercises
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "system", "content": _profile_note(profile, mentioned_exercises(conversation))}, *conversation]
+                {"role": "system", "content": _profile_note(profile, mentions)}, *conversation]
     retrieved: set[str] = set()
     searched: set[str] = set()
     skeleton = None  # built by code on first request (needs a complete profile)
     # Client preference read by code: "I don't want bodyweight exercises" (P4 eval: the agent ignored it).
     avoid_bodyweight = bool(AVOID_BODYWEIGHT.search(" ".join(m["content"] for m in conversation if m["role"] == "user")))
     empty_replies = 0
+    model = settings.agent_model or settings.llm_model  # switches to the fallback after two empty replies
     submissions = 0
     rejected = False
     forced_nudged = False
@@ -238,7 +266,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
         # (Qwen3.5 Flash's, 2026-10-01) reject a named tool_choice with a 404.
         forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected or must_submit
         response = _call_model(
-            client, model=settings.agent_model or settings.llm_model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
+            client, model=model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
             tool_choice="auto", temperature=0.2,
             max_tokens=3000, extra_body={"provider": {"require_parameters": True}, "usage": {"include": True}},
         )
@@ -273,8 +301,12 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 turn.kind = "question" if missing_for_program(profile) else "message"
                 turn.text = msg.content
                 return turn
-            if empty_replies == 0:  # guardrail: an empty reply gets one nudge, never shown as a blank answer
+            if empty_replies < 2:  # guardrail: an empty reply gets one nudge, never shown as a blank answer
                 empty_replies += 1
+                if empty_replies == 2 and settings.agent_fallback_model:
+                    # P4 eval 2026-10-02: Gemini 2.5 Flash sent two empty replies in a row in 2 of 42 runs, at the
+                    # same moment (a provider blip). The fallback model gets one try before the client sees an error.
+                    model = settings.agent_fallback_model
                 messages.append({"role": "system", "content": "Your last reply was empty. Call a tool, or answer the client."})
                 continue
             turn.text = "The program builder didn't respond. Please try again."
@@ -294,11 +326,14 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 result = {"error": f"Not enough information yet. Ask the client about: {', '.join(missing)}."}
                 summary = f"refused: ask about {', '.join(missing)}"
             elif name == "get_plan_skeleton":
-                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight)
-                result = [{"day": d["day"], "name": d["name"], "notes": d["notes"],
-                           "slots": [{"slot": sl["slot"], "label": sl["label"],
-                                      "options": [{k: o[k] for k in ("slug", "name", "level", "equipment")} for o in sl["options"]]}
-                                     for sl in d["slots"]]} for d in skeleton]
+                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight, avoid=set(mentions[1]))
+                # The weekly-set target is stated up front (P4 follow-up: 7 of 8 runs for a 70-year-old on 2 days
+                # gave 2 sets per exercise, were rejected for weekly sets, and only then fixed it).
+                result = {"weekly_set_minimum_per_muscle_group": weekly_set_minimum(profile),
+                          "days": [{"day": d["day"], "name": d["name"], "notes": d["notes"],
+                                    "slots": [{"slot": sl["slot"], "label": sl["label"],
+                                               "options": [{k: o[k] for k in ("slug", "name", "level", "equipment")} for o in sl["options"]]}
+                                              for sl in d["slots"]]} for d in skeleton]}
                 summary = f"{len(skeleton)} days: " + "; ".join(f"{d['name']} ({len(d['slots'])} slots)" for d in skeleton)
             elif name == "search_sources":
                 query = args.get("query", "").strip().lower()
@@ -315,7 +350,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                 turn.kind, turn.text = "question", args.get("question", "")
                 return turn
             elif name == "submit_program":
-                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight)
+                skeleton = skeleton or build_skeleton(profile, avoid_bodyweight, avoid=set(mentions[1]))
                 try:
                     draft, slot_problems = assemble(ProgramSubmission.model_validate(args), skeleton)
                 except ValidationError as e:

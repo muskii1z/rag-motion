@@ -90,11 +90,18 @@ def usable(ex: dict, profile: ClientProfile) -> bool:
             and ex["movement_pattern"] not in banned_patterns(profile))
 
 
+# A "goal" that only restates the request isn't a goal (P4 follow-up: "I want a workout program" -> goal
+# "workout program", so the agent never asked what the client wants from it).
+VAGUE_GOAL = re.compile(r"^\W*(an?\s+|my\s+)?(new\s+)?(workout|training|exercise|gym|fitness|strength)?\s*"
+                        r"(program(me)?|routine|plan|workout|split)s?\W*$", re.IGNORECASE)
+
+
 def missing_for_program(profile: ClientProfile) -> list[str]:
     # Equipment counts as known if listed OR if the client said they have a gym (same rule as owned_equipment;
     # P3 live test: "full gym" alone made the agent ask which equipment).
     return [f for f in REQUIRED_PROFILE
-            if getattr(profile, f) in (None, []) and not (f == "equipment" and has_gym(profile))]
+            if getattr(profile, f) in (None, []) and not (f == "equipment" and has_gym(profile))
+            or f == "goal" and VAGUE_GOAL.match(profile.goal or "")]
 
 
 # ---- Tools ----
@@ -348,22 +355,22 @@ def slot_options(slot: Slot, profile: ClientProfile) -> list[dict]:
             and (slot.direction is None or e.get("direction") == slot.direction) and usable(e, profile)]
 
 
-def build_skeleton(profile: ClientProfile, avoid_bodyweight: bool = False) -> list[dict]:
+def build_skeleton(profile: ClientProfile, avoid_bodyweight: bool = False, avoid: set[str] | None = None) -> list[dict]:
     """The week's days and slots for this client, each slot with its exercise options.
 
     If a split leaves any day too small for this client (e.g. "Upper" days with no equipment hold only push-ups
     and core), the week uses the full-body rotation instead, as a coach would.
     """
     n = max(1, min(profile.sessions_per_week or 3, 6))
-    days = _fill(LAYOUTS[n], profile, avoid_bodyweight)
+    days = _fill(LAYOUTS[n], profile, avoid_bodyweight, avoid or set())
     smallest = 4 if max_level(profile) == "beginner" else 3
     if any(len(d["slots"]) < smallest for d in days) and n >= 4:
         rotation = LAYOUTS[3]
-        days = _fill([(f"Full body {chr(65 + i)}", rotation[i % 3][1]) for i in range(n)], profile, avoid_bodyweight)
+        days = _fill([(f"Full body {chr(65 + i)}", rotation[i % 3][1]) for i in range(n)], profile, avoid_bodyweight, avoid or set())
     return days
 
 
-def _fill(layout, profile: ClientProfile, avoid_bodyweight: bool = False) -> list[dict]:
+def _fill(layout, profile: ClientProfile, avoid_bodyweight: bool = False, avoid: set[str] = frozenset()) -> list[dict]:
     days = []
     for name, slots in layout:
         used, filled, notes = set(), [], []
@@ -392,6 +399,7 @@ def _fill(layout, profile: ClientProfile, avoid_bodyweight: bool = False) -> lis
                         used.add(_key(chosen))
                         notes.append(f"{slot.label} replaced by {chosen.label} (no non-bodyweight option)")
                 options = loaded or options
+            options = [o for o in options if o["slug"] not in avoid] or options  # exercises the client dislikes
             filled.append({"slot": len(filled) + 1, "label": chosen.label, "options": options})
         days.append({"day": len(days) + 1, "name": name, "slots": filled, "notes": notes})
     return days

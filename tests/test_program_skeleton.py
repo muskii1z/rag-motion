@@ -84,5 +84,40 @@ def test_gym_means_all_equipment_even_if_the_reader_listed_some(monkeypatch):
 
 def test_exercises_the_client_names_are_found():
     from ragmotion.agent import mentioned_exercises
-    found = mentioned_exercises([{"role": "user", "content": "I love back squats and hip thrusts"}])
-    assert "barbell-back-squat" in found and "dumbbell-hip-thrust" in found
+    liked, _ = mentioned_exercises([{"role": "user", "content": "I love back squats and hip thrusts"}])
+    assert "barbell-back-squat" in liked and "dumbbell-hip-thrust" in liked
+
+
+@pytest.mark.parametrize("text, gym", [
+    ("I love back squats. 4 days, full gym, intermediate", True),
+    ("I train at the gym 3 days a week", True),
+    ("I have gym access", True),
+    ("Beginner to the gym, I train at home with dumbbells", False),
+    ("I quit the gym", False),
+    ("gym at home with a rack", False),
+    ("home-gym setup", False),
+    ("Home  gym", False),
+])
+def test_gym_access_phrases(text, gym):
+    from ragmotion.agent import AT_HOME, GYM
+    assert bool(GYM.search(text) and not AT_HOME.search(text)) == gym
+
+
+def test_liked_and_avoided_exercises_are_told_apart():
+    from ragmotion.agent import mentioned_exercises
+    liked, avoided = mentioned_exercises([{"role": "user", "content": "I love back squats and hip thrusts. I hate deadlifts."}])
+    assert {"barbell-back-squat", "dumbbell-hip-thrust"} <= set(liked) and "bodyweight-squat" not in liked
+    assert {"barbell-deadlift", "kettlebell-deadlift"} <= set(avoided) and not set(avoided) & set(liked)
+
+
+def test_avoided_exercises_are_removed_where_alternatives_exist():
+    sk = build_skeleton(profile(unmapped_equipment=["gym"], experience_level="intermediate"), avoid={"barbell-deadlift", "kettlebell-deadlift"})
+    hinge_options = [o["slug"] for d in sk for s in d["slots"] if s["label"] == "hinge" for o in s["options"]]
+    assert hinge_options and not {"barbell-deadlift", "kettlebell-deadlift"} & set(hinge_options)
+
+
+@pytest.mark.parametrize("goal, vague", [("workout program", True), ("a training plan", True), ("Routine", True),
+                                         ("build muscle", False), ("strength program for soccer", False)])
+def test_a_goal_that_restates_the_request_counts_as_missing(goal, vague):
+    from ragmotion.program import missing_for_program
+    assert ("goal" in missing_for_program(profile(goal=goal))) == vague

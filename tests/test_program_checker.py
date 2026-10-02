@@ -62,6 +62,7 @@ class ScriptedModel:
 
     def create(self, **kwargs):
         self.seen.append(kwargs["messages"][-1])
+        self.models = getattr(self, "models", []) + [kwargs["model"]]
         assert not isinstance(kwargs.get("tool_choice"), dict), "named tool_choice isn't supported by every provider"
         self.tools_offered = getattr(self, "tools_offered", []) + [[t["function"]["name"] for t in kwargs["tools"]]]
         step = self.script.pop(0)
@@ -101,9 +102,16 @@ def test_building_is_refused_until_the_details_are_known(monkeypatch):
     assert turn.kind == "question" and "equipment" in turn.text  # details missing: a text reply is a question
 
 
-def test_an_empty_reply_gets_one_nudge_then_a_clear_error(monkeypatch):
-    turn, _ = run(monkeypatch, ["", ""], profile())
+def test_empty_replies_get_a_nudge_then_the_fallback_model_then_a_clear_error(monkeypatch):
+    turn, model = run(monkeypatch, ["", "", ""], profile())
     assert turn.kind == "error" and turn.text == "The program builder didn't respond. Please try again."
+    assert model.models[-1] == agent.settings.agent_fallback_model != model.models[0]
+
+
+def test_the_fallback_model_can_rescue_a_turn_after_two_empty_replies(monkeypatch):
+    turn, model = run(monkeypatch, ["", "", [call("search_sources", query="sets and reps for muscle")],
+                                    [call("submit_program", **_submission(profile()))]], profile())
+    assert turn.kind == "program" and turn.passed_checks
 
 
 def test_the_checker_sends_a_bad_program_back_and_accepts_the_fix(monkeypatch):
