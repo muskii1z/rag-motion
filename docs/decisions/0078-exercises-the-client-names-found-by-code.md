@@ -1,5 +1,5 @@
 # 0078. Exercises the client names are found by code and passed to the agent
-**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (full-gym detection) · **Status:** accepted
+**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (full-gym detection) · **Status:** accepted (extended by [0081](0081-liked-and-avoided-exercises-by-clause.md))
 
 ## Context
 A client said "I love back squats and hip thrusts". Even once the equipment problem was found ([0077](0077-a-gym-mention-always-means-all-equipment.md)), nothing made sure the agent noticed the favorite lifts: they were only words in the conversation. A program that leaves out the lifts a client asked for passes every check but fails the client.
@@ -23,3 +23,6 @@ Match in code, choose in the agent. `mentioned_exercises(conversation)` in `src/
 - A client who names a disliked exercise gets it.
 - A client's named lift is missing from their program even though a slot offered it.
 - More clients name exercises in slang or abbreviations (the Phase 1F slang dictionary could be reused).
+
+## Update 2026-10-02 (likes vs dislikes)
+The "names, not feelings" tradeoff is addressed in [0081](0081-liked-and-avoided-exercises-by-clause.md): `mentioned_exercises` now returns `(liked, avoided)`, read clause by clause; the profile note has `exercises_the_client_likes` and `exercises_the_client_wants_to_avoid` instead of `exercises_the_client_mentioned`; avoided exercises are removed from slot options in code where an alternative remains. A general word like "squats" no longer counts as liked, so Bodyweight Squat is no longer suggested for "back squats". Still unmatched: "planks", and abbreviations such as "RDLs".

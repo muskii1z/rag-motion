@@ -20,3 +20,6 @@ Two new expectation types in `evals/run_program_eval.py`: `includes_any` (the pr
 ## Revisit when
 - The coach's review finds another program that passes every expectation but misses the request.
 - A client names two lifts and gets only one (then require all, not any).
+
+## Update 2026-10-02 (likes vs dislikes)
+Two more expectation types in `evals/run_program_eval.py`: `includes_all` (the program includes every one of these slugs) and `excludes` (it includes none of them). `loves-back-squats` now uses `includes_all: [barbell-back-squat, dumbbell-hip-thrust]`, which closes the "any passes with one favorite" weakness above. Two new clients use `excludes`: `home-dumbbells-not-gym` (no barbell, machine, or cable exercises) and `hates-deadlifts` (none of the four deadlifts). 14 clients in total. Final run: 42/42 expectations met.

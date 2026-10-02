@@ -1129,7 +1129,11 @@ A false positive is a check that fires when nothing is wrong. A false negative i
 
 **In an interview (follow-up):** "I decided which error I could live with. For a safety reminder, an unneeded reminder is cheap and a missed injury isn't, so I made the backup check broad on purpose and tested both lists of phrases."
 
-*First seen: Phase 2, step 2 follow-up. Extended: step 2 fixes.*
+*Phase 2 follow-up (likes vs dislikes) update: the cheaper error depends on the rule.* For the gym rule the choice went the other way. A false positive (a home trainer read as having a full gym) gives the client barbell and machine exercises they can't do. A false negative (a real gym client not matched) only means the reader's list is used, and if equipment is still unknown, the agent asks one question. So the gym rule was narrowed to clear access phrases, trading some missed phrasings for no wrong equipment ([0080](decisions/0080-gym-only-from-clear-access-phrases.md)). In [precision and recall](#recall-vs-precision) terms: the referral backup favors recall (catch every injury), the gym rule favors precision (never claim a gym that isn't there). Scribe probes of the narrow rule: "I work out at home but have gym access" and "I have a gym at work" are now missed.
+
+**In an interview (follow-up 2):** "For the injury reminder I made the rule broad, because a missed injury is the worse error. For the gym rule I made it narrow, because a wrong gym means a program the client can't do, while a missed gym just means one extra question. Same question, opposite answers."
+
+*First seen: Phase 2, step 2 follow-up. Extended: step 2 fixes, Phase 2 follow-up (likes vs dislikes).*
 
 ### Cost per correct result (model capability vs price per token)
 Price per token isn't the whole cost. An agent that fails needs retries, and each retry is more calls, more time, and sometimes still a failed result. The fair comparison is cost and time per *correct* result. On the same conversation, 3 runs each: Gemini 2.5 Flash-Lite passed 2/3, none on the first submission, 15–21 s, $0.0021–0.0026 per run. Gemini 2.5 Flash passed 3/3 on the first submission, 11–13 s, $0.0060–0.0067. The bigger model was **faster** because it needed no retries. By these numbers it still cost more per passing program (about $0.006 vs about $0.003–0.004), so the gain was reliability and speed, at about 0.6 cents a program.
@@ -1166,7 +1170,9 @@ A code guardrail checks data; it can't tell if the data is wrong. The agent's bu
 
 **In an interview (follow-up):** "My backstop only covered the reader returning nothing. It returned something wrong instead, barbell and machine for a full-gym client, and the backstop stayed quiet. For facts that reshape the whole output, code now overrides the model, and I know the tradeoff: a word rule can't read context."
 
-*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P3, Phase 2 follow-up.*
+*Phase 2 follow-up (likes vs dislikes) update: the backstop got narrower, and a second reader guess was caught.* The blunt rule above was narrowed after the scribe probe: it now fires only on clear gym-access phrases ("full gym", "gym membership", "I train at the gym"), and any at-home wording cancels it ([0080](decisions/0080-gym-only-from-clear-access-phrases.md)). A new eval client, "I'm new to the gym scene but I train at home with dumbbells", got no barbell, machine, or cable exercises in 3/3 runs. A second case of the reader filling a gap with a guess: for "I want a workout program" it set the goal to "workout program", so code thought the goal was known and the agent never asked for it (2 of 3 runs). Code now treats a goal that only restates the request as missing ([0082](decisions/0082-vague-goal-counts-as-missing.md)).
+
+*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P3, Phase 2 follow-up, Phase 2 follow-up (likes vs dislikes).*
 
 ### Two-layer safety check (AI reading plus broad backup)
 One way to catch something important is two independent checks with different weaknesses. Here, health issues are caught twice: the profile AI records them in `health_issues` in the client's words (it understands "tweaked my back", but can miss or vary), and a broad word pattern scans the context notes as a backup (it never varies, but over-matches). Either one triggers the referral reminder. The two layers fail in different ways, so a miss needs both to miss. Same idea as [Defense in depth](#defense-in-depth-filters-plus-the-models-own-judgment).
@@ -1266,7 +1272,11 @@ A client preference ("I don't want bodyweight exercises") is a limit, just softe
 
 **In an interview (follow-up):** "Hard limits, like no bodyweight, code enforces. Soft wishes, like 'I love back squats', code finds and hands to the model, and the model decides where they fit. Code is good at spotting the name; it's not good at knowing whether the client liked it."
 
-*First seen: Phase 2 structure fix. Extended: Phase 2 follow-up.*
+*Phase 2 follow-up (likes vs dislikes) update: telling a like from a dislike.* `mentioned_exercises()` now returns two lists: liked and avoided. It splits the client's text into clauses and checks each clause for dislike words (hate, don't want, can't, avoid, not a fan, ...); see [Negation scope](#negation-scope-clause-splitting). A dislike is a hard-ish limit, so it's handled like the no-bodyweight rule: code removes avoided exercises from the slot options, but only where another option remains, so no slot is left empty ([0081](decisions/0081-liked-and-avoided-exercises-by-clause.md)). A like stays a soft wish handed to the agent. Eval: "Full gym ... I hate deadlifts" got none of the four deadlifts in 3/3 runs; the back-squat client got both favorites in 3/3 (now required by `includes_all`). Scribe probes: abbreviations ("I don't like RDLs") and "planks" still aren't matched.
+
+**In an interview (follow-up 2):** "First my code found the exercise names but not the feelings, so 'I hate deadlifts' was passed on as a favorite. Now it reads each clause for dislike words. A dislike becomes a filter in code; a like stays a suggestion for the model."
+
+*First seen: Phase 2 structure fix. Extended: Phase 2 follow-up, Phase 2 follow-up (likes vs dislikes).*
 
 ### Labels from state, not from how the model replied
 When code labels a model's output (question, message, program), base the label on facts code already knows, not on which path the model happened to take. The turn's kind used to come from the tool used: `ask_user` meant "question", plain text meant "message". The agent sometimes asked for missing details as plain text, so a correct question was labeled "message" 3/3. Code already knows whether details are missing (`missing_for_program`), so a text reply then is labeled a question ([0076](decisions/0076-reply-kind-labeled-from-state.md)).
@@ -1274,6 +1284,20 @@ When code labels a model's output (question, message, program), base the label o
 **In an interview:** "My eval caught the agent asking the right question but through the wrong channel, so the app called it a plain message. I made the label depend on state code already tracks, not on which tool the model chose."
 
 *First seen: Phase 2 structure fix.*
+
+### Negation scope (clause splitting)
+A word like "not" or "hate" applies to part of a sentence, not all of it. That part is its scope. In "I like push-ups and I don't want burpees", the "don't" belongs to the burpees, not the push-ups. The first version of the dislike rule looked at whole sentences and marked push-ups as disliked. The fix was to split the text into clauses (on `. ! ? ;`, "but", and "and I") and check each clause on its own. Clause splitting is a cheap approximation: it gets the common cases right without a language model, but long or unusual sentences can still fool it. Related: [Hard constraints and negation](#hard-constraints-and-negation) (why embeddings handle "no" badly).
+
+**In an interview:** "My first dislike rule read 'I like push-ups and I don't want burpees' as disliking push-ups, because it looked at the whole sentence. A 'not' only covers its own part of the sentence, so I split into clauses first. It's an approximation, and I keep a list of phrasings it still misses."
+
+*First seen: Phase 2 follow-up (likes vs dislikes).*
+
+### Tell the model the target up front, still check in code
+A checker that rejects bad output guarantees the result, but each rejection costs another model call. If the model knows the exact target before it answers, it gets it right more often the first time. The general rule ("at least 6 weekly sets per muscle group for strength goals") was already in the system prompt, yet a 70-year-old 2-day client got 2 sets per exercise and a rejection in 7 of 8 probe runs. Putting this client's own number, `weekly_set_minimum_per_muscle_group`, in the plan the agent fills raised first-try acceptance to 4 of 8. The check stayed exactly as strict ([0084](decisions/0084-weekly-set-minimum-stated-up-front.md)). A general rule in a long prompt is easier to miss than a specific number given at the moment of choosing.
+
+**In an interview:** "The checker guarantees the weekly volume, but rejections cost time. So the tool that hands the agent its plan now also hands it the target number. Same guarantee, fewer retries: first-try acceptance went from 1 in 8 to 4 in 8 for my hardest client."
+
+*First seen: Phase 2 follow-up (likes vs dislikes).*
 
 ## Program design
 
@@ -1686,7 +1710,9 @@ The middle tier exists because some choices are neither right nor wrong. For "be
 
 *Phase 1F F7a update: the acceptable tier is now scored.* `only_keyed_exercises` treats expected plus acceptable as the allowed set and flags anything else the answer cites. Because the acceptable lists were written as examples, not as complete lists, some flagged "extras" may be fine choices (see [Proxy metrics](#proxy-metrics-read-what-they-flag-not-just-the-number)).
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F7a.*
+*Phase 2 follow-up (likes vs dislikes) update: the same tradeoff for text rules.* A text-matching rule also has precision (how many of its matches are right) and recall (how many of the right cases it matches). The first gym rule had high recall and low precision: it matched home trainers who mentioned "the gym". Narrowing it raised precision and lowered recall. See [False negatives vs false positives](#false-negatives-vs-false-positives-in-a-safety-check).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F7a, Phase 2 follow-up (likes vs dislikes).*
 
 ### Answer-level rules vs retrieval keys
 Two layers of correctness. The **retrieval key** says what search should find (expected, acceptable, forbidden). **Answer-level rules** say how the written answer should present it. The coach recorded four during the review, as notes in `eval_set.yaml`:
@@ -1963,7 +1989,9 @@ The program checker judges a program: equipment, structure, volume. Some of the 
 
 *Phase 2 follow-up update: expectations about what the client asked for.* Two new types: `includes_any` (the program includes at least one of these exercises) and `min_exercises_per_day`. They're written from the client's own words in the conversation, so they don't depend on the profile reader being right. `loves-back-squats` now expects back squat or hip thrust; the four full-gym clients expect at least 4 exercises per day ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)). One weakness: "any" passes if only one of two favorites appears.
 
-*First seen: Phase 2, P4. Extended: Phase 2 follow-up.*
+*Phase 2 follow-up (likes vs dislikes) update: "all" and "none".* `includes_all` (every listed exercise appears) replaced `includes_any` for the back-squat client, closing the one-of-two weakness. `excludes` (none of the listed exercises appear) checks what a client must not get: no barbell, machine, or cable exercises for `home-dumbbells-not-gym`, no deadlifts for `hates-deadlifts`. Both new clients were written for failures the scribe's probes had predicted ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)).
+
+*First seen: Phase 2, P4. Extended: Phase 2 follow-up, Phase 2 follow-up (likes vs dislikes).*
 
 ### Valid output from wrong input (checks verify consistency, not truth)
 A checker compares the output with the input it was given. If that input is wrong, a wrong output can pass every check. In rag-motion, the profile reader turned "full gym" into barbell + machine. The skeleton, the agent, and all the program checks then worked perfectly for a client who owned only barbell and machine. The program passed 9 of 9 eval runs while missing both lifts the client said they loved and leaving upper days with 3 exercises. The checks answered "does this program fit the profile?", never "does the profile fit what the client said?". The fix needs both: get the input right ([0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)) and add eval expectations written from the user's own words ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)). A coaching version: a perfectly built program for the wrong assessment.
@@ -2920,7 +2948,9 @@ A fallback model is a second model the app switches to when the first one fails 
 
 **In an interview:** "Each agent call has a primary model and a fallback. If the primary misses a 40-second deadline, it retries once on the fallback, and only then does the user see an error. Two models deep, then a clear message."
 
-*First seen: Phase 2, P3.*
+*Phase 2 follow-up (likes vs dislikes) update: a second trigger.* The fallback used to run only when a call missed its deadline. Now it also runs after two empty replies in a row: in one eval run, Gemini 2.5 Flash sent two empty replies in 2 of 42 runs at the same moment, which looked like a short provider problem. After the second empty reply, the rest of the turn uses Flash-Lite for one more try; only then does the client see "didn't respond" ([0083](decisions/0083-fallback-model-after-two-empty-replies.md)). How often the fallback rescued a turn still isn't recorded.
+
+*First seen: Phase 2, P3. Extended: Phase 2 follow-up (likes vs dislikes).*
 
 ### Exception hierarchy order (check the child before the parent)
 In Python, error types form a family tree. A child type is a more specific kind of its parent. In the `openai` library, `APITimeoutError` is a child of `APIConnectionError`. A check like `isinstance(exc, APIConnectionError)` is also true for a timeout. So in a chain of checks, the first match wins. If the parent comes first, the child's specific message is never reached. `friendly_message()` in `errors.py` checks `APITimeoutError` first, with a comment saying why. The same rule applies to `try`/`except` blocks: list the specific error before the general one.

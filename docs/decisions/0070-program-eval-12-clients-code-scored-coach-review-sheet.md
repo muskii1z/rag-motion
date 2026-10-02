@@ -29,3 +29,11 @@ Three more runs, 3 repeats each, after the skeleton change ([0073](0073-code-bui
 
 ## Update 2026-10-02 (Phase 2 follow-up)
 The gap above is closed with two new expectation types ([0079](0079-eval-expectations-for-favorite-lifts-and-full-days.md)): `includes_any` and `min_exercises_per_day` (4 on the four full-gym clients). With them, after the gym and named-exercise fixes: 36/36 expectations, 30/30 programs passing every check, 28/30 accepted on the first submission, 0 errors, median 8.0 s, $0.166 (`evals/results/programs-20261002-155746.json`). New review sheet for the coach: `evals/results/programs-review-20261002-155746.md`.
+
+## Update 2026-10-02 (gym detection, likes vs dislikes)
+Now 14 clients (`home-dumbbells-not-gym`, `hates-deadlifts`) and two more expectation types ([0079](0079-eval-expectations-for-favorite-lifts-and-full-days.md)). Three runs of 3 repeats each:
+- First: 38/42 expectations. `missing-everything` didn't ask for the goal 2× (fixed by [0082](0082-vague-goal-counts-as-missing.md)); 2 turns ended "didn't respond" after two empty replies (fixed by [0083](0083-fallback-model-after-two-empty-replies.md)).
+- Second: 36/42, with 5 errors from OpenRouter timeouts on embeddings and profile reading (an outside outage) and 1 empty-reply failure.
+- Final: 42/42 expectations, 36/36 programs pass every check, 34/36 accepted on the first submission, 0 errors, median 8.5 s, $0.185 for 42 runs (`evals/results/programs-20261002-161458.json`). New review sheet for the coach: `evals/results/programs-review-20261002-161458.md`.
+
+The first two runs' files (`programs-20261002-160746.*`, `programs-20261002-161126.*`) were left uncommitted.

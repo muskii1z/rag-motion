@@ -5762,3 +5762,102 @@ None recorded in the brief.
 - New: [0079. Eval expectations for favorite lifts and full days](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)
 - Updated: [0067](decisions/0067-agent-asks-only-when-something-is-missing.md) (backstop widened), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (new results; the gap it noted is closed), [0073](decisions/0073-code-builds-the-program-skeleton-agent-fills-slots.md) (rotation day names)
 - Next: coach review of the layouts and the program sheet (`evals/results/programs-review-20261002-155746.md`), README for Phase 2, make the repo public.
+
+## Phase 2 follow-up: gym detection, liked vs disliked exercises, vague goals, and an empty-reply fallback
+**Date:** 2026-10-02 · **Commit:** `cf1235b` fix: gym only from access phrases; likes vs dislikes; vague goals; empty-reply fallback
+
+**Goal.** Fix the two problems the scribe flagged after `3c1d974` (the gym rule was too broad; the exercise matcher couldn't tell likes from dislikes), plus two issues the re-run eval surfaced (an unasked goal, and empty replies).
+
+**What we did.**
+- **Gym only from clear access phrases** (`src/ragmotion/agent.py`). The `GYM` regex (a text pattern) now matches "full/commercial/public/local gym", "gym access/membership", "access to a/the gym", "go/train/lift/work out at/to/in the gym", and "at/in the gym" (not followed by "at home"). A new `AT_HOME` regex ("home gym", "home-gym", "gym at home", "at/from home") cancels it. The `read_profile` backstop adds "gym" (all equipment) only if `GYM` matches and `AT_HOME` doesn't ([0080](decisions/0080-gym-only-from-clear-access-phrases.md), narrowing [0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)).
+- **Liked vs avoided exercises.** `mentioned_exercises` now returns `(liked, avoided)` ([0081](decisions/0081-liked-and-avoided-exercises-by-clause.md)):
+  - The client's text is split into clauses on `. ! ? ;`, "but", and "and I / and I'm".
+  - A `DISLIKE` regex marks a clause as a dislike: hate, dislike, don't/do not/doesn't like|want|enjoy|do, can't, cannot, avoid, no more, not a fan, never again, skip.
+  - Liked = specific multi-word names with the equipment word stripped ("back squat", "hip thrust") in clauses without a dislike word.
+  - Avoided = specific names in dislike clauses, plus a general word ("deadlifts", "lunges") covers every exercise whose name ends in it, unless the clause named a more specific one ("I hate Romanian deadlifts" → only the Romanian deadlift).
+  - "I've never done deadlifts" → nothing (not a dislike).
+  - The agent's profile note now has `exercises_the_client_likes` and `exercises_the_client_wants_to_avoid` (was `exercises_the_client_mentioned`). `build_skeleton(..., avoid=set)` removes avoided exercises from slot options in `_fill`, only where another option remains. The prompt says never to use avoided exercises.
+- **Vague goals count as missing** (`src/ragmotion/program.py`). `VAGUE_GOAL` matches a goal that only restates the request ("workout program", "a training plan", "routine"); `missing_for_program` treats it as missing ([0082](decisions/0082-vague-goal-counts-as-missing.md)).
+- **Empty-reply fallback.** First empty reply: a nudge, as before. Second: another nudge, and the rest of the turn uses the fallback model (`google/gemini-2.5-flash-lite`) for one more try. Third: the clear "didn't respond" error ([0083](decisions/0083-fallback-model-after-two-empty-replies.md)).
+- **Weekly-set target up front.** The `get_plan_skeleton` result now includes `weekly_set_minimum_per_muscle_group`, and the system prompt tells the agent to choose sets to reach it. The check itself is unchanged ([0084](decisions/0084-weekly-set-minimum-stated-up-front.md)).
+- **Eval: 14 clients** (`evals/program_clients.yaml`, `evals/run_program_eval.py`). Two new expectation keys: `includes_all` (every listed exercise appears) and `excludes` (none appear). New clients:
+  - `home-dumbbells-not-gym`: "I'm new to the gym scene but I train at home with dumbbells. Build muscle, 3 days, beginner." Must exclude barbell, machine, and cable exercises (back squat, deadlift, bench press, leg press, lat pulldown, seated cable row).
+  - `hates-deadlifts`: "Full gym, intermediate, get stronger, 3 days a week. I hate deadlifts." Must exclude all four deadlifts.
+  - `loves-back-squats` now requires `includes_all: [barbell-back-squat, dumbbell-hip-thrust]` (was `includes_any`).
+- **Tests** (157 total, was 141): gym access phrases (parametrized, 8 cases), liked vs avoided, avoided removed from the skeleton, vague goals (5 cases), fallback after two empty replies, fallback rescues a turn.
+
+**Commands.**
+```bash
+uv run pytest -q                                   # 157 passed (re-run by the scribe: 157 passed in 1.48 s)
+uv run python evals/run_program_eval.py --runs 3   # run 1: 38/42 expectations
+uv run python evals/run_program_eval.py --runs 3   # run 2: 36/42, 5 outside-service errors + 1 empty-reply error
+uv run python evals/run_program_eval.py --runs 3   # final: 42/42, saved programs-20261002-161458.json + review sheet
+```
+- Run 1 (`programs-20261002-160746.json`): `missing-everything` didn't ask for the goal in 2 runs; 2 turns ended "didn't respond" after two empty replies, at the same moment.
+- Run 2 (`programs-20261002-161126.json`): 5 errors were OpenRouter timeouts on embeddings and profile reading (an outside outage: `SearchServiceUnavailable` ×2, `APITimeoutError` ×3); 1 was an empty-reply failure (`older-adult-new`).
+- A separate probe ran the `older-adult-new` client 8 times. The exact command isn't in the brief.
+- The final eval command line is taken from the brief (`--runs 3`); the brief doesn't say whether runs 1 and 2 used the same flags.
+
+**What we saw.**
+
+| Run | Expectations met | Programs passing every check | Accepted on first submission | Errors | Median time | Total cost |
+|---|---|---|---|---|---|---|
+| Previous follow-up (`155746`, 12 clients) | 36/36 | 30/30 | 28/30 | 0 | 8.0 s | $0.166 |
+| Run 1 (`160746`, 14 clients) | 38/42 | 34/34 | 29/34 | 0 | 8.7 s | $0.214 |
+| Run 2 (`161126`) | 36/42 | 31/31 | 26/31 | 5 | 9.1 s | $0.182 |
+| **Final (`161458`)** | **42/42** | **36/36** | 34/36 | 0 | 8.5 s | $0.185 |
+
+The first-submission, median, and cost figures for runs 1 and 2 were computed by the scribe from the saved JSON; the brief gives the expectation and error counts. In run 1, the two "didn't respond" turns are not counted as errors in the file (the turn returned a message, not an exception); they show up as failed expectations.
+
+- **Every fix came from reading real outputs, not scores.** Two examples:
+  - The first, sentence-level dislike rule marked push-ups as disliked in "I like push-ups and I don't want burpees". The fix was to check each clause, not the sentence ([Negation scope](concepts.md#negation-scope-clause-splitting)).
+  - "I can't do lunges" found nothing, because no catalog exercise is called just "lunge". The fix was to let a general word cover every exercise ending in it, for dislikes only.
+- **Vague goal.** The profile reader set `goal = "workout program"` for "I want a workout program", so code thought the goal was known. The agent asked about days, equipment, and level, but not the goal (2 of 3 runs in run 1). Final run: 3/3.
+- **Older-adult weekly sets.** In 8 probes of `older-adult-new` (70, new to exercise, get stronger, 2 days, dumbbells and bands): no empty replies, but 7 of 8 programs needed a second submission ("at least 6 weekly sets per major muscle group"), because the agent gave 2 sets per exercise. The general rule was already in the system prompt. After the skeleton started stating this client's minimum, first-try acceptance went 1/8 → 4/8. The checker still sends the rest back, and all pass after one fix. Final eval: 2 of 3 `older-adult-new` programs were accepted first time.
+- **The new clients, final run (from the saved JSON):**
+  - `home-dumbbells-not-gym`: 3/3 dumbbell and bodyweight only (goblet squat, dumbbell RDL, push-up, reverse lunge, glute bridge, overhead press, farmer carry, planks or dead bug; Bodyweight Squat once).
+  - `hates-deadlifts`: 3/3 without any deadlift. The hinge slot went to Kettlebell Swing (all 3 runs on day 1), Dumbbell Hip Thrust, or Glute Bridge.
+  - `loves-back-squats`: 3/3 with both Barbell Back Squat and Dumbbell Hip Thrust.
+- **Scribe probes after the commit** (run by hand, not in the brief):
+
+  | Input | Result |
+  |---|---|
+  | "I quit the gym" | no gym (fixed) |
+  | "beginner to the gym, I train at home with dumbbells" | no gym (fixed) |
+  | "I work out at home but have gym access" | **no gym** (at-home wording cancels it) |
+  | "I have a gym at work" | **no gym** (phrase not listed) |
+  | "I love squats" / "I like planks" | nothing liked (Bodyweight Squat no longer suggested) |
+  | "I don't like RDLs" | **nothing avoided** (abbreviation) |
+  | "I hate Romanian deadlifts" | avoids Dumbbell RDL, **not** Single-Leg RDL |
+  | "I hate deadlifts" | avoids all four deadlifts |
+
+**Problems and fixes.**
+- Gym rule matched home trainers (scribe probe) → narrowed to clear access phrases; at-home wording cancels.
+- "I hate deadlifts" was passed to the agent as a liked exercise → liked vs avoided, read per clause; avoided exercises removed from options in code.
+- First dislike rule worked per sentence and marked push-ups as disliked → per clause.
+- "I can't do lunges" found nothing → general words cover every variant, for dislikes.
+- Goal "workout program" counted as known → `VAGUE_GOAL` makes it missing.
+- Two empty replies in a row (2 of 42 runs, same moment) → the fallback model gets one try.
+- 7 of 8 older-adult programs rejected for weekly sets → the target is given in the skeleton; check unchanged.
+- An `UnboundLocalError` (a Python error: `mentions` was used before it was assigned) was caught by the tests immediately and fixed before the commit.
+- Run 2's 5 errors were an outside OpenRouter outage; no code change.
+
+**Open questions.**
+- **Coach:** is 6 weekly sets per major muscle group right for a 70-year-old beginner on 2 days?
+- **Coach:** should "I hate deadlifts" also remove RDLs? The developer chose yes (conservative).
+- Should "I work out at home but have gym access" count as a gym? It doesn't now (scribe probe).
+- Should abbreviations like "RDLs" be matched? The Phase 1F slang dictionary (`src/ragmotion/rewrite.py`) might be reusable. And should "I hate Romanian deadlifts" also avoid the Single-Leg RDL?
+- How often did the fallback model rescue a turn in the final run? Not recorded by the eval.
+- Should the two earlier result files (`programs-20261002-160746.*`, `programs-20261002-161126.*`, untracked) be committed as a record of the failures, or deleted?
+- Still open from before: coach review of the layouts and the new program sheet (`evals/results/programs-review-20261002-161458.md`); the halved one-session minimum ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)); whether a plank counts as "bodyweight" ([0074](decisions/0074-no-bodyweight-preference-read-by-code.md)).
+
+**Developer questions.**
+None this step.
+
+**Learned.**
+- New: [Negation scope (clause splitting)](concepts.md#negation-scope-clause-splitting), [Tell the model the target up front, still check in code](concepts.md#tell-the-model-the-target-up-front-still-check-in-code)
+- Extended: [False negatives vs false positives](concepts.md#false-negatives-vs-false-positives-in-a-safety-check) (the gym rule chooses the opposite error to the referral rule), [Recall vs precision](concepts.md#recall-vs-precision) (for text rules), [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too) (narrower backstop; vague goal), [Preferences as data read by code](concepts.md#preferences-as-data-read-by-code) (likes vs dislikes), [Behavior expectations beyond the checker](concepts.md#behavior-expectations-beyond-the-checker) (`includes_all`, `excludes`), [Fallback model](concepts.md#fallback-model) (empty replies as a second trigger)
+
+**Decisions.**
+- New: [0080](decisions/0080-gym-only-from-clear-access-phrases.md) gym only from clear access phrases; [0081](decisions/0081-liked-and-avoided-exercises-by-clause.md) liked vs avoided by clause; [0082](decisions/0082-vague-goal-counts-as-missing.md) vague goal counts as missing; [0083](decisions/0083-fallback-model-after-two-empty-replies.md) fallback after two empty replies; [0084](decisions/0084-weekly-set-minimum-stated-up-front.md) weekly-set target up front, check strict
+- Updated: [0077](decisions/0077-a-gym-mention-always-means-all-equipment.md) (superseded by 0080), [0078](decisions/0078-exercises-the-client-names-found-by-code.md) (extended by 0081), [0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md) (`includes_all`, `excludes`), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (14 clients, new results)

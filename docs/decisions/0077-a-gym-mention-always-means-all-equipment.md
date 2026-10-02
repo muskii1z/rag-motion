@@ -1,5 +1,5 @@
 # 0077. A gym mention always means all equipment (except "home gym")
-**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (full-gym detection) · **Status:** accepted
+**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (full-gym detection) · **Status:** superseded by [0080](0080-gym-only-from-clear-access-phrases.md)
 
 ## Context
 The profile reader (an LLM call, `extract_profile`) turns the conversation into a client profile, including equipment. For "I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym." it returned equipment `['barbell', 'machine']` and unmapped equipment `[]` in 3 of 3 reads: it dropped "full gym" and guessed equipment from the exercise names. The code backstop from [0067](0067-agent-asks-only-when-something-is-missing.md) only added "gym" when the reader had recorded **no** equipment, so it didn't fire. The client got no back squat (no rack), 3-exercise upper days, and a suggestion to buy a pull-up bar. Equipment decides every exercise option in the skeleton, so one wrong reading changes the whole program.
@@ -19,3 +19,6 @@ Both layers. In `read_profile`, if the client's messages match the `GYM` regex (
 ## Revisit when
 - A client who trains at home but mentions "the gym" gets gym-only exercises (live use, or an eval client added for that phrasing).
 - The reader reliably reports "full gym" on its own across repeated reads, so the backstop could narrow again.
+
+## Update 2026-10-02 (superseded)
+The tradeoff above happened as predicted in the scribe probe, so the rule was narrowed in [0080](0080-gym-only-from-clear-access-phrases.md): only clear access phrases ("full gym", "gym membership", "I train at the gym", ...) count, and any at-home wording ("home gym", "at home") cancels them. The backstop itself stays: when one of those phrases matches, "gym" is still added even if the reader listed some equipment.
