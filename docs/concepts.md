@@ -168,7 +168,9 @@ Some models generate hidden reasoning before the answer (a "thinking" phase). Th
 
 **In an interview:** "Reasoning models sometimes leak their thinking tags into the answer. I strip them in code before anything reaches the user, and a test feeds in the exact leaked text I saw."
 
-*First seen: Step 6. Extended: Phase 2 quality pass, Q2.*
+*Phase 2, P3 update: a suspected cause of stalls.* Qwen3.5 Flash, which earlier leaked `</think>` tags, stalled on the long program-writing call (116 s to 847 s) while short calls took about 1 s. The working hypothesis is that hidden reasoning on long structured answers is slow on its provider. A reasoning-on vs reasoning-off speed test was stopped by the time limit with no result, so this is unproven.
+
+*First seen: Step 6. Extended: Phase 2 quality pass, Q2, Phase 2, P3.*
 
 ### OpenAI-compatible APIs
 Many providers, OpenRouter included, accept the same request format as OpenAI's API. So one library, the official `openai` Python library, can call many models just by changing the base URL (the web address requests go to). In Step 6 it points at `https://openrouter.ai/api/v1`. Its `chat.completions.parse()` takes a Pydantic model and returns a validated object. Swapping models is then a setting (`LLM_MODEL`), not new code.
@@ -1056,7 +1058,11 @@ The model remembers nothing between calls. Each call sends the whole message lis
 
 **In an interview:** "The model has no memory; the message list is the memory. My server doesn't store conversations either. The client sends the whole conversation each turn, which keeps the server simple, at the cost of re-sending and re-reading it every time."
 
-*First seen: Phase 2, step 1.*
+*Phase 2, P3 update: the same design as a web API.* `POST /api/program` keeps nothing between requests; the page holds the conversation and sends all of it each turn. After a program is built, the page adds a short text summary of it to the conversation, so a follow-up such as "swap the squat" has something to refer to. Because the client controls the history, the endpoint checks it first: last message from the user, at most 30 messages of at most 1,000 characters, roles only `user` or `assistant` ([0065](decisions/0065-stateless-program-endpoint-user-and-assistant-roles-only.md)). Open question: the client also writes the `assistant` turns, so it could fake them.
+
+**In an interview (P3):** "My chat endpoint is stateless: the browser sends the whole conversation every turn. That makes the server trivial to scale, but it means the client owns the history, so I validate it like any other untrusted input."
+
+*First seen: Phase 2, step 1. Extended: Phase 2, P3.*
 
 ### Input guardrails vs output guardrails
 A guardrail is a rule in code that stops the system from doing something it shouldn't. An **input guardrail** works before the action: it checks that conditions are met before a tool may run. Here, the building tools refuse until goal, days per week, equipment, and experience level are known. An **output guardrail** works after: it checks the result. Here, `check_program()` runs up to 16 checks on every submitted program. The two catch different failures. The input guardrail stops the agent from building on missing information (the live test built from bodyweight only because equipment was never asked). The output guardrail catches a wrong program built on complete information (7 exercises a day for a beginner).
@@ -1119,21 +1125,29 @@ Price per token isn't the whole cost. An agent that fails needs retries, and eac
 
 **In an interview (follow-up):** "I first argued the bigger model was cheaper per correct result, and my own numbers proved me wrong. So I tested six models on the real task. The winner passed every run first try at about a quarter of the cost of what I had."
 
-*First seen: Phase 2, step 2. Extended: step 2 follow-up.*
+*Phase 2, P3 update: time is part of the cost.* Qwen3.5 Flash was about a quarter of Gemini 2.5 Flash's price per program, but in live use it stalled for minutes on program-sized answers. A program that arrives after two minutes, or not at all, isn't a cheap result for the person waiting. The developer chose Gemini 2.5 Flash again: 5 of 6 verification runs passed every check at 0.4–1.2 cents per program, about 3–4× Qwen's cost, with predictable latency.
+
+**In an interview (P3):** "Cheapest per token lost to predictable. A model that's a quarter of the price but sometimes takes minutes is expensive in the currency users actually notice."
+
+*First seen: Phase 2, step 2. Extended: step 2 follow-up, Phase 2, P3.*
 
 ### Model selection by measurement (test on the real task)
 Choosing a model by its price list, its size, or its brand is guessing. Choosing by measurement means running each candidate on the actual task, the same input several times, and scoring what matters for this job: did it pass the checks, did it pass first try, how long did it take, and what did a passing result cost. In the agent test (one conversation, 3 runs each), bigger or pricier wasn't automatically better: Qwen3.5 Flash matched the pricier Gemini 2.5 Flash's 3/3 first try at about a quarter of the cost; the larger Qwen3 235B and GPT-OSS 120B passed but were slower and less steady (up to 53 s and 136 s); DeepSeek V4 Flash failed every run. The same Qwen model had been passed over in step 1 on listed price alone ([0048](decisions/0048-agent-keeps-gemini-2-5-flash-lite-compare-models-later.md)); the measurement is what changed the choice ([0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md)). It needs two things already built: a checker that scores programs in code, and a setting (`AGENT_MODEL`) to switch models without editing code. Limits: 3 runs on one conversation is small; step 4's 10 fictional clients will test it more widely.
 
 **In an interview:** "I don't pick models by brand or price. My program checker scores every output in code, so I replayed the same conversation on six models and compared pass rate, first-try rate, time, and cost per program. A model I'd skipped on price ended up matching the more expensive one at a quarter of the cost."
 
-*First seen: Phase 2, step 2 follow-up.*
+*Phase 2, P3 update: measure in real use too.* The 6-model test measured one conversation, 3 runs each, in a script. It didn't catch Qwen3.5 Flash's stalls, which appeared on program-writing calls in the browser and were found through tracing. The decision was reversed on that evidence ([0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)), then the replacement was verified on 3 fictional clients × 2 runs (5/6 passed, 8–21 s). P4's ~10 fictional clients will widen the test.
+
+*First seen: Phase 2, step 2 follow-up. Extended: Phase 2, P3.*
 
 ### A guardrail is only as good as its inputs (guard the reader too)
 A code guardrail checks data; it can't tell if the data is wrong. The agent's building tools refuse until equipment is known ([Input guardrails vs output guardrails](#input-guardrails-vs-output-guardrails)). But "known" comes from the profile reader, which is itself an LLM. In a live run it guessed `['bodyweight']` for "beginner to the gym" (1 of 3 reads), so the refusal let the agent build a bodyweight-only program without asking. The fix was to guard the reader as well: its prompt says never to default to bodyweight, and code resets a bodyweight-only reading unless the client's own messages say something like "no equipment" ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)). After the fix, 6 of 6 reads reported equipment missing and the agent asked in 2 of 2 runs. Found by reading the profile several times, not by looking at the agent.
 
 **In an interview:** "My guardrail worked exactly as written and still let a bad program through, because the LLM feeding it had guessed 'bodyweight'. So I put a check on the reader too: bodyweight only counts if the client actually said it."
 
-*First seen: Phase 2, step 2 fixes.*
+*Phase 2, P3 update: the reader dropped a fact entirely.* In one traced read, "full gym" produced no equipment at all (equipment `[]`, unmapped `[]`), so the agent asked for equipment it had been told. A code backstop in `read_profile` now records `["gym"]` when the client's messages mention a gym and nothing was recorded ([0067](decisions/0067-agent-asks-only-when-something-is-missing.md)). Same lesson: check what the LLM reader produced before blaming the agent.
+
+*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P3.*
 
 ### Two-layer safety check (AI reading plus broad backup)
 One way to catch something important is two independent checks with different weaknesses. Here, health issues are caught twice: the profile AI records them in `health_issues` in the client's words (it understands "tweaked my back", but can miss or vary), and a broad word pattern scans the context notes as a backup (it never varies, but over-matches). Either one triggers the referral reminder. The two layers fail in different ways, so a miss needs both to miss. Same idea as [Defense in depth](#defense-in-depth-filters-plus-the-models-own-judgment).
@@ -1163,7 +1177,11 @@ When a model states a number about its own output, treat it as a claim, not a fa
 
 **In an interview:** "My agent claimed 10 to 13 sets per muscle group; chest had 3. Now the model doesn't state volume at all. Code counts it from the catalog and shows the real numbers."
 
-*First seen: Phase 2 quality pass, Q1.*
+*Phase 2, P3 update: the prompt rule wasn't enough.* In the first browser test the agent ignored "don't state totals" and wrote "chest: 6, back: 6, shoulders: 9, quads: 9, glutes/hamstrings: 15". Code counted shoulders 12 and glutes/hamstrings 21. Now a checker rule rejects per-muscle totals in the text (`VOLUME_CLAIM`, a regex), research citations like "at least 6 weekly sets per muscle" are still allowed, and the page draws code's counts as bars with the minimum marked ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)). In the browser check after the fix: no stated volume numbers; bars chest 6, back 9, shoulders 9, quads 9, glutes/hamstrings 18.
+
+**In an interview (P3):** "I told the model not to state set totals and it did anyway, with the wrong numbers. So the checker now rejects them, and the page shows the counts my code computed. The model writes the reasoning; code owns the numbers."
+
+*First seen: Phase 2 quality pass, Q1. Extended: Phase 2, P3.*
 
 ### Rules must fit the domain model (richer data, not looser rules)
 A domain model is how the data describes the real world: here, each exercise has one movement pattern (squat, hinge, push, pull...). A rule can only be as precise as that data. "One push and one pull per day" was meant to stop near-duplicates like glute bridge + hip thrust. On upper/lower splits it misfired: a normal upper day has a horizontal and a vertical press, and a row and a pulldown, but the catalog only knows "push" and "pull". Loosening the rule (allow two pushes) would let duplicates through again. The fix chosen is richer data: label push and pull exercises horizontal or vertical, and allow one per pattern *and direction* ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).
@@ -1648,14 +1666,18 @@ Scores can move with no change to the system, just because the ruler changed. Du
 
 *Phase 2 quality pass (Q3) update: a new source lowered a ranking score.* After three papers were added, passage MRR fell from 0.84 to 0.76, while the answers still used the expected evidence 52/54 times and gave no forbidden advice (15/15). The drop came from one broad review (Iversen 2021) ranking first on four program-design questions whose keys list only the specific meta-analyses. The key, not the search, decides whether that counts as a miss. Whether to accept Iversen in those keys is the coach's call, still pending. See [Broad reviews vs specific studies in retrieval](#broad-reviews-vs-specific-studies-in-retrieval).
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01), Phase 2 quality pass Q2, Q3.*
+*Phase 2, P3 update: the score came back by changing the key, not the system.* Accepting Iversen in four keys moved passage MRR from 0.76 to 0.86. That is the same ruler effect in the other direction, and it's legitimate only because the coach made the call for a stated reason, recorded in the YAML and [0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md).
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F6, going public (2026-10-01), Phase 2 quality pass Q2, Q3, Phase 2, P3.*
 
 ### Broad reviews vs specific studies in retrieval
 Research papers come in kinds. A **meta-analysis** pools the results of many trials to answer one question, such as how rest between sets affects growth. A **narrative review** is a broad expert summary of a field, without pooling the numbers. In semantic search, a broad review can match many questions a little, because it touches every topic. After Q3 added Iversen 2021, a narrative review on time-efficient training that discusses sets, rest, loads, and frequency, it ranked first on the weekly-sets, rest, rep-range, and frequency questions, ahead of the meta-analyses the keys expect (Pelland, Singer, Schoenfeld, still in the top 5). Passage MRR fell from 0.84 to 0.76, but the answers still used expected evidence 52/54 times. So adding a source can lower a ranking metric without making answers worse. Whether the broad review should count as a right answer is a judgment for the domain expert, not the metric.
 
 **In an interview:** "When I added a broad review paper, my ranking score dropped, because it now came first on questions where my key expected specific meta-analyses. The answers didn't get worse. The question was whether my key was too strict, and that went to my coach, not to a code change."
 
-*First seen: Phase 2 quality pass, Q3.*
+*Phase 2, P3 update: the coach's call.* The coach decided Iversen counts as correct evidence on the four program-design questions. With Iversen added to those keys, passage MRR went back to 0.86 and passage hit rate is 1.00, with no change to search ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)). Given up: the eval no longer flags when the broad review outranks the specific meta-analysis.
+
+*First seen: Phase 2 quality pass, Q3. Extended: Phase 2, P3.*
 
 ### Source-anchored vs judgment-based keys
 Two kinds of eval question need different review. **Source-anchored:** the right answer is a fact in a text, such as the Guidelines' "60 minutes or more daily" for kids. The text is the authority; review means checking the key against the verbatim sentence and page. The developer: "these are all good because you're citing the sources; they're directly from the book." **Judgment-based:** what counts as correct is a coaching call. Is a hip thrust a hinge? Is the dead bug anti-rotation? Should a beginner be shown the BSS? Only a domain expert can settle these, and the reason should be written down so the same call is made on every question.
@@ -1967,6 +1989,13 @@ A misspelled slug would otherwise never match anything, and quietly lower a scor
 **In an interview:** "My answer key has tests too. A misspelled exercise name in the key would silently cost points, and an exercise listed as both expected and forbidden can never pass, so a test catches both before any eval run."
 
 *First seen: Phase 1F, F2.*
+
+### Live testing in the real UI
+Unit tests check what someone thought to write down. Using the product the way a person would finds what nobody thought of. In P3 the developer used the program page in a browser. That exposed five problems the unit tests hadn't caught: the agent stated wrong volume numbers, two functions disagreed on "full gym", the profile reader dropped "gym", the agent asked when nothing was missing, and a model call hung for 847 s. Each was fixed, and most were pinned with a test ([Regression tests from real failures](#regression-tests-from-real-failures)). The loop is: use it live, find it, trace it, fix it, pin it with a test.
+
+**In an interview:** "My tests were green and the first real browser session still found five problems, including a 14-minute hang. Now every live bug becomes a test, but I keep doing live sessions, because that's where the new ones show up."
+
+*First seen: Phase 2, P3.*
 
 ## Terminal basics
 
@@ -2556,7 +2585,9 @@ Prompt injection is when instructions hidden inside data hijack the model. In St
 
 *Phase 2, step 1 update: the conversation drives an agent.* The program agent's prompt says everything in the conversation is data from the client, never instructions that change the rules. The stronger defense is structural: the client's limits are computed by code from the profile, and the tools filter by them, so the agent can't talk its way past them. One gap remains: the profile itself is read from the conversation by an LLM (`extract_profile`), and Step 6 showed that extraction can be manipulated. A client message could still change what the profile says. Not tested with an injected instruction in this step.
 
-*First seen: Step 6. Extended: Steps 10 and 13, Phase 2 step 1.*
+*Phase 2, P3 update: blocking injected roles.* Chat APIs label each message with a role: `system` (the app's own instructions), `user`, or `assistant` (the model). A stateless endpoint receives the whole message list from the browser, so a client could add its own `system` message and try to rewrite the rules. `POST /api/program` accepts only `user` and `assistant` and rejects anything else, with a test. This closes one door, not all of them: text inside a user message can still try to steer the agent, and the client also supplies the `assistant` turns.
+
+*First seen: Step 6. Extended: Steps 10 and 13, Phase 2 step 1, Phase 2, P3.*
 
 ### HTML escaping
 HTML is the language web pages are written in. If text from a user or a model is inserted into a page as-is, any HTML tags or scripts inside it would run in the browser (an attack called cross-site scripting, XSS). Escaping turns special characters like `<` and `>` into harmless codes, so the text is shown, not run. In Step 10 the web page escapes all user and model text before showing it. Model output counts as untrusted: it can repeat anything that was in its input, including text from documents later on.
@@ -2720,7 +2751,11 @@ Latency variance is how much the time for the same request changes from run to r
 
 **In an interview:** "When I compared agent models I looked at the spread, not just the average. One model passed every check but took up to 2 minutes a program; another took 19 seconds every time. For a chat, the steady one wins."
 
-*First seen: Phase 2, step 2 follow-up.*
+*Phase 2, P3 update: steady in a test, not in use.* Qwen3.5 Flash was picked partly for 19 s every run in the 6-model test. In live browser use it was intermittently extremely slow on the program-writing call: 116 s, 400+ s, and one 847 s call, while short calls took about 1 s. The agent went back to Gemini 2.5 Flash: 8–21 s across 6 verification runs ([0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)). A short test on one conversation can miss the slow tail (the rare, very slow requests); live use found it.
+
+**In an interview (P3):** "My cheap model looked steady in a 3-run test and then took 14 minutes on one call in the real page. Latency has a tail, and you only see it with enough real traffic."
+
+*First seen: Phase 2, step 2 follow-up. Extended: Phase 2, P3.*
 
 ### Retry on malformed structured output
 [Structured output](#structured-output-strict-json-schema) gives a valid shape only when the reply arrives complete. In the first eval v2 run, 2 of 31 answers crashed with "1 validation error for GroundedAnswer: Invalid JSON: EOF while parsing a string": the model's JSON was cut off mid-string. The code correctly refused to use half an answer, but it didn't try again, so those questions produced no answer and weren't scored (29 of 31). Fix: `llm.structured_completion()` now wraps `_structured_completion_once()` and retries once when pydantic raises a `ValidationError`. The final v2 run scored all 31. Tradeoffs: a retry costs another call and more time on those cases; retrying only once means a persistent problem still ends in an error instead of looping; and a retry can hide a systematic cause, so the crash rate is worth watching. Whether the cut-off came from the length cap (`max_tokens`) was not recorded.
@@ -2740,7 +2775,23 @@ A timeout is the longest the app waits for a reply before giving up. A retry is 
 
 *Going-public update: seen working.* In the final eval, two answer runs went at the same moment, and 3 question-runs hit `APITimeoutError` (two on `jargon-kbs`, one on `jargon-db-row`), consistent with a provider slowdown. The 25-second limit meant each failed cleanly and the runs finished, instead of hanging for minutes. The errors were reported, not hidden ([Reporting errored runs honestly](#reporting-errored-runs-honestly-not-re-running-until-clean)).
 
-*First seen: Step 16 revisit. Extended: going public (2026-10-01).*
+*Phase 2, P3 update: this timeout limits each read, not the whole call.* One agent call ran 847 s despite the 25 s setting, because OpenRouter's keep-alive bytes kept restarting it. Agent calls now also have a hard wall-clock deadline. See [Read timeout vs total deadline](#read-timeout-vs-total-deadline-keep-alive-bytes).
+
+*First seen: Step 16 revisit. Extended: going public (2026-10-01), Phase 2, P3.*
+
+### Read timeout vs total deadline (keep-alive bytes)
+A read timeout is how long a client waits for the *next* bytes from the server; it restarts every time something arrives. A total deadline (wall-clock deadline) is how long the whole call may take, no matter what arrives. Some providers send keep-alive bytes (small "still working" signals) on slow requests. OpenRouter does, so a stalled Qwen3.5 Flash call ran 847 s even though the `openai` client's timeout was 25 s. The fix: `_call_model` in `src/ragmotion/agent.py` runs each agent call in a thread pool and waits with `result(timeout=40)`. Nothing on the wire can reset that wait. If it expires, the call is retried once on a [fallback model](#fallback-model); if that also misses, the user gets HTTP 503 "The program builder took too long to respond." Checked with a real call: a 5 s deadline returned at 5.0 s. Side effects: the abandoned call keeps running in its thread until it finishes (whether it's still billed wasn't checked), and Python waits for those threads when a script exits, so scripts can exit late; the server is unaffected ([0068](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md)).
+
+**In an interview:** "I had a 25-second timeout and still saw a 14-minute call. The timeout was per read, and the provider kept sending keep-alive bytes, so it never fired. Now every agent call runs against a wall-clock deadline in a thread, which nothing on the wire can reset."
+
+*First seen: Phase 2, P3.*
+
+### Fallback model
+A fallback model is a second model the app switches to when the first one fails or is too slow. It trades a possibly weaker answer for getting an answer at all. In this project the agent calls `agent_model` first; if that call misses the 40 s deadline, `_call_model` retries once on `agent_fallback_model`. After P3: Gemini 2.5 Flash first, Gemini 2.5 Flash-Lite as fallback (while Qwen3.5 Flash was primary, the fallback was Gemini 2.5 Flash). Choices to make: a fallback from a different provider protects against one provider's outage, while one from the same family is more likely to behave the same with the same prompt and tools. Each model in the chain needs testing; how often the fallback actually ran, and how its programs score, hasn't been measured yet.
+
+**In an interview:** "Each agent call has a primary model and a fallback. If the primary misses a 40-second deadline, it retries once on the fallback, and only then does the user see an error. Two models deep, then a clear message."
+
+*First seen: Phase 2, P3.*
 
 ### Exception hierarchy order (check the child before the parent)
 In Python, error types form a family tree. A child type is a more specific kind of its parent. In the `openai` library, `APITimeoutError` is a child of `APIConnectionError`. A check like `isinstance(exc, APIConnectionError)` is also true for a timeout. So in a chain of checks, the first match wins. If the parent comes first, the child's specific message is never reached. `friendly_message()` in `errors.py` checks `APITimeoutError` first, with a comment saying why. The same rule applies to `try`/`except` blocks: list the specific error before the general one.
@@ -2826,7 +2877,9 @@ A web API is the set of addresses a program offers for other programs to call ov
 
 **In an interview:** "The web page talks to one endpoint, POST /api/ask. Because the contract is just that endpoint, my tests can pretend to be the page and check every reply, including the failure ones."
 
-*First seen: Step 10 (named in the Step 16 revisit).*
+*Phase 2, P3 update: a second endpoint for the agent.* `POST /api/program` takes a conversation and returns the agent's turn as JSON (`AgentTurn`, including the passages behind each citation). `GET /program` serves the page, and `/api/info` now reports `agent_model`. The same pattern as `/api/ask`: input checked first with plain 400 messages, failures mapped by `friendly_message()`, and tests that call the endpoint the way the page does.
+
+*First seen: Step 10 (named in the Step 16 revisit). Extended: Phase 2, P3.*
 
 ### FastAPI and uvicorn
 FastAPI is a Python library for building web APIs (programs other programs call over HTTP, the web's request protocol). A route connects a URL and method to a Python function: in `src/ragmotion/app.py`, `GET /` returns the HTML page and `POST /api/ask` answers a question. The request body is validated by a Pydantic model (question 3 to 500 characters, k 1 to 10), so bad input is rejected before any code runs. The function returns a dict that FastAPI sends back as JSON. Errors get an HTTP status code: any failure in the RAG step comes back as 502 ("the server behind me failed") with the reason. Uvicorn is the server program that runs a FastAPI app and listens on a port; `--reload` restarts it whenever code changes. Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`.
@@ -2874,6 +2927,13 @@ Accessibility means the page works for people using keyboards, screen readers (s
 
 *First seen: UI redesign after Step 15.*
 
+### Provenance in the UI (citation drawer and code-computed numbers)
+Provenance means where a piece of information came from. A UI can show it, so a reader can check a claim instead of trusting it. The program page does this two ways. First, citations: each citation chip in the program's "why" and progression opens a drawer with the real passage text, source, and location, taken from `AgentTurn.passages` (for example a Pelland passage labeled "preprint, not peer reviewed"). Second, numbers: the weekly-sets bars per muscle group are counted by code from the catalog, with the minimum marked, and the model isn't allowed to state its own totals. The page also shows "X/Y checks passed", lists failed checks when a program is shown after its retries ran out, and has a collapsible "How it was built · N tool calls" with the cost.
+
+**In an interview:** "On my program page every citation opens the actual passage, the volume numbers come from my code rather than the model, and the page shows how many checks passed and how the agent got there. A coach can check the program instead of trusting it."
+
+*First seen: Phase 2, P3.*
+
 ---
 
 ## Code design
@@ -2900,6 +2960,13 @@ When several copies of a script run at once, each must write to its own file. Th
 **In an interview:** "I lost an eval run because two parallel runs finished in the same second and wrote the same file. Nothing crashed; one result just vanished. Now result filenames include microseconds."
 
 *First seen: Phase 1F, F7d.*
+
+### One rule, one place (components that disagree)
+When two parts of a program each decide the same fact their own way, they eventually disagree. Here, `owned_equipment` treated "full gym" as all equipment, but `missing_for_program` only looked at the equipment list, so it reported equipment as missing and the agent asked a gym member which equipment they had. The fix was one shared function, `has_gym()` in `src/ragmotion/program.py`, that both use: equipment counts as known if it's listed or a gym is mentioned ([0067](decisions/0067-agent-asks-only-when-something-is-missing.md)). Often called a single source of truth.
+
+**In an interview:** "Two of my functions had their own idea of what 'full gym' meant, so one said the client had everything and the other said equipment was missing. Now they share one function. A rule that matters should live in exactly one place."
+
+*First seen: Phase 2, P3.*
 
 ---
 

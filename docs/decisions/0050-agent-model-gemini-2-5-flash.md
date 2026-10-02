@@ -34,3 +34,6 @@ Same conversation (beginner, build muscle and get stronger, 4 days, "dumbbells, 
 The developer asked for a cheaper model that does the same job. Five cheap OpenRouter models with tool support were tested on the same conversation, 3 runs each. Qwen3.5 Flash (`qwen/qwen3.5-flash-02-23`) passed 3/3 on the first submission, like Gemini 2.5 Flash, in a steady 19 s, at $0.0013–0.0015 per program, about 4–5x cheaper. The agent now runs on Qwen3.5 Flash. The Q&A app stays on Flash-Lite. See [0053](0053-agent-model-qwen3-5-flash-after-six-model-test.md).
 
 This also corrects a claim made at the time of this decision: Gemini 2.5 Flash was faster and more reliable than Flash-Lite, but not cheaper per passing program (about 1.5–2x more).
+
+## Update 2026-10-02 (Phase 2, P3): back in force
+After Qwen3.5 Flash stalled in live use, the agent returned to Gemini 2.5 Flash, now with Gemini 2.5 Flash-Lite as a fallback model behind a 40 s deadline per call. Recorded as [0069](0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md).

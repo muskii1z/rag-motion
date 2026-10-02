@@ -1,5 +1,5 @@
 # 0053. The agent runs on Qwen3.5 Flash after a 6-model test
-**Date:** 2026-10-01 · **Step:** Phase 2, step 2 follow-up · **Status:** accepted (supersedes [0050](0050-agent-model-gemini-2-5-flash.md))
+**Date:** 2026-10-01 · **Step:** Phase 2, step 2 follow-up · **Status:** superseded by [0069](0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md) (it superseded [0050](0050-agent-model-gemini-2-5-flash.md))
 
 ## Context
 [0050](0050-agent-model-gemini-2-5-flash.md) put the program agent on Gemini 2.5 Flash: reliable, but about 0.6 cents ($0.006) per program. The developer: *"0.6 is a lot bud, can we explore other models that will do the same job but cheaper."* At about $6 per 1,000 programs it isn't much yet, but the developer wanted to know whether the same reliability was available for less.
@@ -43,3 +43,6 @@ Candidates: OpenRouter models that support tools and `tool_choice` (forcing a sp
 ## Update 2026-10-01 (Phase 2 quality pass, Q1)
 - Candidates were picked for supporting `tool_choice`, but Qwen3.5 Flash's only provider rejected a *named* `tool_choice` (OpenRouter 404). The test never reached the forced submit, so it didn't show. The agent no longer names a tool; it offers only the submit tool instead ([0047 update](0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)). The model choice stands.
 - The 6-model test ran before Q1's stricter quality checks ([0057](0057-program-quality-checks-weekly-sets-patterns-day-labels.md)). With them, Qwen3.5 Flash passed 0 of 3 replays fully. Whether another model does better under the new checks is untested.
+
+## Update 2026-10-02 (Phase 2, P3): superseded
+In live browser use Qwen3.5 Flash was intermittently extremely slow on the program-writing call: one call ran 847 s, one turn 116 s, a traced run 400+ s inside one call (short calls about 1 s). The 6-model test's steady 19 s didn't hold in use. The developer switched the agent back to Gemini 2.5 Flash with Flash-Lite as fallback. See [0069](0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md).

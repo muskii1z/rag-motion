@@ -1,0 +1,62 @@
+# Phase 2, P4: program-builder eval. Fictional clients only.
+#
+# Each client is a conversation: the runner sends `messages` one at a time to the agent and scores the
+# LAST turn. Expectations (all optional) are checked in code by evals/run_program_eval.py:
+#   kind                  program | question | message (what the last turn should be)
+#   passes_checks         every program check in src/ragmotion/program.py passes
+#   mentions_any          the reply (text, rationale, progression or safety notes) mentions one of these words
+#   no_adult_research     no citation from research on healthy adults (wrong age group for this client)
+#   no_bodyweight_only    no exercise whose only equipment is bodyweight
+#   has_referral          a health-professional reminder is present
+#   no_referral           no conditions flagged (exercise names like "back squats" aren't injuries)
+#   question_mentions     for kind=question: the question asks about each of these words
+
+clients:
+
+- id: beginner-dumbbells-3day
+  messages: ["Build muscle, 3 days a week, dumbbells and a bench, beginner"]
+  expect: {kind: program, passes_checks: true}
+
+- id: full-gym-intermediate-4day
+  messages: ["Get stronger, 4 days a week, full gym, intermediate"]
+  expect: {kind: program, passes_checks: true}
+
+- id: missing-everything
+  messages: ["I want a workout program"]
+  expect: {kind: question, question_mentions: [goal, days, equipment]}
+
+- id: two-turn-beginner
+  messages: ["I'm a beginner and want a routine", "Build muscle, 4 days a week, dumbbells, a bench and a cable machine"]
+  expect: {kind: program, passes_checks: true}
+
+- id: older-adult-new
+  messages: ["I'm 70 and new to exercise. I want to get stronger, 2 days a week, with dumbbells and resistance bands."]
+  expect: {kind: program, passes_checks: true, no_adult_research: true}
+
+- id: youth-soccer
+  messages: ["My 15-year-old son wants to get stronger for soccer. 3 days a week, full gym, beginner."]
+  expect: {kind: program, passes_checks: true, no_adult_research: true}
+
+- id: sore-knee
+  messages: ["Beginner, general fitness, 3 days a week, full gym. I have a sore knee from running."]
+  expect: {kind: program, passes_checks: true, has_referral: true}
+
+- id: pregnancy
+  messages: ["I'm pregnant and want a strength program, 3 days a week, dumbbells, beginner"]
+  expect: {kind: message, mentions_any: [health professional, pregnancy]}
+
+- id: no-equipment-home
+  messages: ["General fitness at home with no equipment, 3 days a week, beginner"]
+  expect: {kind: program, passes_checks: true, mentions_any: [pull-up bar, band]}
+
+- id: one-kettlebell-fat-loss
+  messages: ["One kettlebell at home, I want to lose fat, 3 days a week, beginner"]
+  expect: {kind: program, passes_checks: true, mentions_any: [nutrition]}
+
+- id: loves-back-squats
+  messages: ["I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym."]
+  expect: {kind: program, passes_checks: true, no_referral: true}
+
+- id: no-bodyweight-please
+  messages: ["Build muscle, 3 days a week, dumbbells and a bench, beginner. I don't want bodyweight exercises."]
+  expect: {kind: program, passes_checks: true, no_bodyweight_only: true}

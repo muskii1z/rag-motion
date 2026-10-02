@@ -169,8 +169,11 @@ def weekly_set_minimum(profile: ClientProfile) -> int:
 HEALTH_PATTERN = re.compile(
     r"\b(pain\w*|hurt\w*|ache\w*|injur\w*|sore\w*|strain\w*|sprain\w*|tweak\w*|pull(ed)? (a|my) \w+|tear|torn|"
     r"disc|hernia\w*|surgery|operation|condition|arthritis|diabet\w*|asthma|blood pressure|hypertension|heart|"
-    r"pregnan\w*|rehab\w*|physio\w*|osteo\w*|knee|shoulder|hip|ankle|wrist|neck|elbow|hamstring|"
-    r"(?<!coming )(?<!getting )(?<!get )(?<!come )back(?! to\b| into\b| in\b))\b",
+    r"pregnan\w*|rehab\w*|physio\w*|osteo\w*|"
+    # Body parts, but not exercise names ("hip thrusts", "shoulder press", "knee raises"; P4 false alarm).
+    r"(?:knee|shoulder|hip|ankle|wrist|neck|elbow|hamstring)s?(?!\s+(?:press|thrust|hinge|bridge|raise|curl|extension|tuck|abduct)\w*)|"
+    # "back", but not "coming back to lifting" and not "back squats", "back extensions", "back rows".
+    r"(?<!coming )(?<!getting )(?<!get )(?<!come )back(?! to\b| into\b| in\b|\s+squats?\b|\s+extensions?\b|\s+rows?\b))\b",
     re.IGNORECASE)
 
 
@@ -252,14 +255,21 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
                         detail="; ".join(claims),
                         fix="Remove these per-muscle set numbers from the rationale and progression: " + "; ".join(claims)))
 
+    if re.search(r"fat|weight loss|lose weight|lean", profile.goal or "", re.IGNORECASE):
+        said = re.search(r"nutrition|diet", draft.rationale + " " + (draft.safety_notes or ""), re.IGNORECASE)
+        checks.append(Check(name="fat-loss program says nutrition isn't covered by the sources", passed=bool(said),
+                            fix="Add a sentence to the rationale saying nutrition matters for fat loss but isn't covered by these sources."))
+
     sets, minimum = weekly_sets(draft), weekly_set_minimum(profile)
     reachable = {g for g, members in MUSCLE_GROUPS.items()
                  if any(usable(e, profile) and set(e["primary_muscles"]) & members for e in cat.values())}
     short = {g: n for g, n in sets.items() if g in reachable and n < minimum}
     checks.append(Check(name=f"at least {minimum} weekly sets per major muscle group", passed=not short,
                         detail=", ".join(f"{g}: {n}" for g, n in sets.items()),
-                        fix="; ".join(f"{g} has {n} weekly sets: add {minimum - n} more (extra sets on an exercise that trains it, "
-                                      f"or add one)" for g, n in short.items())))
+                        fix="; ".join(f"{g} has {n} weekly sets: add {minimum - n} more, with extra sets or another day of an exercise "
+                                      f"that trains it, e.g. " + ", ".join(sorted(e["name"] for e in cat.values() if usable(e, profile)
+                                                                                    and set(e["primary_muscles"]) & MUSCLE_GROUPS[g])[:4])
+                                      for g, n in short.items())))
     add("every exercise has sets, reps and rest", [x.slug for x in used if not (x.sets.strip() and x.reps.strip() and x.rest.strip())])
     untimed = sorted({x.slug for x in used if x.slug in TIMED and not any(u in x.reps.lower() for u in ("s", "sec", "m"))})
     checks.append(Check(name="planks and carries in seconds or metres, not reps", passed=not untimed, detail=", ".join(untimed),

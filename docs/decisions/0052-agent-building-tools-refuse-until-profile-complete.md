@@ -23,3 +23,6 @@ Refuse in code. The refusal names the missing fields, so the agent's natural nex
 
 ## Update 2026-10-01 (step 2 fixes): bypassed by the profile reader's guess
 In the developer's next live run the refusal didn't fire: the profile reader guessed `['bodyweight']` for "beginner to the gym" (1 of 3 reads), so equipment counted as known. The refusal is only as good as the profile it reads. Fixed in [0055](0055-bodyweight-only-when-the-client-says-so.md): bodyweight counts only when the client says so.
+
+## Update 2026-10-02 (Phase 2, P3): a gym counts as known equipment
+"Full gym" was stored as unmapped equipment, and the missing-details check only looked at the equipment list, so the agent asked for equipment a gym member had already given. A shared `has_gym()` now decides for both functions, with a backstop when the reader drops "gym", and a nudge when the agent asks with nothing missing. See [0067](0067-agent-asks-only-when-something-is-missing.md).

@@ -20,3 +20,6 @@ The coach kept the key strict: research or Guidelines only.
 
 ## Update 2026-10-01 (Phase 2 quality pass, Q3): a new research source competes
 After Iversen et al. 2021 (a CC BY narrative review on time-efficient training) was added, it ranked first on `prog-frequency`, and the question's passage MRR fell from 0.50 to 0.00. Iversen is research, so it meets this decision's rule ("research or Guidelines only"), but it isn't in the key. Pending with the coach: add Iversen as an additional expected source for `prog-frequency`, and also for `prog-weekly-sets`, `prog-rest-intervals`, and `prog-rep-ranges`. See [0062](0062-q3-sources-iversen-refalo-bastos-cc-by.md).
+
+## Update 2026-10-01 (Phase 2, P3): Iversen accepted
+The coach decided Iversen 2021 counts as correct evidence for `prog-frequency`, `prog-weekly-sets`, `prog-rest-intervals`, and `prog-rep-ranges` (commit `eac0c4f`). The key stays "research or Guidelines only"; Iversen is research. Passage MRR back to 0.86, passage hit rate 1.00. See [0064](0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md).

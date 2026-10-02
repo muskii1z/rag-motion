@@ -24,3 +24,6 @@ Ingest Iversen, Refalo, and Bastos as license group A, each with its license sen
 - The coach decides on Iversen in the answer keys (accept it, or keep the keys strict and look at why it outranks the meta-analyses).
 - Robinson 2024 or a similar dose-response paper becomes openly licensed.
 - The program builder's answers on effort or session length turn out thin when the coach reviews programs (P4).
+
+## Update 2026-10-01 (Phase 2, P3): the Iversen key decision
+The coach accepted Iversen as an additional expected source on the four program-design questions. Passage MRR 0.76 → 0.86 with no search change. See [0064](0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md).

@@ -2,7 +2,7 @@
 
 The interview questions from the project brief, grouped by topic. Under each question, "Evidence so far" links to the build log, concepts, and decisions that help answer it. Questions with nothing built yet are marked *Not yet covered*.
 
-Last updated: Phase 2, step 2 fixes, 2026-10-01 (health issues read by the profile AI with a broad backup pattern; the profile reader's bodyweight guess blocked in code; patterns with no usable exercises not required; 69 tests; decisions 0054–0056).
+Last updated: Phase 2, P3, 2026-10-02 (program page and stateless `/api/program` endpoint; live browser fixes: volume-claim rule, shared gym rule and nudge, hard 40 s deadline per agent call with a fallback model; agent back on Gemini 2.5 Flash; Iversen accepted in four keys; 89 tests; decisions 0064–0069).
 
 ---
 
@@ -596,6 +596,10 @@ Evidence so far:
 - [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **new sources, new questions, and a score drop explained.** Three CC BY papers (time-efficient training, proximity to failure, RIR scales) each got a question only they can answer (55 total); each retrieved its paper at rank 1–2 with passage recall 1.0. Regression, 1 run, no judge: citations 52/55, coverage 50/55, expected evidence 52/54, no forbidden advice 15/15, completeness 0.83, no extras 17/29. Passage MRR fell 0.84 → 0.76 because the broad review ranks first on four older questions. The coach's Q2 key calls were applied first (`cdcb98b`); whether Iversen joins four keys is pending. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change) (extended).
   - Point to make: "A metric dropped after I added research. I read which questions moved and why before deciding whether the system or the key was wrong. Here it was mostly the key, and that call belongs to the coach."
 
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **the coach's call moved the score back.** Iversen 2021 was accepted as correct evidence on four program-design keys ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)). Passage MRR 0.76 → 0.86 and passage hit rate 1.00, with no search change. See [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change).
+  - Point to make: "The metric recovered because the expert changed the key, for a written reason, not because I tuned search to the test. I say that up front when I quote the number."
+- **Evaluating the agent, not just the RAG answers.** The new model was checked on 3 fictional clients × 2 runs: 5/6 passed every code check, 8–21 s, 0.4–1.2 cents per program. P4 (~10 fictional clients plus coach review) is next.
+
 ### How do you know your system isn't making things up? (interview material)
 Not a question from the brief, but a common follow-up to the one above.
 Evidence so far:
@@ -687,6 +691,9 @@ Evidence so far:
 - [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **an agent that announces instead of acting.** After gathering exercises and sources, one run replied "Let me summarize..." and stopped, with no program. Now, once real work has been done, a text reply forces the next move to be a submission ([0061](decisions/0061-narration-forces-a-submission.md), [Narrating instead of acting](concepts.md#narrating-instead-of-acting-progress-based-forcing)).
   - Point to make: "A chatbot is allowed to just talk. My agent has a job, so code decides when talking is acceptable: before it has started building, yes; after, it has to deliver."
 
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **an agent with a page.** The coach chats with it in the browser; it shows each program with its checks, the tool calls it made ("How it was built · N tool calls"), and the passage behind every citation. Live use showed agent-like failure modes a chatbot doesn't have: asking for details it already had (fixed with one nudge, [0067](decisions/0067-agent-asks-only-when-something-is-missing.md)), and stating numbers about its own work that were wrong ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)).
+  - Point to make: "The agent decides what to do next, so it can also decide to ask a question it doesn't need to. My code knows what's missing, and if the answer is 'nothing', it tells the agent to build."
+
 ## LangGraph
 
 ### Why did you use LangGraph?
@@ -730,6 +737,10 @@ Evidence so far (partial: no program generation yet):
 
 - [Phase 2 quality pass, Q2](build-log.md#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail): **failures dropped once the data could express the rule.** Full-gym upper/lower replays: 0/3 passing every check before Q2, 2/3 after (18/18 first try, 16 s, $0.0016), then 4/6 after the narration fix (2 shown with failures after 3 submissions: a double pattern; exercises per day; $0.0017–0.0059).
   - Point to make: "When most programs failed a check, the fix wasn't more retries. The data was missing movement direction, so the rule fought normal practice. With it, upper/lower programs pass."
+
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **a new rule from the browser.** The agent wrote "glutes/hamstrings: 15" when code counted 21. The checker now rejects per-muscle totals in the text, and the failure goes back with the usual exact fix ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)). On the page, a program shown after its retries ran out lists its failed checks next to an "X/Y checks passed" badge.
+  - In the 6 verification runs on Gemini 2.5 Flash, one full-gym program still failed "squat/lunge on 2+ days" and "one per pattern per day" after 3 submissions, and was returned with those failures. Whether those two rules conflict on a 4-day plan is an open question for P4.
+  - Point to make: "A program that fails validation three times still reaches the coach, with the failed checks on screen. Nothing is hidden and nothing loops."
 
 ## Human-in-the-loop
 
@@ -784,6 +795,9 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **the coach settles the answer key.** Five judgment calls from Q2 came back in one line ("yes to all of them, bench dip vertical") and were written next to each key as comments. The next call is already queued: should a broad review count as a right source on four program-design questions?
 
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **the page is built for the reviewer.** Every citation opens the real passage; volume bars come from code with the minimum marked; the check count, failed checks, tool calls, and cost are on screen. See [Provenance in the UI](concepts.md#provenance-in-the-ui-citation-drawer-and-code-computed-numbers). The coach also settled the Iversen key ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)), and the developer made the model call ("ok let's switch back to Gemini then", [0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)).
+  - Point to make: "I designed the program page so a coach can verify it, not just read it: click a citation, see the passage; look at the bars, see my code's count, not the model's."
+
 ## Observability
 
 ### How do you debug an agent that made a bad decision?
@@ -836,6 +850,9 @@ Evidence so far:
 
 - [Phase 2, step 2 fixes](build-log.md#phase-2-step-2-fixes-health-issues-read-by-the-profile-ai-and-no-guessed-bodyweight): **the bug was upstream of the agent.** The developer reported the agent built without asking for equipment, again. The step log showed what the agent did; the reason was in its input. Reading the profile 3 times showed the profile reader guessed `['bodyweight']` once, which made the refusal guardrail think equipment was known. Fixed in the reader's prompt and with a code guard ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
   - Point to make: "The agent followed its rules. The profile it was given was wrong. When an agent misbehaves, I check what it was told before I change how it thinks."
+
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **traces found what the page couldn't show.** A request hung for minutes; the trace showed one model call of 847 s, which led to the read-timeout vs deadline fix ([0068](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md)). Another trace showed the profile reader returning no equipment at all for "full gym", which explained why the agent asked ([0067](decisions/0067-agent-asks-only-when-something-is-missing.md)). Later traces showed 400+ s inside one call on Qwen3.5 Flash, which drove the model switch. See [Read timeout vs total deadline](concepts.md#read-timeout-vs-total-deadline-keep-alive-bytes).
+  - Point to make: "The page just spun. The trace said one model call took 847 seconds, and that told me my timeout wasn't doing what I thought. Without per-call timing I'd have blamed my own code."
 
 ## Production
 
@@ -937,6 +954,13 @@ Evidence so far:
 - [Phase 2 quality pass, Q1](build-log.md#phase-2-quality-pass-q1-program-quality-checks-the-forced-submit-crash-fix-and-the-q2-and-q3-plan): **a provider without a feature.** Qwen3.5 Flash had one host on OpenRouter, and it didn't support a named `tool_choice`: 404, no fallback. Fixed by using only common features (offer one tool instead of naming it). The terminal chat now prints a friendly error instead of a traceback. See [Open-weight model hosting variability](concepts.md#open-weight-model-hosting-variability).
   - Point to make: "Switching to a cheaper model also switched the host, and that host was missing a feature I used on one rare path. I now stick to features every host supports, or check before relying on one."
 
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **limits that actually limit, and a second model.**
+  - **The timeout that never fired.** The OpenRouter client's 25 s timeout is per read; OpenRouter's keep-alive bytes reset it, and one call ran 847 s. Now each agent call runs in a thread with a 40 s wall-clock deadline, retries once on a [fallback model](concepts.md#fallback-model), then returns 503 "The program builder took too long to respond. Try again in a minute." Verified with a real call (5 s deadline returned at 5.0 s). See [0068](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md).
+  - **Predictable latency over lowest price.** Qwen3.5 Flash stalled (116 s to 847 s) on program-sized answers; the agent went back to Gemini 2.5 Flash with Flash-Lite as fallback: 5/6 passed, 8–21 s, 0.4–1.2 cents per program ([0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)).
+  - **Stateless endpoint.** `POST /api/program` keeps nothing between requests, so any server process can take any turn ([0065](decisions/0065-stateless-program-endpoint-user-and-assistant-roles-only.md)).
+  - **A local DNS blip** produced "Couldn't reach OpenRouter"; the named-failure message was right and no code changed.
+  - Point to make: "A timeout setting isn't a guarantee. Mine was per read, and a provider's keep-alive bytes kept it from ever firing. In production I'd put a wall-clock deadline on every slow dependency, with a fallback behind it."
+
 ## Security
 
 ### Where are your API keys stored?
@@ -990,6 +1014,9 @@ Evidence so far:
   - Point to make: "Making a repo public publishes its history, so I scanned every commit, not just the current files."
 
 - [Going public, 2026-10-01](build-log.md#finishing-phase-1f-for-a-public-portfolio-coach-reviews-final-evals-readme-rewrite-pre-public-checks): **the final pre-public check.** 90 commits; full history plus README, docs, and results scanned for `sk-or-`, `lsv2_`, `sk-ant-`, AWS keys, private keys: 0. Committed `KEY=value` lines: 0. Tracked `.env`, `data/raw/`, `.pdf`, `.xml`: 0. 55 tests pass. Personal data: only the author email in `pyproject.toml` and commit metadata, flagged to the developer. See [Pre-public checklist](concepts.md#pre-public-checklist-secrets-in-history-tracked-files-licenses).
+
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **untrusted conversation input on a public-facing endpoint.** The program endpoint receives the whole conversation from the browser, so it rejects any role other than `user` or `assistant` (no injected `system` messages), caps it at 30 messages of 1,000 characters, and requires the last message to be the user's, all with tests ([0065](decisions/0065-stateless-program-endpoint-user-and-assistant-roles-only.md), [Prompt injection](concepts.md#prompt-injection)). Open: the client also writes the `assistant` turns and could fake them. The OpenRouter key stays server-side as before.
+  - Point to make: "A stateless chat API hands the history to the client, so I treat the history as untrusted input: allowed roles only, size limits, and the last word must be the user's."
 
 ### How do you decide what content your RAG system is allowed to ingest? (interview material)
 Not a question from the brief, but a strong one for RAG roles: data provenance (knowing where every piece of data came from) and licensing are part of RAG engineering, not an afterthought.
@@ -1112,6 +1139,15 @@ Evidence so far:
 - [Phase 2, step 1](build-log.md#phase-2-step-1-the-program-agent-loop-conversation-and-tools): **a program request is a loop, not a line.** Client message → `read_profile` (`extract_profile` over the whole conversation) → limits computed in code → pregnancy check → model call with system prompt, profile note, conversation, and 4 tools → for each tool call: `find_exercises` (catalog filtered by equipment, level, age) or `search_sources` (`search_all` filtered by age group) → results appended → model again → ends at `ask_user` (a question back to the client) or `submit_program` (validated against `ProgramDraft`, enriched with catalog names) → step log, cost, and cited ids returned. Repeats refused, a nudge after 3 searches, submit forced after 10 tool calls ([0047](decisions/0047-agent-loop-guardrails-repeat-refusal-nudge-forced-submit.md)).
 
 - [Phase 2, step 2](build-log.md#phase-2-step-2-program-checker-in-code-agent-guardrails-and-the-agent-model-choice): **the program loop gained a gate at each end.** Before: the building tools refuse until goal, days, equipment, and level are known. After: `submit_program` → `ProgramDraft` shape check → `check_program()` → if anything fails, back to the agent with exact fixes and a forced resubmit (up to 3 submissions) → program returned with its checks and `passed_checks`. Empty replies get one nudge, then a clear error. The agent runs on `agent_model` (Gemini 2.5 Flash).
+
+- [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **the program request path, browser to program.**
+  1. `program.html` sends `POST /api/program` with the whole conversation.
+  2. `app.py` checks it (roles, count, length, last message from the user), then calls the agent's `run_turn`.
+  3. `read_profile` reads the client's details (with the gym backstop); `has_gym()` and the missing-details check decide whether to ask or build.
+  4. The loop: each model call goes through `_call_model` (40 s deadline, one fallback), tools run in code, and `submit_program` → shape check → `check_program()` (now including the volume-claim rule) → up to 3 submissions.
+  5. JSON back: the `AgentTurn` with the program, checks, code-counted weekly sets, tool-call log, cost, and `passages` (id → source, location, text).
+  6. The page renders day cards, volume bars, citation chips that open passages, and adds a short program summary to the conversation for follow-ups.
+  - Point to make: "The browser holds the conversation, the server holds no state, and every number on the page is either computed by code or linked to the passage it came from."
 
 ## Tradeoffs
 
@@ -1257,3 +1293,10 @@ Evidence so far:
 - **Ingest a broad review vs only specific studies** ([0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md), [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales)): ingested Iversen 2021. Given up: passage MRR 0.84 → 0.76, as it outranks the specific meta-analyses on four questions. Gained: evidence on time-efficient programs, which nothing else covered. Key decision pending.
 - **Nested tables: drop vs read separately** ([0063](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md)): read separately. Given up: the table no longer sits mid-paragraph. Gained: no 1,649-word run-on chunk; tables chunked row by row.
 - **Free to read vs free to reuse** ([0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md)): rejected a CC BY-NC-ND trial and a paywalled study. Given up: their evidence. Gained: a public repo with only reusable text.
+- **Server sessions vs a stateless endpoint** ([0065](decisions/0065-stateless-program-endpoint-user-and-assistant-roles-only.md)): stateless. Given up: control of the history (the client could fake assistant turns); more data per turn. Gained: no storage, any process can serve any turn.
+- **Prompt rule vs checker rule for stated volume** ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)): checker rule. Given up: a retry when it fires; a regex can miss phrasings. Gained: the page never shows two different set counts.
+- **Fix the prompt vs fix each layer** ([0067](decisions/0067-agent-asks-only-when-something-is-missing.md)): a shared gym rule, a reader backstop, and one nudge. Given up: a needed clarifying question costs one extra round. Gained: gym clients aren't asked for equipment.
+- **Read timeout vs wall-clock deadline + fallback** ([0068](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md)): deadline in a thread. Given up: abandoned calls keep running in the background (billing unchecked), scripts exit late, worst case about 80 s per call. Gained: no more multi-minute hangs.
+- **Cheap but stalling vs pricier but predictable** ([0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)): Gemini 2.5 Flash over Qwen3.5 Flash. Given up: about 3–4× the cost per program. Gained: 8–21 s instead of occasional minutes.
+  - Point to make: "At 100,000 programs, the cheaper model saves real money on paper, but a few percent of users waiting minutes would cost more in trust. I'd revisit with measured tail latency, not list prices."
+- **Strict key vs accepting a broad review** ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)): accepted, on the coach's call. Given up: the eval no longer flags a broad review ranked above the specific study. Gained: a key that matches what the coach accepts.

@@ -32,3 +32,6 @@ Code attaches the weekly-set table to every program; the prompt tells the agent 
 - The one-per-pattern check now counts push and pull by direction (check name: "one exercise per movement pattern (and push/pull direction) per day"); see [0058](0058-push-and-pull-get-horizontal-vertical-labels.md), [0060](0060-machine-and-cable-equipment-and-a-direction-column.md).
 - Day names now cover upper, lower, leg(s), push (no lower body, no pull) and pull (no lower body, no push), matched as whole words.
 - Replays: 0/3 passing every check before Q2; 2/3 after (18/18 checks, first try, $0.0016, 16 s); 4/6 after the narration fix, $0.0017–0.0059.
+
+## Update 2026-10-02 (Phase 2, P3): stated totals rejected
+The prompt's "don't state totals" was ignored in the first browser test ("glutes/hamstrings: 15" vs 21 counted by code). A checker rule now rejects per-muscle set totals in the text; research citations are allowed. The page shows code's counts as bars with the minimum marked. See [0066](0066-no-weekly-set-totals-in-program-text.md).

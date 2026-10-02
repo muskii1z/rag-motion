@@ -261,3 +261,27 @@ def test_a_gym_mentioned_but_dropped_by_the_reader_counts_as_a_full_gym(monkeypa
     monkeypatch.setattr(agent, "extract_profile", lambda text: (dropped.model_copy(), None))
     p = agent.read_profile([{"role": "user", "content": "Get stronger, 4 days, full gym, intermediate"}])
     assert p.unmapped_equipment == ["gym"]
+
+
+def test_exercise_names_are_not_injuries_but_real_complaints_still_are():
+    from ragmotion.program import HEALTH_PATTERN
+    for name in ["loves back squats and hip thrusts", "likes the shoulder press", "knee raises are easy", "back extensions"]:
+        assert not HEALTH_PATTERN.search(name), name
+    for complaint in ["sore knee from running", "my hip hurts", "bad shoulder", "lower back pain", "tweaked my back"]:
+        assert HEALTH_PATTERN.search(complaint), complaint
+
+
+def test_fat_loss_programs_must_say_nutrition_isnt_covered():
+    fat = profile(goal="lose fat")
+    names = {c.name for c in failed(check_program(ProgramDraft.model_validate(GOOD), fat, {"notes-program-design-1"}))}
+    assert "fat-loss program says nutrition isn't covered by the sources" in names
+    said = {**GOOD, "rationale": GOOD["rationale"] + " Nutrition matters for fat loss but isn't covered by these sources."}
+    assert not failed(check_program(ProgramDraft.model_validate(said), fat, {"notes-program-design-1"}))
+
+
+def test_volume_fix_names_exercises_the_client_can_use():
+    light = json.loads(json.dumps(GOOD))
+    light["days"][1]["exercises"][2] = x("dumbbell-overhead-press")  # chest only on day 1: 3 sets
+    fix = next(c.fix for c in failed(check_program(ProgramDraft.model_validate(light), profile(), {"notes-program-design-1"}))
+               if c.name.startswith("at least"))
+    assert "chest has 3 weekly sets: add 3 more" in fix and "Push-Up" in fix and "Machine Chest Press" not in fix

@@ -5341,3 +5341,113 @@ Iversen is a narrative review (a broad summary of a field by experts, without po
 - New: [0063. JATS tables nested inside paragraphs are read separately, row by row](decisions/0063-jats-tables-nested-in-paragraphs-read-separately.md)
 - Updated: [0017](decisions/0017-knowledge-source-licensing-policy.md) (three more group A sources; first group C rejection), [0022](decisions/0022-research-papers-europe-pmc-jats-xml-not-pdfs.md) (nested tables), [0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md) (Iversen pending), [0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md) and [0060](decisions/0060-machine-and-cable-equipment-and-a-direction-column.md) (bench dip confirmed), [0059](decisions/0059-quality-pass-before-the-program-page.md) (Q3 done)
 - Pending: the coach's Iversen key decision. Then P3, the program page.
+
+## Phase 2, step 3 (P3): The program page, fixes from live browser tests, and the agent back on Gemini 2.5 Flash
+**Date:** 2026-10-01 to 2026-10-02 · **Commits:** `eac0c4f` eval: Iversen 2021 counts as correct evidence for sets, rest, rep ranges and frequency (coach); `549791e` feat: program page (P3) plus agent fixes found in live browser tests; `ae97bef` feat: program agent back on Gemini 2.5 Flash (fallback Flash-Lite); `2117f5d` docs: P3 marked done in CLAUDE.md
+
+**Goal.** Let the coach use the program agent in the browser, and fix what live use exposed.
+
+**What we did.**
+
+*Part 1: the coach's Iversen call (`eac0c4f`, before P3).* This closes the open question from the [Q3 entry](#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales). The coach decided Iversen 2021 counts as correct. `iversen2021-time-efficient` is now an additional expected passage source for `prog-weekly-sets`, `prog-rest-intervals`, `prog-rep-ranges`, and `prog-frequency`, with a YAML note in `evals/eval_set.yaml` saying why. See [0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md).
+
+*Part 2: the program page (`549791e`).*
+- **`POST /api/program`** in `src/ragmotion/app.py`. It is stateless: the server keeps no conversation, and the page sends the whole conversation every turn. That list is the agent's only memory. Input checks, before any paid call:
+  - not empty, and the last message is from the user;
+  - at most 30 messages, each at most 1,000 characters;
+  - roles only `user` or `assistant`. A `system` message (the role that carries the app's own instructions) is rejected, so a client can't inject one. This is a prompt-injection guard.
+- It returns the agent's turn (`AgentTurn`) as JSON. Failures go through `friendly_message()`, like the Q&A app.
+- **`GET /program`** serves the page. `/api/info` now also reports `agent_model`.
+- **`AgentTurn.passages`**: for every passage the agent retrieved, its id maps to `{source, where, text}`. The page uses it to show what each citation points to.
+- **`src/ragmotion/static/program.html`**, in the same visual style as the Q&A page (head and styles reused):
+  - a chat, example prompts as clickable chips, and a "Building…" state;
+  - the program: title and an "X/Y checks passed" badge (failed checks are listed when a program is shown after its retries ran out);
+  - day cards: exercise, sets × reps · rest, level · equipment, notes;
+  - weekly-sets bars per muscle group, **counted by code**, with the minimum marked;
+  - progression and "why", with clickable citation chips. Each opens a drawer with the real passage text;
+  - safety notes, a collapsible "How it was built · N tool calls", and the cost.
+- **Follow-ups keep context.** A short text summary of the program goes back into the conversation, so "swap the squat" means something on the next turn.
+- **Links between pages.** "Build a program" on the Q&A page; "Ask a question" on the program page.
+- **Tests:** the endpoint returns the turn and trims messages; it rejects an empty conversation, a last message not from the user, a `system` role, and a message over 1,000 characters; the page is served.
+
+*Part 3: fixes from live browser tests (all in `549791e`).* Each problem below was found by using the page, not by a unit test.
+
+1. **The agent stated wrong volume numbers.** The first example (beginner, dumbbells + bench) rendered fully: 12 tool calls, $0.0025, and the citation drawer worked (a Pelland passage labeled "preprint, not peer reviewed"). But the rationale said "chest: 6, back: 6, shoulders: 9, quads: 9, glutes/hamstrings: 15". Code counted shoulders 12 and glutes/hamstrings 21. The prompt already said not to state totals; the agent did anyway. **Fix:** a new checker rule, "no weekly-set totals stated in the text (code shows the real ones)". `VOLUME_CLAIM` in `src/ragmotion/program.py` is a regex (a text pattern) that catches a muscle-group name followed by a number, or "N–M sets per muscle group". Citing research ("at least 6 weekly sets per muscle") is still allowed. The test uses the live text. See [0066](decisions/0066-no-weekly-set-totals-in-program-text.md).
+2. **"Full gym" didn't count as known equipment.** For "get stronger, 4 days, full gym, intermediate", the agent asked which equipment. The profile reader had stored "full gym" as unmapped equipment (a phrase it couldn't match to the list). `owned_equipment` treated a gym as everything, but `missing_for_program` only looked at the equipment list. Two pieces of code disagreed about the same fact. **Fix:** one shared `has_gym()` in `program.py`; equipment counts as known if it is listed or a gym is mentioned. Test. See [0067](decisions/0067-agent-asks-only-when-something-is-missing.md).
+3. **The agent still asked with nothing missing.** This was the model's choice, not a code bug. **Fix:** if nothing is missing and the agent asks (through `ask_user` or in plain text) before building, code sends one system nudge: "You have everything you need... Build the program now". A second question goes through. **Interaction found:** empty replies were at first counted as "asking", which broke the existing empty-reply test. Now only real questions count.
+4. **A request hung for minutes.** Tracing showed one Qwen3.5 Flash call took **847 s**. The client's 25 s timeout never fired. The reason: that timeout is a *read* timeout, which restarts whenever any bytes arrive, and OpenRouter sends keep-alive bytes (small "still working" signals) on slow requests. **Fix:** `_call_model` in `src/ragmotion/agent.py` runs each agent model call in a thread pool and waits with a hard wall-clock deadline (`agent_call_deadline_seconds = 40`). If the deadline passes, it retries once on `settings.agent_fallback_model`. If both miss, it raises `AgentModelTimeout`, which becomes HTTP 503 "The program builder took too long to respond. Try again in a minute." Tests use fake slow models. A real call confirmed the deadline returns control on time (`TimeoutError` at 5.0 s with a 5 s deadline). See [0068](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md).
+   - Side effect: the abandoned call keeps running in its thread, and Python waits for those threads when a process exits. So scripts can exit late. The server is unaffected.
+   - At the time of `549791e` the agent ran on Qwen3.5 Flash and the commit message names Gemini 2.5 Flash as the fallback.
+5. **The profile reader dropped "full gym" entirely** in one traced read (equipment `[]` and unmapped `[]`). **Fix:** a code backstop in `read_profile`: if the client's messages mention "gym" and nothing was recorded, set `unmapped_equipment = ["gym"]`. Test.
+6. **"Couldn't reach OpenRouter."** A local DNS blip (DNS turns a web address into a network address; the error was "nodename nor servname provided"). Not a code problem; the app showed the clear message it was built to show.
+7. **Qwen3.5 Flash stayed intermittently very slow** on the program-writing call, even with the fixes: one turn took 116 s, and a traced run spent 400+ s inside one `_call_model`. Short calls took about 1 s. A speed test of reasoning on vs off was itself stopped by the time limit, with no result. **Hypothesis, not proven:** Qwen3.5 Flash is a reasoning model (leaked `</think>` tags were seen earlier, in [Q2](#phase-2-quality-pass-q2-machine-and-cable-equipment-pushpull-direction-18-new-exercises-and-a-narration-guardrail)), and long structured answers stall on its provider.
+
+*Part 4: the model switch (`ae97bef`).* The developer: *"ok let's switch back to Gemini then"*. `agent_model = google/gemini-2.5-flash`, `agent_fallback_model = google/gemini-2.5-flash-lite`. This supersedes [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md). See [0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md).
+
+*Part 5: docs (`2117f5d`).* `CLAUDE.md` marks P3 done; P4 (program eval) is next.
+
+**Commands.**
+```bash
+uv run pytest
+# 89 passed
+
+uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload
+# then http://127.0.0.1:8010/program for the live browser tests
+```
+- After the Iversen key change, the retrieval eval was re-run; its result file is `evals/results/retrieval-20261001-173849-160974.json` (committed in `eac0c4f`). The exact command isn't in the brief; earlier steps used `uv run python evals/run_retrieval_eval.py`.
+- The script used for the 3 clients × 2 runs verification, and the reasoning on/off speed test, aren't in the brief.
+
+**What we saw.**
+
+*The Iversen key change.* Retrieval passage MRR went back to **0.86** (from 0.76 after Q3), and passage hit rate is **1.00**. MRR (mean reciprocal rank) is how high the first expected passage ranks; 1.0 means always first. Nothing about search changed, only the key.
+
+*Gemini 2.5 Flash verification: 3 fictional clients × 2 runs, run in parallel.*
+
+| Client | Run | Result | Submissions | Time | Cost |
+|---|---|---|---|---|---|
+| Full gym, 4 days, intermediate | 1 | passed every check | 2 | 14.9 s | $0.0093 |
+| Full gym, 4 days, intermediate | 2 | **failed** (squat/lunge on 2+ days, and one per pattern per day) | 3 | 20.9 s | $0.0118 |
+| Dumbbells + bench, 3 days, beginner | 1 | passed | not in the brief | 8.6 s | $0.0041 |
+| Dumbbells + bench, 3 days, beginner | 2 | passed | not in the brief | 10.8 s | $0.0051 |
+| 45 years old, bands + pull-up bar, 2 days, "tweaked my back last month" | 1 | passed | not in the brief | 8.3 s | $0.0043 |
+| 45 years old, bands + pull-up bar, 2 days, "tweaked my back last month" | 2 | passed | 2 | 12.0 s | $0.0088 |
+
+- 5 of 6 passed every check, in 8–21 s, at 0.4–1.2 cents per program.
+- **Browser check:** a beginner dumbbell program in under 18 s. Volume bars: chest 6, back 9, shoulders 9, quads 9, glutes/hamstrings 18. Five sources cited. No volume numbers stated in the text. $0.0048.
+
+*Qwen3.5 Flash in live use vs in the 6-model test.* In step 2's test it took 19 s every run. In the browser, one call ran 847 s and turns took 116 s and 400+ s. Steady in a short test is not the same as steady in use.
+
+**Problems and fixes.**
+- Agent stated volume numbers that didn't match code's count → checker rule `VOLUME_CLAIM`.
+- "Full gym" read differently by two functions → shared `has_gym()`.
+- Profile reader dropped "gym" → backstop in `read_profile`.
+- Agent asked with nothing missing → one nudge; empty replies don't count as asking (found when the empty-reply test failed).
+- Read timeout defeated by keep-alive bytes; one call ran 847 s → hard 40 s deadline per call in a thread, one retry on a fallback model, 503 if both miss.
+- Qwen3.5 Flash stalls on program-sized answers → agent back on Gemini 2.5 Flash, Flash-Lite as fallback.
+- Local DNS blip → no fix needed; the error message was correct.
+
+**Open questions.**
+- **The one Gemini failure.** The full-gym run failed "squat/lunge on 2+ days" and "one per pattern per day" after 3 submissions. Do these two rules pull against each other on a 4-day intermediate program (for example, an upper/lower split)? Not investigated in the brief. P4 should show whether it repeats.
+- **Forged assistant messages.** The roles check blocks `system`, but the page itself supplies the `assistant` messages (including the program summary it sends back). A client could therefore write fake assistant turns. Whether this matters, and how to guard it, isn't recorded.
+- **Abandoned calls.** A call past the 40 s deadline keeps running in the background. Is it still billed by OpenRouter? Not checked.
+- **Worst-case wait.** With a 40 s deadline and one fallback, one model call can take about 80 s, and a turn makes several calls. The total turn limit, if any, isn't recorded.
+- **The Qwen stall's cause** (reasoning model on a slow provider) is a hypothesis; the reasoning on/off test produced no result.
+- **The 5/6 result is 3 clients × 2 runs.** P4's ~10 fictional clients are the wider test.
+- **Answer eval after the Iversen change.** The brief reports the retrieval eval only.
+- **How many checks the checker has now.** Step 2 recorded 16; this step added the volume-claim rule. The new total isn't in the brief.
+
+**Developer questions.** None recorded in the brief, apart from the decision quoted above ("ok let's switch back to Gemini then").
+
+**Learned.**
+- New: [Read timeout vs total deadline](concepts.md#read-timeout-vs-total-deadline-keep-alive-bytes), [Fallback model](concepts.md#fallback-model), [Provenance in the UI](concepts.md#provenance-in-the-ui-citation-drawer-and-code-computed-numbers), [One rule, one place](concepts.md#one-rule-one-place-components-that-disagree), [Live testing in the real UI](concepts.md#live-testing-in-the-real-ui)
+- Extended: [The message list is the memory](concepts.md#the-message-list-is-the-memory-stateless-model-stateless-server) (stateless chat API), [Endpoint (web API)](concepts.md#endpoint-web-api), [Prompt injection](concepts.md#prompt-injection) (role restriction), [Count, don't trust](concepts.md#count-dont-trust-compute-the-models-claims-in-code) (volume claims in text), [Timeouts and retries on outside calls](concepts.md#timeouts-and-retries-on-outside-calls), [Latency variance](concepts.md#latency-variance-consistency-matters-for-ux), [Cost per correct result](concepts.md#cost-per-correct-result-model-capability-vs-price-per-token), [Model selection by measurement](concepts.md#model-selection-by-measurement-test-on-the-real-task), [Thinking (reasoning) models](concepts.md#thinking-reasoning-models), [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too), [Broad reviews vs specific studies in retrieval](concepts.md#broad-reviews-vs-specific-studies-in-retrieval), [When the answer key changes, the scores change](concepts.md#when-the-answer-key-changes-the-scores-change)
+
+**Decisions.**
+- New: [0064. Iversen 2021 counts as correct evidence for four program-design keys](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)
+- New: [0065. Stateless program endpoint: the page sends the whole conversation; only user and assistant roles](decisions/0065-stateless-program-endpoint-user-and-assistant-roles-only.md)
+- New: [0066. No weekly-set totals in the program text; code shows the real counts](decisions/0066-no-weekly-set-totals-in-program-text.md)
+- New: [0067. The agent asks only when something is missing: a shared gym rule, a reader backstop, one nudge](decisions/0067-agent-asks-only-when-something-is-missing.md)
+- New: [0068. A hard deadline per agent call, with one retry on a fallback model](decisions/0068-hard-deadline-per-agent-call-with-a-fallback-model.md)
+- New: [0069. The agent goes back to Gemini 2.5 Flash, with Flash-Lite as fallback](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md) (supersedes 0053)
+- Updated: [0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md) and [0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md) (Iversen decided), [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (superseded), [0031](decisions/0031-openrouter-timeout-25s-one-retry.md) (read timeout defeated on the agent path), [0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md) (a gym counts as known equipment), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (volume claims in text now rejected), [0059](decisions/0059-quality-pass-before-the-program-page.md) (P3 done)
+- Next: P4, the program eval (~10 fictional clients, code checks, coach review).

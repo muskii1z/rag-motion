@@ -27,3 +27,6 @@ Other values (per-call limits, shorter limits for embeddings) were not discussed
 - The app is deployed and many users hit it at once; per-call limits or a total limit per request may then be needed.
 
 See [Step 16 (revisited)](../build-log.md#step-16-revisited-mocked-web-api-tests-and-clean-handling-of-outside-service-failures).
+
+## Update 2026-10-02 (Phase 2, P3): a read timeout isn't a total limit
+On the program agent, one Qwen3.5 Flash call ran 847 s despite this 25 s limit. The `openai` client's timeout restarts whenever bytes arrive, and OpenRouter sends keep-alive bytes on slow requests. Agent calls now also have a hard wall-clock deadline (40 s, in a thread) with one retry on a fallback model. See [0068](0068-hard-deadline-per-agent-call-with-a-fallback-model.md). The Q&A path still relies on this decision's limit alone; whether it can stall the same way isn't recorded.
