@@ -52,9 +52,14 @@ def catalog() -> dict[str, dict]:
     return {e["slug"]: e for e in json.loads((PROJECT_ROOT / "data" / "exercises.json").read_text())}
 
 
+def has_gym(profile: ClientProfile) -> bool:
+    """'Full gym', 'a gym', 'gym membership': the reader keeps these as unmapped phrases."""
+    return any("gym" in u.lower() for u in profile.unmapped_equipment)
+
+
 def owned_equipment(profile: ClientProfile) -> set[str]:
     owned = set(profile.equipment) | {"bodyweight"}
-    if any("gym" in u.lower() for u in profile.unmapped_equipment):  # "full gym" -> everything
+    if has_gym(profile):  # "full gym" -> everything
         owned |= {e for ex in catalog().values() for e in ex["equipment"]}
     return owned
 
@@ -86,7 +91,10 @@ def usable(ex: dict, profile: ClientProfile) -> bool:
 
 
 def missing_for_program(profile: ClientProfile) -> list[str]:
-    return [f for f in REQUIRED_PROFILE if getattr(profile, f) in (None, [])]
+    # Equipment counts as known if listed OR if the client said they have a gym (same rule as owned_equipment;
+    # P3 live test: "full gym" alone made the agent ask which equipment).
+    return [f for f in REQUIRED_PROFILE
+            if getattr(profile, f) in (None, []) and not (f == "equipment" and has_gym(profile))]
 
 
 # ---- Tools ----
@@ -126,6 +134,11 @@ MUSCLE_GROUPS = {
     "quads": {"quadriceps"},
     "glutes/hamstrings": {"glutes", "hamstrings", "adductors", "spinal erectors"},
 }
+# The model's own per-muscle set counts ("chest: 6, glutes/hamstrings: 15", "10-13 sets per muscle group").
+# Told not to state them, it did anyway, and the numbers were wrong (P3 live test): code shows the real ones.
+VOLUME_CLAIM = re.compile(
+    r"\b(chest|back|shoulders|quads|quadriceps|glutes(/hamstrings)?|hamstrings)\b\s*[:=(]\s*\d+"
+    r"|\b\d+\s*(-|–|to)\s*\d+\s*(weekly\s+)?sets\s+per\s+(major\s+)?muscle", re.IGNORECASE)
 MUSCLE_GOAL = re.compile(r"muscle|hypertroph|size|strength|stronger|strong", re.IGNORECASE)
 
 
@@ -233,6 +246,11 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
                         detail=", ".join(f"{n}: {s}" for n, s in mislabeled),
                         fix="; ".join(f"'{n}' includes {s}, which doesn't match the day's name: move it to a matching day or rename the day"
                                       for n, s in mislabeled)))
+
+    claims = [m.group(0) for m in VOLUME_CLAIM.finditer(draft.rationale + " " + draft.progression)]
+    checks.append(Check(name="no weekly-set totals stated in the text (code shows the real ones)", passed=not claims,
+                        detail="; ".join(claims),
+                        fix="Remove these per-muscle set numbers from the rationale and progression: " + "; ".join(claims)))
 
     sets, minimum = weekly_sets(draft), weekly_set_minimum(profile)
     reachable = {g for g, members in MUSCLE_GROUPS.items()

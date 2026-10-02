@@ -216,3 +216,48 @@ def test_narrating_instead_of_submitting_forces_a_submission(monkeypatch):
 def test_leaked_reasoning_is_never_shown():
     assert agent._visible("<think>plan plan</think>What equipment do you have?") == "What equipment do you have?"
     assert agent._visible("</think>\n\nWhat equipment do you have?") == "What equipment do you have?"
+
+
+def test_stated_volume_numbers_are_rejected_but_citing_research_is_fine():
+    claimed = {**GOOD, "rationale": "Each major muscle group receives at least 6 weekly sets (chest: 6, back: 6, shoulders: 9, "
+               "glutes/hamstrings: 15) [notes-program-design-1]."}
+    bad = {c.name: c for c in failed(check_program(ProgramDraft.model_validate(claimed), profile(), {"notes-program-design-1"}))}
+    assert "chest: 6" in bad["no weekly-set totals stated in the text (code shows the real ones)"].detail
+    ranged = {**GOOD, "rationale": "This averages 10-13 sets per muscle group [notes-program-design-1]."}
+    assert "no weekly-set totals stated in the text (code shows the real ones)" in {c.name for c in failed(
+        check_program(ProgramDraft.model_validate(ranged), profile(), {"notes-program-design-1"}))}
+    research = {**GOOD, "rationale": "Research suggests at least 6 weekly sets per muscle for growth [notes-program-design-1]."}
+    assert failed(check_program(ProgramDraft.model_validate(research), profile(), {"notes-program-design-1"})) == []
+
+
+def test_asking_for_details_it_already_has_gets_one_nudge(monkeypatch):
+    script = ["Which equipment would you like me to focus on?", [call("search_sources", query="sets for strength")],
+              [call("submit_program", **GOOD)]]
+    turn, model = run(monkeypatch, script, profile())
+    assert turn.kind == "program" and turn.passed_checks
+
+
+def test_a_stalled_model_call_falls_back_then_gives_a_clear_error(monkeypatch):
+    import time
+    from ragmotion.config import settings
+    monkeypatch.setattr(settings, "agent_call_deadline_seconds", 0.2)
+    calls = []
+    def create(**kwargs):
+        calls.append(kwargs["model"])
+        if kwargs["model"] == "slow/model":
+            time.sleep(1)
+        return "ok"
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    monkeypatch.setattr(settings, "agent_fallback_model", "fast/model")
+    assert agent._call_model(client, model="slow/model") == "ok" and calls == ["slow/model", "fast/model"]
+    monkeypatch.setattr(settings, "agent_fallback_model", "slow/model")
+    import pytest
+    with pytest.raises(agent.AgentModelTimeout):
+        agent._call_model(client, model="slow/model")
+
+
+def test_a_gym_mentioned_but_dropped_by_the_reader_counts_as_a_full_gym(monkeypatch):
+    dropped = profile(equipment=[])
+    monkeypatch.setattr(agent, "extract_profile", lambda text: (dropped.model_copy(), None))
+    p = agent.read_profile([{"role": "user", "content": "Get stronger, 4 days, full gym, intermediate"}])
+    assert p.unmapped_equipment == ["gym"]

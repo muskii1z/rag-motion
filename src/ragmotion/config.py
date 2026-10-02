@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # at most this many times. Without a limit, a hung call would wait the library's default 10 minutes.
     # A normal answer takes 2-5 s, so 25 s with 1 retry means a clear error within about a minute.
     # Phase 2: the model the program agent runs on (None = same as llm_model).
+    # P3 live test: one Qwen call ran 847 s (OpenRouter keep-alive bytes defeat the per-read timeout), so every
+    # agent call also has a hard wall-clock deadline, and a call that misses it is retried once on the fallback.
+    agent_call_deadline_seconds: float = 40.0
+    agent_fallback_model: str | None = "google/gemini-2.5-flash"
     agent_model: str | None = "qwen/qwen3.5-flash-02-23"  # 3/3 first try, ~0.14c/program, 19 s; Gemini 2.5 Flash also 3/3 but ~4x cost (2026-10-01)
 
     # Phase 1F filters (equipment, age group). Only turned off to show the "before" behavior,

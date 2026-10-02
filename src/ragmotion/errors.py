@@ -28,6 +28,8 @@ def friendly_message(exc: BaseException) -> tuple[int, str]:
         return 503, str(exc)
     if isinstance(exc, ModelOutputError):
         return 502, str(exc)
+    if type(exc).__name__ == "AgentModelTimeout":  # defined in agent.py (avoids an import cycle)
+        return 503, str(exc)
     if isinstance(exc, openai.AuthenticationError):
         return 502, "OpenRouter rejected the API key. Check OPENROUTER_API_KEY in .env."
     if isinstance(exc, openai.RateLimitError):

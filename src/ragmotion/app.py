@@ -20,6 +20,9 @@ from ragmotion.config import settings
 from ragmotion.db import get_connection
 from ragmotion.errors import friendly_message
 from ragmotion.ingestion import load_sources
+from dataclasses import asdict
+
+from ragmotion.agent import run_turn
 from ragmotion.rag import answer_question
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -41,6 +44,11 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/program", include_in_schema=False)
+def program_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "program.html")
+
+
 @app.get("/api/info")
 def info() -> dict:
     """What the assistant knows and which models it uses, for the sidebar and header."""
@@ -60,6 +68,7 @@ def info() -> dict:
     ]
     return {
         "llm_model": settings.llm_model,
+        "agent_model": settings.agent_model or settings.llm_model,
         "embedding_model": settings.embedding_model,
         "retrieval": "semantic",
         "sources": sources,
@@ -106,3 +115,37 @@ def ask(req: AskRequest) -> dict:
         },
         "timings_ms": {name: round(ms) for name, ms in r.timings_ms.items()},
     }
+
+
+# ---- Phase 2 (P3): the program builder ----
+
+MAX_TURNS, MAX_MESSAGE_CHARS = 30, 1000
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ProgramRequest(BaseModel):
+    conversation: list[ChatMessage]  # the whole chat so far; the server keeps no memory
+
+
+@app.post("/api/program")
+def program(req: ProgramRequest) -> dict:
+    convo = [{"role": m.role, "content": m.content.strip()} for m in req.conversation]
+    if not convo or convo[-1]["role"] != "user" or not convo[-1]["content"]:
+        raise HTTPException(status_code=400, detail="Please type a message.")
+    if len(convo) > MAX_TURNS:
+        raise HTTPException(status_code=400, detail="This conversation is long. Start a new program to keep going.")
+    if any(m["role"] not in ("user", "assistant") for m in convo):
+        raise HTTPException(status_code=400, detail="Messages must come from the user or the assistant.")
+    if any(len(m["content"]) > MAX_MESSAGE_CHARS for m in convo):
+        raise HTTPException(status_code=400, detail=f"Messages can be up to {MAX_MESSAGE_CHARS} characters. Please shorten it.")
+    try:
+        turn = run_turn(convo)
+    except Exception as e:
+        log.exception("Program turn failed")
+        status, message = friendly_message(e)
+        raise HTTPException(status_code=status, detail=message) from e
+    return asdict(turn)

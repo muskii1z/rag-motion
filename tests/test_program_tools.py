@@ -30,3 +30,8 @@ def test_missing_details_are_computed_and_the_submit_schema_has_no_refs():
     assert missing_for_program(profile(experience_level="beginner")) == ["goal", "sessions_per_week", "equipment"]
     submit = next(t for t in TOOLS if t["function"]["name"] == "submit_program")["function"]["parameters"]
     assert "$ref" not in str(submit) and "$defs" not in submit
+
+
+def test_a_full_gym_counts_as_known_equipment():
+    gym = profile(goal="strength", sessions_per_week=4, experience_level="intermediate", unmapped_equipment=["full gym"])
+    assert missing_for_program(gym) == []

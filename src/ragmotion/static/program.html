@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rag-motion · Program builder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%234B4FE8'/%3E%3Cstop offset='1' stop-color='%2334C6E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%23fff'/%3E%3Cpath d='M7 45C20 60 45 57 58 17C48 42 27 51 7 45Z' fill='url(%23g)'/%3E%3Ctext x='9' y='40' font-family='Arial' font-weight='900' font-size='24' fill='%231E1B3A'%3ERM%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #B9D5FF;
+    --lilac: #D6C4FF;
+    --blush: #F1D3F6;
+    --glass: rgba(255, 255, 255, 0.5);
+    --glass-strong: rgba(255, 255, 255, 0.82);
+    --glass-edge: rgba(255, 255, 255, 0.9);
+    --ink: #1E1B3A;
+    --muted: #66648A;
+    --indigo: #4B4FE8;
+    --indigo-soft: rgba(75, 79, 232, 0.10);
+    --cyan: #34C6E0;
+    --doc: #1F7A55;
+    --doc-soft: #DDF3E8;
+    --note: #9A5B12;
+    --note-soft: #FBEBD6;
+    --bad: #B42318;
+    --bad-soft: #FDE7E4;
+    --shadow: 0 10px 40px rgba(60, 48, 140, 0.12);
+    --radius: 22px;
+    --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --body: "Figtree", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --sky: #1A2344; --lilac: #251C45; --blush: #2C1C3D;
+      --glass: rgba(30, 28, 58, 0.62); --glass-strong: rgba(34, 32, 66, 0.9); --glass-edge: rgba(255, 255, 255, 0.08);
+      --ink: #ECEBFA; --muted: #A5A3C8; --indigo: #8C8FFF; --indigo-soft: rgba(140, 143, 255, 0.14);
+      --doc: #6FD3A4; --doc-soft: rgba(111, 211, 164, 0.14); --note: #F2B766; --note-soft: rgba(242, 183, 102, 0.14);
+      --bad: #FF8A7A; --bad-soft: rgba(255, 138, 122, 0.12); --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }  /* our display rules must not un-hide elements */
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink); font: 15px/1.6 var(--body);
+    background: radial-gradient(1200px 700px at 10% 0%, var(--sky), transparent 60%),
+                radial-gradient(1000px 800px at 100% 100%, var(--blush), transparent 60%),
+                linear-gradient(135deg, var(--sky), var(--lilac) 55%, var(--blush));
+    background-attachment: fixed;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+
+  .shell {
+    display: grid; grid-template-columns: 280px 1fr; height: 100vh; padding: 16px; gap: 16px;
+  }
+  .glass {
+    background: var(--glass); border: 1px solid var(--glass-edge); border-radius: var(--radius);
+    box-shadow: var(--shadow); backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { display: flex; flex-direction: column; padding: 20px 16px; overflow: hidden; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 18px; }
+  .brand-name { font: 800 22px/1 var(--display); letter-spacing: -0.02em; }
+  .brand-name span { color: var(--indigo); }
+  .side-btn {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; border: 0; border-radius: 14px;
+    background: var(--glass-strong); font-weight: 600; text-align: left; transition: transform .15s ease;
+  }
+  .side-btn:hover { transform: translateY(-1px); }
+  .search {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 9px 14px; border-radius: 14px; background: var(--glass-strong);
+  }
+  .search input { border: 0; background: transparent; outline: none; width: 100%; font: inherit; color: inherit; }
+  .side-label {
+    margin: 22px 6px 8px; font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  .sources { display: flex; flex-direction: column; gap: 6px; }
+  .source-row { display: flex; gap: 10px; align-items: flex-start; padding: 6px; border-radius: 10px; font-size: 13px; line-height: 1.35; }
+  .source-row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; }
+  .source-row .count { color: var(--muted); font: 12px var(--mono); }
+  .history { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -4px; padding: 0 4px; }
+  .history button {
+    display: flex; gap: 8px; align-items: flex-start; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
+    background: transparent; text-align: left; font-size: 14px; line-height: 1.35;
+  }
+  .history button:hover, .history button[aria-current="true"] { background: var(--glass-strong); }
+  .history .arrow { color: var(--muted); flex: none; }
+  .history-empty { color: var(--muted); font-size: 13px; padding: 4px 8px; }
+
+  /* ---------- Main ---------- */
+  .main { position: relative; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 0; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px;
+    background: var(--glass-strong); border: 1px solid var(--glass-edge); font: 12px var(--mono); color: var(--muted);
+  }
+  .pill b { color: var(--ink); font-weight: 500; }
+  #model-pill { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-btn { display: none; border: 0; background: var(--glass-strong); border-radius: 12px; padding: 8px 10px; }
+
+  .thread { flex: 1; overflow-y: auto; padding: 16px 20px 8px; scroll-behavior: smooth; }
+  .thread-inner { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+  .welcome { flex: 1; display: grid; place-items: center; text-align: center; padding: 24px; }
+  .welcome h1 { font: 800 clamp(30px, 4.4vw, 50px)/1.05 var(--display); letter-spacing: -0.035em; margin: 18px 0 10px; }
+  .welcome p { color: var(--muted); max-width: 520px; margin: 0 auto; }
+
+  .composer-wrap { padding: 8px 20px 18px; }
+  .composer { max-width: 820px; margin: 0 auto; }
+  .composer form {
+    display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; border-radius: 999px;
+    background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
+  }
+  .composer input { flex: 1; border: 0; outline: none; background: transparent; font: inherit; font-size: 16px; color: inherit; min-width: 0; }
+  .send {
+    width: 44px; height: 44px; border-radius: 50%; border: 0; display: grid; place-items: center; flex: none;
+    background: linear-gradient(135deg, var(--indigo), var(--cyan)); color: #fff;
+  }
+  .send:disabled { opacity: .5; cursor: default; }
+  .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+  .chip {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-strong);
+    font-size: 13px; font-weight: 500; transition: transform .15s ease, background .15s ease;
+  }
+  .chip:hover { transform: translateY(-1px); background: var(--indigo-soft); }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  /* ---------- Messages ---------- */
+  .msg-user {
+    align-self: flex-end; max-width: 78%; padding: 12px 18px; border-radius: 20px 20px 6px 20px; color: #fff;
+    background: linear-gradient(135deg, var(--indigo), #6A5CF0); box-shadow: var(--shadow); animation: rise .35s ease both;
+  }
+  .msg-bot { align-self: flex-start; width: 100%; padding: 18px 20px; animation: rise .35s ease both; }
+  .msg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .msg-head .who { font: 700 14px var(--display); }
+  .coverage { font: 500 11px var(--mono); padding: 3px 9px; border-radius: 999px; }
+  .coverage.full { background: var(--doc-soft); color: var(--doc); }
+  .coverage.partial { background: var(--note-soft); color: var(--note); }
+  .coverage.none { background: var(--bad-soft); color: var(--bad); }
+  .answer { white-space: pre-wrap; }
+  .answer ul { margin: 6px 0; padding-left: 20px; white-space: normal; }
+  .cite {
+    display: inline-block; font: 500 11px/1.6 var(--mono); padding: 0 7px; margin: 0 1px; border-radius: 6px; border: 0;
+    background: var(--indigo-soft); color: var(--indigo); vertical-align: 1px;
+  }
+  .cite.doc { background: var(--doc-soft); color: var(--doc); }
+  .cite.notes { background: var(--note-soft); color: var(--note); }
+  .box { margin-top: 12px; padding: 10px 14px; border-radius: 14px; font-size: 14px; }
+  .box.gaps { background: var(--note-soft); }
+  .box.general { border: 1px dashed var(--muted); color: var(--muted); }
+  .box.general p { margin: 4px 0 0; color: var(--ink); }
+  .box.problems { background: var(--bad-soft); color: var(--bad); }
+  .msg-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; font: 12px var(--mono); color: var(--muted); }
+  .msg-foot .ok { color: var(--doc); }
+  .link-btn { border: 0; background: var(--indigo-soft); color: var(--indigo); padding: 5px 12px; border-radius: 999px; font: 500 12px var(--mono); }
+  .error { color: var(--bad); }
+
+  .thinking { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+  .thinking svg { width: 42px; height: 42px; }
+  .thinking .trail { stroke-dasharray: 60 140; animation: sweep 1.2s linear infinite; }
+
+  /* ---------- Sources drawer ---------- */
+  .drawer {
+    position: absolute; top: 16px; right: 16px; bottom: 16px; width: min(420px, calc(100% - 32px));
+    display: flex; flex-direction: column; background: var(--glass-strong); transform: translateX(110%);
+    transition: transform .3s cubic-bezier(.2,.8,.2,1); z-index: 5;
+  }
+  .drawer.open { transform: none; }
+  .drawer-head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 18px 10px; }
+  .drawer-head h2 { font: 700 18px/1.2 var(--display); margin: 0; }
+  .drawer-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .close { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--ink); color: var(--glass-strong); flex: none; }
+  .drawer-body { overflow-y: auto; padding: 4px 18px 18px; }
+  .drawer-body h3 { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 16px 0 8px; }
+  .card { padding: 12px 14px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-edge); margin-bottom: 8px; transition: box-shadow .2s; }
+  .card.unused { opacity: .55; }
+  .card.flash { box-shadow: 0 0 0 2px var(--indigo); }
+  .card-top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
+  .card-title { font-weight: 600; font-size: 14px; line-height: 1.3; }
+  .tag { font: 500 10px var(--mono); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .tag.cited { background: var(--indigo-soft); color: var(--indigo); }
+  .tag.unused { background: transparent; color: var(--muted); border: 1px solid currentColor; }
+  .tag.doc { background: var(--doc-soft); color: var(--doc); }
+  .tag.notes { background: var(--note-soft); color: var(--note); }
+  .card-meta { margin-top: 4px; font: 11px/1.5 var(--mono); color: var(--muted); }
+  .sim { height: 3px; border-radius: 2px; background: var(--indigo-soft); margin-top: 8px; overflow: hidden; }
+  .sim > div { height: 100%; background: linear-gradient(90deg, var(--indigo), var(--cyan)); }
+  details.snip { margin-top: 8px; font-size: 13px; }
+  details.snip summary { cursor: pointer; color: var(--muted); list-style: none; }
+  details.snip summary::-webkit-details-marker { display: none; }
+  details.snip p { white-space: pre-wrap; margin: 6px 0 0; }
+
+  /* ---------- Logo motion ---------- */
+  .logo .swoosh { transform-origin: 20% 80%; }
+  .logo.animate .swoosh { animation: swoosh-in .9s cubic-bezier(.2,.9,.2,1) both .1s; }
+  .logo.animate .letters { animation: rise .6s ease both .35s; }
+  @keyframes swoosh-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes sweep { to { stroke-dashoffset: -200; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; padding: 10px; }
+    .sidebar { position: fixed; inset: 10px auto 10px 10px; width: min(300px, calc(100% - 20px)); z-index: 10;
+               transform: translateX(-115%); transition: transform .3s ease; background: var(--glass-strong); }
+    .sidebar.open { transform: none; }
+    .menu-btn { display: inline-flex; }
+    #proto-pill { display: none; }
+    .topbar { justify-content: flex-start; }
+    .msg-user { max-width: 90%; }
+    .drawer { top: 10px; right: 10px; bottom: 10px; width: calc(100% - 20px); }
+  }
+
+  /* ---------- Program builder (P3) ---------- */
+  .side-links { display: flex; flex-direction: column; gap: 8px; }
+  a.side-btn { text-decoration: none; color: inherit; }
+  .how { margin-top: 18px; font-size: 13px; color: var(--muted); }
+  .how ol { margin: 6px 0 0; padding-left: 18px; }
+  .how li { margin: 4px 0; }
+  .program { margin-top: 10px; }
+  .program-title { font: 800 22px/1.15 var(--display); letter-spacing: -0.02em; margin: 2px 0 10px; }
+  .checks { font: 500 11px var(--mono); padding: 3px 9px; border-radius: 999px; }
+  .checks.pass { background: var(--doc-soft); color: var(--doc); }
+  .checks.fail { background: var(--bad-soft); color: var(--bad); }
+  .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+  .day { padding: 14px; border-radius: 18px; background: var(--glass-strong); border: 1px solid var(--glass-edge); }
+  .day h3 { font: 700 15px/1.2 var(--display); margin: 0 0 10px; }
+  .ex { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--glass-edge); }
+  .ex:first-of-type { border-top: 0; padding-top: 0; }
+  .ex-name { font-weight: 600; font-size: 14px; }
+  .ex-dose { font: 500 12px var(--mono); text-align: right; white-space: nowrap; }
+  .ex-meta { grid-column: 1 / -1; font: 11px var(--mono); color: var(--muted); }
+  .ex-note { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-style: italic; }
+  .section-label { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+  .volume { display: grid; gap: 6px; }
+  .vol-row { display: grid; grid-template-columns: 130px 1fr 34px; align-items: center; gap: 10px; font-size: 13px; }
+  .vol-bar { height: 8px; border-radius: 4px; background: var(--indigo-soft); overflow: hidden; position: relative; }
+  .vol-bar > div { height: 100%; background: linear-gradient(90deg, var(--indigo), var(--cyan)); }
+  .vol-bar > span { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .45; }
+  .vol-row b { font: 500 12px var(--mono); text-align: right; }
+  .prose { white-space: pre-wrap; }
+  .fails { margin: 8px 0 0; padding-left: 18px; color: var(--bad); font-size: 13px; }
+  details.steps { margin-top: 14px; font-size: 13px; }
+  details.steps summary { cursor: pointer; color: var(--muted); font: 12px var(--mono); }
+  details.steps ol { margin: 8px 0 0; padding-left: 20px; font: 12px/1.6 var(--mono); }
+  details.steps .res { color: var(--muted); }
+  .passage-text { white-space: pre-wrap; font-size: 14px; }
+  @media (max-width: 860px) { .vol-row { grid-template-columns: 110px 1fr 30px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar glass" id="sidebar" aria-label="Sidebar">
+    <div class="brand">
+      <svg class="logo animate" width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+        <defs><linearGradient id="rm-grad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#4B4FE8"/><stop offset="1" stop-color="#34C6E0"/></linearGradient></defs>
+        <path class="swoosh" d="M5 46C19 62 46 58 60 14C49 42 27 52 5 46Z" fill="url(#rm-grad)"/>
+        <text class="letters" x="7" y="40" font-family="Bricolage Grotesque, Arial Black, sans-serif" font-weight="800" font-size="25" letter-spacing="-1.5" fill="currentColor">RM</text>
+      </svg>
+      <span class="brand-name">rag<span>·</span>motion</span>
+    </div>
+    <div class="side-links">
+      <button class="side-btn" id="new-program" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New program
+      </button>
+      <a class="side-btn" href="/">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 10h8M8 14h5M21 12a9 9 0 1 1-4-7.5L21 3v6h-6"/></svg>
+        Ask a question
+      </a>
+    </div>
+    <div class="how">
+      <div class="side-label">How it works</div>
+      <ol>
+        <li>Tell it your goal, days per week, equipment and experience. It asks for anything missing.</li>
+        <li>It picks exercises from the coach's catalog that you can actually do.</li>
+        <li>It sets sets, reps and rest from the research and coaching notes, with citations.</li>
+        <li>Code checks the program before you see it: balance, volume, equipment, level, sources.</li>
+      </ol>
+    </div>
+  </aside>
+
+  <main class="main glass">
+    <div class="topbar">
+      <button class="menu-btn" id="menu-btn" type="button" aria-label="Open sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <span class="pill" id="model-pill">program builder</span>
+      <span class="pill" id="proto-pill">local prototype</span>
+    </div>
+
+    <section class="welcome" id="welcome">
+      <div>
+        <svg class="logo animate" width="110" height="110" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="swoosh" d="M5 46C19 62 46 58 60 14C49 42 27 52 5 46Z" fill="url(#rm-grad)"/>
+          <text class="letters" x="7" y="40" font-family="Bricolage Grotesque, Arial Black, sans-serif" font-weight="800" font-size="25" letter-spacing="-1.5" fill="currentColor">RM</text>
+        </svg>
+        <h1>Build a training program</h1>
+        <p>Describe the client. You get a weekly program from the coach's catalog and the research, checked by code before you see it.</p>
+        <div class="chips" id="examples">
+          <button class="chip" type="button">I'm a beginner and want a program</button>
+          <button class="chip" type="button">Build muscle, 3 days a week, dumbbells and a bench, beginner</button>
+          <button class="chip" type="button">Get stronger, 4 days, full gym, intermediate</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="thread" id="thread" hidden aria-live="polite">
+      <div class="thread-inner" id="thread-inner"></div>
+    </section>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <form id="chat-form">
+          <input id="msg" type="text" placeholder="Describe the client, or answer the question" autocomplete="off" required maxlength="1000" aria-label="Your message">
+          <button class="send" id="send" type="submit" aria-label="Send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+        <div class="hint">Programs are built for generally healthy adults. Not medical advice.</div>
+      </div>
+    </div>
+
+    <aside class="drawer glass" id="drawer" aria-label="Source passage" aria-hidden="true">
+      <div class="drawer-head">
+        <div><h2 id="drawer-title">Source</h2><p id="drawer-sub"></p></div>
+        <button class="close" id="drawer-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="drawer-body"><div class="passage-text" id="drawer-text"></div></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+let conversation = [];
+let passages = {};
+
+fetch("/api/info").then((r) => r.ok ? r.json() : null).then((info) => {
+  if (info && info.agent_model) $("model-pill").innerHTML = `<b>${esc(info.agent_model.split("/").pop())}</b> · program agent`;
+}).catch(() => {});
+
+function showThread() { $("welcome").hidden = true; $("thread").hidden = false; }
+function scrollDown() { $("thread").scrollTop = $("thread").scrollHeight; }
+function add(html, cls) {
+  const el = document.createElement("div");
+  el.className = cls; el.innerHTML = html; $("thread-inner").appendChild(el); scrollDown(); return el;
+}
+const head = (extra = "") => `<div class="msg-head"><span class="who">rag-motion</span>${extra}</div>`;
+
+// [pelland2024-volume-12] or [a, b] -> clickable chips that open the passage.
+function withCitations(text) {
+  return esc(text).replace(/\[([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)\]/g, (_, group) =>
+    group.split(",").map((id) => id.trim()).map((id) =>
+      passages[id] ? `<button class="cite ${id.startsWith("notes") ? "notes" : "doc"}" type="button" data-id="${id}">${id}</button>` : `<span class="cite">${id}</span>`
+    ).join(""));
+}
+
+function renderProgram(t) {
+  const p = t.program, checks = t.checks || [];
+  const failed = checks.filter((c) => !c.passed);
+  const badge = `<span class="checks ${failed.length ? "fail" : "pass"}">${checks.length - failed.length}/${checks.length} checks passed</span>`;
+  const days = p.days.map((d) => `
+    <div class="day"><h3>${esc(d.name)}</h3>${d.exercises.map((x) => `
+      <div class="ex">
+        <span class="ex-name">${esc(x.name)}</span>
+        <span class="ex-dose">${esc(x.sets)} × ${esc(x.reps)} · ${esc(x.rest)}</span>
+        <span class="ex-meta">${esc(x.level || "")} · ${esc((x.equipment || []).join(", "))}</span>
+        ${x.note ? `<span class="ex-note">${esc(x.note)}</span>` : ""}
+      </div>`).join("")}
+    </div>`).join("");
+  const sets = p.weekly_sets || {};
+  const max = Math.max(12, ...Object.values(sets));
+  const minimum = (checks.find((c) => c.name.startsWith("at least")) || {}).name?.match(/\d+/)?.[0];
+  const volume = Object.entries(sets).map(([g, n]) => `
+    <div class="vol-row"><span>${esc(g)}</span>
+      <div class="vol-bar"><div style="width:${(n / max) * 100}%"></div>${minimum ? `<span style="left:${(minimum / max) * 100}%" title="minimum ${minimum}"></span>` : ""}</div>
+      <b>${n}</b></div>`).join("");
+  const steps = (t.steps || []).map((s) => `<li>${esc(s.tool)}(${esc(Object.values(s.args || {}).join(", "))}) <span class="res">→ ${esc(String(s.result).slice(0, 140))}</span></li>`).join("");
+  return `${head(badge)}
+    <div class="program">
+      <div class="program-title">${esc(p.title)}</div>
+      ${failed.length ? `<div class="box problems">Shown with ${failed.length} failed check${failed.length > 1 ? "s" : ""} after the agent's retries:<ul class="fails">${failed.map((c) => `<li>${esc(c.name)}${c.detail ? ` (${esc(c.detail)})` : ""}</li>`).join("")}</ul></div>` : ""}
+      <div class="days">${days}</div>
+      <div class="section-label">Weekly sets per muscle group · counted by code${minimum ? ` · line = minimum ${minimum}` : ""}</div>
+      <div class="volume">${volume}</div>
+      <div class="section-label">Progression</div>
+      <div class="prose">${withCitations(p.progression)}</div>
+      <div class="section-label">Why this program</div>
+      <div class="prose">${withCitations(p.rationale)}</div>
+      ${p.safety_notes ? `<div class="box gaps">${esc(p.safety_notes)}</div>` : ""}
+      <details class="steps"><summary>How it was built · ${(t.steps || []).length} tool calls</summary><ol>${steps}</ol></details>
+      <div class="msg-foot"><span>${t.cost_usd ? "$" + t.cost_usd.toFixed(4) : ""}</span></div>
+    </div>`;
+}
+
+// A short text version of the program goes back into the conversation, so follow-ups like
+// "swap the squat" work: the agent has no memory except the conversation.
+function programSummary(p) {
+  return `Here is your program, "${p.title}":\n` + p.days.map((d) => `${d.name}: ` +
+    d.exercises.map((x) => `${x.name} ${x.sets}x${x.reps}`).join("; ")).join("\n");
+}
+
+async function send(text) {
+  showThread();
+  add(esc(text), "msg-user");
+  conversation.push({role: "user", content: text});
+  const thinking = add(`${head()}<div class="thinking"><svg viewBox="0 0 64 64"><path class="trail" d="M5 46C19 62 46 58 60 14" fill="none" stroke="url(#rm-grad)" stroke-width="5" stroke-linecap="round"/></svg>Building: reading your details, choosing exercises, checking the sources…</div>`, "msg-bot glass");
+  $("send").disabled = true;
+  try {
+    const res = await fetch("/api/program", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({conversation})});
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : res.statusText);
+    Object.assign(passages, data.passages || {});
+    if (data.kind === "program") {
+      thinking.innerHTML = renderProgram(data);
+      conversation.push({role: "assistant", content: programSummary(data.program)});
+    } else {
+      thinking.innerHTML = `${head()}<div class="answer${data.kind === "error" ? " error" : ""}">${esc(data.text)}</div>`;
+      conversation.push({role: "assistant", content: data.text});
+    }
+  } catch (err) {
+    thinking.innerHTML = `${head()}<div class="answer error">${esc(err.message)}</div>`;
+    conversation.pop();  // let them resend the same message
+  } finally {
+    $("send").disabled = false; scrollDown(); $("msg").focus();
+  }
+}
+
+$("chat-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("msg").value.trim();
+  if (!text) return;
+  $("msg").value = ""; send(text);
+});
+$("examples").addEventListener("click", (e) => { if (e.target.matches(".chip")) send(e.target.textContent); });
+$("new-program").addEventListener("click", () => {
+  conversation = []; passages = {}; $("thread-inner").innerHTML = ""; $("thread").hidden = true; $("welcome").hidden = false; $("msg").focus();
+});
+$("thread-inner").addEventListener("click", (e) => {
+  const id = e.target.dataset && e.target.dataset.id;
+  if (!id || !passages[id]) return;
+  const p = passages[id];
+  $("drawer-title").textContent = id; $("drawer-sub").textContent = `${p.source || ""} · ${p.where || ""}`;
+  $("drawer-text").textContent = p.text || ""; $("drawer").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
+});
+$("drawer-close").addEventListener("click", () => { $("drawer").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true"); });
+$("menu-btn").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+</script>
+</body>
+</html>

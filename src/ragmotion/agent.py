@@ -12,6 +12,8 @@ The model has no memory of its own: the conversation list sent each turn is the 
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as DeadlineExceeded
 from dataclasses import dataclass, field
 
 from langsmith import traceable
@@ -53,6 +55,7 @@ Work in this order:
 Rules:
 - Cover squat or lunge, hinge, push and pull on at least 2 days (every day if only 1 day), and core or
   carry at least once. Beginners: 4-6 exercises per day. Never more than 8.
+- If the profile says nothing is missing, don't ask questions: build. A "full gym" means all equipment.
 - Use the client's own day count. Don't add days.
 - At most one squat, one lunge and one hinge per day, and at most one horizontal and one vertical push and
   pull per day (find_exercises shows each push/pull exercise's direction). Name days to match their content
@@ -115,11 +118,37 @@ class AgentTurn:
     cost_usd: float = 0.0
     retrieved_ids: list[str] = field(default_factory=list)
     checks: list[dict] = field(default_factory=list)  # the program checker's results (step 2)
+    passages: dict[str, dict] = field(default_factory=dict)  # id -> source, location, text: what each citation points to (P3)
     passed_checks: bool = False
 
 
+GYM = re.compile(r"\bgym\b", re.IGNORECASE)
 NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
                           r"don'?t have (any )?(equipment|weights)|own body)\b", re.IGNORECASE)
+
+
+_CALLS = ThreadPoolExecutor(max_workers=8, thread_name_prefix="agent-call")
+
+
+class AgentModelTimeout(RuntimeError):
+    """Both the agent model and its fallback missed the hard deadline."""
+
+
+def _call_model(client, **kwargs):
+    """One model call with a real wall-clock deadline, retried once on the fallback model.
+
+    The client's own timeout restarts whenever bytes arrive, and OpenRouter sends keep-alive bytes on slow
+    requests, so a stalled provider could hold a call for 14 minutes. A thread with result(timeout) can't be
+    fooled. (The abandoned call finishes in the background and is ignored.)
+    """
+    models = [kwargs.pop("model"), settings.agent_fallback_model]
+    for model in [m for i, m in enumerate(models) if m and m not in models[:i]]:
+        future = _CALLS.submit(client.chat.completions.create, model=model, **kwargs)
+        try:
+            return future.result(timeout=settings.agent_call_deadline_seconds)
+        except DeadlineExceeded:
+            continue
+    raise AgentModelTimeout("The program builder took too long to respond. Try again in a minute.")
 
 
 def _visible(text: str | None) -> str:
@@ -136,6 +165,9 @@ def read_profile(conversation: list[dict]) -> ClientProfile:
     client_text = " ".join(m["content"] for m in conversation if m["role"] == "user")
     if profile.equipment == ["bodyweight"] and not NO_EQUIPMENT.search(client_text):
         profile.equipment = []
+    # Backstop: "full gym" was dropped by the reader in a P3 live test, so the agent asked about equipment.
+    if not profile.equipment and not profile.unmapped_equipment and GYM.search(client_text):
+        profile.unmapped_equipment = ["gym"]
     return profile
 
 
@@ -180,6 +212,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
     rejected = False
     forced_nudged = False
     must_submit = False
+    asked_nudged = False  # one nudge when it asks for details it already has
     client = get_client()
 
     for step in range(MAX_STEPS):
@@ -188,8 +221,8 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
         # Forcing works by offering ONLY the submit tool, not by naming a tool in tool_choice: some providers
         # (Qwen3.5 Flash's, 2026-10-01) reject a named tool_choice with a 404.
         forced = len(turn.steps) >= FORCE_SUBMIT_AFTER or rejected or must_submit
-        response = client.chat.completions.create(
-            model=settings.agent_model or settings.llm_model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
+        response = _call_model(
+            client, model=settings.agent_model or settings.llm_model, messages=messages, tools=[SUBMIT_TOOL] if forced else TOOLS,
             tool_choice="auto", temperature=0.2,
             max_tokens=3000, extra_body={"provider": {"require_parameters": True}, "usage": {"include": True}},
         )
@@ -207,6 +240,15 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
             must_submit = True
             messages.append({"role": "assistant", "content": _visible(msg.content)})
             messages.append({"role": "system", "content": "Don't describe the program. Call submit_program with it now."})
+            continue
+        asking = (any(tc.function.name == "ask_user" for tc in msg.tool_calls) if msg.tool_calls
+                  else bool(_visible(msg.content)))  # an empty reply isn't a question (handled below)
+        if asking and not building and not missing_for_program(profile) and not asked_nudged:
+            # Guardrail: nothing is missing, so build instead of asking (P3 live test: with "full gym" known,
+            # Qwen still asked which equipment). One nudge; a second question goes through.
+            asked_nudged = True
+            messages.append({"role": "system", "content": "You have everything you need: goal, days, equipment "
+                             "and level are known (a full gym means all equipment). Build the program now."})
             continue
         if not msg.tool_calls:  # plain text: the model is talking to the client
             msg.content = _visible(msg.content)
@@ -244,6 +286,7 @@ def run_turn(conversation: list[dict]) -> AgentTurn:
                     searched.add(query)
                     result = search_sources(query, profile)
                     retrieved |= {p["id"] for p in result}
+                    turn.passages.update({p["id"]: {k: p.get(k) for k in ("source", "where", "text")} for p in result})
                     summary = ", ".join(p["id"] for p in result)
             elif name == "ask_user":
                 turn.steps.append({"tool": name, "args": args, "result": "question sent to the client"})
