@@ -35,3 +35,6 @@ Code attaches the weekly-set table to every program; the prompt tells the agent 
 
 ## Update 2026-10-02 (Phase 2, P3): stated totals rejected
 The prompt's "don't state totals" was ignored in the first browser test ("glutes/hamstrings: 15" vs 21 counted by code). A checker rule now rejects per-muscle set totals in the text; research citations are allowed. The page shows code's counts as bars with the minimum marked. See [0066](0066-no-weekly-set-totals-in-program-text.md).
+
+## Update 2026-10-02 (Phase 2, P4): the weekly-set fix names exercises
+A 70-year-old client stayed at 3 chest sets after 3 submissions. The fix text now lists up to 4 exercises this client can use that train the short group (e.g. "chest has 3 weekly sets: add 3 more ... e.g. Push-Up"). After the change: 1 of 2 runs passed. See [0070](0070-program-eval-12-clients-code-scored-coach-review-sheet.md).

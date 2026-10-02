@@ -21,3 +21,6 @@ Both. `ClientProfile.health_issues` records injuries, pain, conditions, surgerie
 - Step 4's test clients show the reader missing health issues the backup also misses.
 - False alarms show up often enough on real preferences (exercise names) to annoy users or cost retries.
 - The coach approval step is built and could take over the decision about when to refer.
+
+## Update 2026-10-02 (Phase 2, P4): the accepted false alarm happened, and was narrowed
+In the program eval, "I love back squats and hip thrusts" got a referral reminder: the AI read found no health issue, but the backup pattern matched. Exercise names are now excluded from the backup; real complaints still match. See [0072](0072-exercise-names-excluded-from-the-health-backup.md).

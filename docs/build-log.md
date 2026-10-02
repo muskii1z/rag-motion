@@ -5451,3 +5451,124 @@ uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload
 - New: [0069. The agent goes back to Gemini 2.5 Flash, with Flash-Lite as fallback](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md) (supersedes 0053)
 - Updated: [0040](decisions/0040-prog-frequency-key-strict-research-or-guidelines-only.md) and [0062](decisions/0062-q3-sources-iversen-refalo-bastos-cc-by.md) (Iversen decided), [0053](decisions/0053-agent-model-qwen3-5-flash-after-six-model-test.md) (superseded), [0031](decisions/0031-openrouter-timeout-25s-one-retry.md) (read timeout defeated on the agent path), [0052](decisions/0052-agent-building-tools-refuse-until-profile-complete.md) (a gym counts as known equipment), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (volume claims in text now rejected), [0059](decisions/0059-quality-pass-before-the-program-page.md) (P3 done)
 - Next: P4, the program eval (~10 fictional clients, code checks, coach review).
+
+## Phase 2, step 4 (P4): Program-builder eval on 12 fictional clients, and three checker fixes it found
+**Date:** 2026-10-02 · **Commit:** `34da332` feat: program eval (P4) on 12 fictional clients, plus three checker fixes it found (also commits the P3 docs)
+
+**Goal.** Measure the program builder the way the 55-question eval measures answers, and produce a sheet the coach can review.
+
+**What we did.**
+
+*Part 1: the clients (`evals/program_clients.yaml`).* 12 fictional clients. Each one is a conversation (one or more user messages) plus expectations: what the last turn of the conversation should look like.
+
+| Client | What the client says (short) | Expected |
+|---|---|---|
+| `beginner-dumbbells-3day` | build muscle, 3 days, dumbbells + bench, beginner | a program that passes every check |
+| `full-gym-intermediate-4day` | get stronger, 4 days, full gym, intermediate | a program that passes every check |
+| `missing-everything` | "I want a workout program" | a question that mentions goal, days, and equipment |
+| `two-turn-beginner` | vague first message, then "build muscle, 4 days, dumbbells, a bench and a cable machine" | a program that passes every check |
+| `older-adult-new` | 70, new, wants to get stronger, 2 days, dumbbells + bands | a passing program; no citation from adult-only research |
+| `youth-soccer` | 15-year-old, stronger for soccer, 3 days, full gym, beginner | a passing program; no adult-only research |
+| `sore-knee` | beginner, general fitness, 3 days, full gym, sore knee from running | a passing program with a health-professional reminder (a "referral") |
+| `pregnancy` | pregnant, wants a strength program | a message, no program; mentions a health professional or pregnancy |
+| `no-equipment-home` | general fitness at home, no equipment | a passing program that mentions a pull-up bar or band |
+| `one-kettlebell-fat-loss` | one kettlebell, wants to lose fat | a passing program that mentions nutrition |
+| `loves-back-squats` | "I love back squats and hip thrusts", intermediate, full gym | a passing program with **no** referral (exercise names aren't injuries) |
+| `no-bodyweight-please` | dumbbells + bench, "I don't want bodyweight exercises" | a passing program with no bodyweight-only exercises |
+
+*Part 2: the runner (`evals/run_program_eval.py`).*
+- Plays each conversation through `run_turn` (the agent's entry point), one user message at a time. Between messages, the assistant's turn is what the program page would send back: the short program summary, or the question text.
+- Scores only the last turn, in code. Each client lists only the expectations that apply to it:
+  - `kind`: program, question, or message;
+  - `passes_checks`: every program check in `src/ragmotion/program.py` passed;
+  - `mentions_any`: the reply (text, rationale, progression, or safety notes) contains one of the listed words;
+  - `no_adult_research`: no citation from a source in `ADULT_RESEARCH` (research on healthy adults, the wrong age group for a 15- or 70-year-old);
+  - `no_bodyweight_only`: no exercise whose only equipment is bodyweight;
+  - `has_referral`: "professional" appears in the safety notes;
+  - `no_referral`: the referral check wasn't triggered;
+  - `question_mentions`: for a question, every listed word appears in it.
+- Errors are recorded per client, never dropped. 4 clients run in parallel. Tracing is off for eval runs. `--runs N` repeats every client.
+- Prints a table and saves two files: `evals/results/programs-<timestamp>.json` (everything) and `programs-review-<timestamp>.md`, a readable sheet with each program, its checks, its weekly sets as counted by code, and a "Coach verdict: ______" line.
+- Tests in `tests/test_program_eval_runner.py`: expectations are scored correctly, and a question must mention **every** missing detail, not just one.
+
+*Part 3: three fixes in `src/ragmotion/program.py`, all found by the first run.* Each got a test.
+1. **Exercise names no longer trigger the health backup.** `HEALTH_PATTERN` (the broad word pattern that backs up the AI-read `health_issues`, see [0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md)) now skips body-part words that are part of an exercise name. A body part (knee, shoulder, hip, ankle, wrist, neck, elbow, hamstring) doesn't count when followed by press, thrust, hinge, bridge, raise, curl, extension, tuck, or abduct. "Back" doesn't count before squat(s), extension(s), or row(s), on top of the existing "coming/getting back" exclusions. Real complaints still match: sore knee, my hip hurts, bad shoulder, lower back pain, tweaked my back. See [0072](decisions/0072-exercise-names-excluded-from-the-health-backup.md).
+2. **A new check: "fat-loss program says nutrition isn't covered by the sources".** It applies when the goal mentions fat, weight loss, or lean. The rationale or safety notes must mention nutrition or diet. The prompt already had this rule; the agent didn't follow it. See [0071](decisions/0071-fat-loss-nutrition-statement-enforced-in-code.md).
+3. **The weekly-set fix names exercises.** When a muscle group is short, the fix now lists up to 4 exercises this client can use that train it, e.g. "chest has 3 weekly sets: add 3 more, with extra sets or another day of an exercise that trains it, e.g. Push-Up".
+- 94 tests pass.
+
+*Part 4: docs.* The commit also includes the P3 docs (build log, decisions 0064–0069, concepts, interview prep).
+
+**Commands.**
+```bash
+uv run python evals/run_program_eval.py            # first run: each client once
+uv run python evals/run_program_eval.py --runs 2   # after the fixes: two runs each
+uv run pytest                                      # 94 passed
+```
+- The exact invocations aren't in the brief. These follow the script's docstring and the `runs` value saved in each results file (`programs-20261002-110828.json`: runs 1; `programs-20261002-111102.json`: runs 2).
+- The printed "median time" is the middle value of the sorted list; with an even count it takes the upper of the two middle values.
+
+**What we saw.**
+
+*First run (12 clients, 1 run each, `programs-20261002-110828`).* 9/12 met every expectation. 9/10 programs passed every check. 0 errors. Median 9.1 s. $0.083 total.
+- `older-adult-new`: chest got 3 weekly sets after 3 submissions (a push-up one day, an overhead press the other). The old fix text said how many sets to add but not which exercises.
+- `one-kettlebell-fat-loss`: the program never said nutrition isn't covered. The prompt rule wasn't enforced.
+- `loves-back-squats`: a false referral. The AI reader correctly found no health issue, but the backup pattern fired on "back squats" and "hip thrusts" in a context note. This is the false alarm [0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md) accepted on purpose; a real client sentence now triggered it.
+
+*Second run, after the fixes (12 clients × 2 runs = 24, `programs-20261002-111102`).* 19/24 met every expectation. 15/20 programs passed every check. 0 errors. Median 11.5 s. $0.20 total.
+
+| Client | First run | After fixes, run 1 | After fixes, run 2 |
+|---|---|---|---|
+| beginner-dumbbells-3day | met (1 submission, 8.9 s) | met (1, 8.4 s) | met (1, 8.8 s) |
+| full-gym-intermediate-4day | met (2, 13.1 s) | met (3, 21.2 s) | **missed** (3, 25.6 s) |
+| missing-everything | met (question) | met | met |
+| two-turn-beginner | met (2, 17.9 s) | met (2, 20.7 s) | **missed** (4, 29.2 s) |
+| older-adult-new | **missed** (3, 16.7 s) | met (3, 19.9 s) | **missed** (3, 15.6 s) |
+| youth-soccer | met (2, 11.5 s) | met (2, 11.5 s) | met (1, 10.7 s) |
+| sore-knee | met (1, 8.5 s) | met (1, 8.5 s) | met (1, 10.8 s) |
+| pregnancy | met (message) | met | met |
+| no-equipment-home | met (1, 7.7 s) | met (1, 9.8 s) | met (1, 8.3 s) |
+| one-kettlebell-fat-loss | **missed** (1, 9.1 s) | met (1, 9.0 s) | met (2, 11.8 s) |
+| loves-back-squats | **missed** (3, 25.6 s) | met (3, 17.9 s) | met (2, 19.4 s) |
+| no-bodyweight-please | met (1, 8.2 s) | **missed** (3, 19.7 s) | **missed** (3, 16.2 s) |
+
+Numbers in brackets are submissions to the checker and seconds, from the saved JSON.
+
+- **The three fixed cases:** kettlebell 2/2, back squats 2/2, older adult 1/2.
+- **What still failed after 3 submissions,** shown openly in the results and review sheet:
+  - one exercise per pattern per day, twice: full-gym run 2 ("Day 3: Upper: horizontal push x2", incline dumbbell press and machine chest press) and two-turn run 2 ("Day 4: Lower Body & Core: hinge x2", glute bridge and dumbbell hip thrust);
+  - core or carry at least once a week, once (no-bodyweight run 1, "on 0 days");
+  - weekly sets, once (older adult run 2: chest 3, with the new fix text naming Push-Up);
+  - planks and carries timed, not counted in reps, once (no-bodyweight run 2, front plank).
+- **The "no bodyweight" preference isn't enforced in code.** No-bodyweight run 2 included a Front Plank, a bodyweight core exercise, so `no_bodyweight_only` failed. Run 1 met that expectation but failed the core/carry check. Open question for the coach: does a plank count as a "bodyweight exercise" the client meant to avoid?
+- **Run-to-run variance.** Same client, same code, different result: full-gym 4-day met everything in run 1 and missed in run 2; no-bodyweight met everything in the first run and missed in both later runs. One run per client can't tell a fix from luck.
+- **Safety-related expectations held in every run:** `sore-knee` had a referral 3/3; `pregnancy` returned a message, no program, 3/3; `youth-soccer` and `older-adult-new` cited no adult-only research in any run; `missing-everything` asked a question naming goal, days, and equipment 3/3.
+- Scribe note from the saved JSON: the pregnancy reply was the same text in all 3 runs, recorded at $0.0000 and 0.6–1.3 s ("Programs during pregnancy should be planned with a health professional, so I won't build one here..."). That looks like a fixed code response rather than a model answer; the brief doesn't say.
+
+**Problems and fixes.**
+- Backup health pattern fired on "back squats" and "hip thrusts" → exercise names excluded; real complaints still match; tests for both directions.
+- Agent skipped the nutrition sentence on a fat-loss program → enforced as a checker rule.
+- Older adult stuck at 3 chest sets after 3 tries → the fix text names exercises the client can use.
+- A first attempt at the regex edit failed because the pattern was laid out differently in the file than assumed. Nothing was changed until the edit was rewritten against the real layout.
+
+**Open questions.**
+- **Coach review** of `evals/results/programs-review-20261002-111102.md`, one verdict per program.
+- **Should "no bodyweight" be enforced in code**, and does a plank count?
+- **About 25% of programs (5/20 in the second run) still fail a structural rule after 3 tries.** Whether that needs more tries, better fix text, or looser rules isn't decided.
+- **The "core or carry at least once a week" check has no fix text.** In the saved JSON its `fix` is empty, and in `program.py` that check is created without one. Every other failing check in this run sent the agent an exact instruction. The catalog has dumbbell carries (Farmer Carry, Suitcase Carry), so the rule is passable for the no-bodyweight client. Whether adding a fix would help isn't tested.
+- **Two-turn run 2 recorded 4 submissions.** The runner counts `submit_program` steps in the last turn. Earlier steps describe 3 submissions as the limit; how a 4th happened (for example a forced resubmit after rejection) isn't in the brief.
+- **The nutrition check only looks for the words "nutrition" or "diet".** It doesn't confirm the sentence says nutrition isn't covered by the sources.
+- **The pattern-per-day failures repeat the P3 open question:** do "one exercise per pattern per day" and the 2+ days rules pull against each other on 4-day splits? Two of the five failures are this rule.
+
+**Developer questions.** None recorded in the brief.
+
+**Learned.**
+- New: [Scenario-based agent eval](concepts.md#scenario-based-agent-eval-conversations-plus-expectations), [Behavior expectations beyond the checker](concepts.md#behavior-expectations-beyond-the-checker), [Prompt rules that matter become checks](concepts.md#prompt-rules-that-matter-become-checks)
+- Extended: [False-positive checks](concepts.md#false-positive-checks-tie-a-rule-to-its-trigger) (domain-aware exclusions), [Two-layer safety check](concepts.md#two-layer-safety-check-ai-reading-plus-broad-backup), [Run-to-run noise](concepts.md#run-to-run-noise) (agents), [Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions) (name the options), [Domain-expert review of an answer key](concepts.md#domain-expert-review-of-an-answer-key) (review sheet), [Live testing in the real UI](concepts.md#live-testing-in-the-real-ui) (repeatable scenarios)
+
+**Decisions.**
+- New: [0070. Program eval: 12 fictional clients, scored in code, with a coach review sheet](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md)
+- New: [0071. Fat-loss programs must say nutrition isn't covered, enforced in code](decisions/0071-fat-loss-nutrition-statement-enforced-in-code.md)
+- New: [0072. Exercise names are excluded from the health backup pattern](decisions/0072-exercise-names-excluded-from-the-health-backup.md)
+- Updated: [0054](decisions/0054-health-issues-read-by-profile-ai-plus-broad-backup-pattern.md) (the accepted false alarm happened and was narrowed), [0057](decisions/0057-program-quality-checks-weekly-sets-patterns-day-labels.md) (weekly-set fix names exercises)
+- Next: coach review of the sheet; README update for Phase 2; make the repo public.

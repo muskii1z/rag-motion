@@ -285,3 +285,12 @@ def test_volume_fix_names_exercises_the_client_can_use():
     fix = next(c.fix for c in failed(check_program(ProgramDraft.model_validate(light), profile(), {"notes-program-design-1"}))
                if c.name.startswith("at least"))
     assert "chest has 3 weekly sets: add 3 more" in fix and "Push-Up" in fix and "Machine Chest Press" not in fix
+
+
+def test_missing_core_gets_a_fix_naming_usable_exercises():
+    no_core = json.loads(json.dumps(GOOD))
+    for d in no_core["days"]:
+        d["exercises"] = [e for e in d["exercises"] if e["slug"] != "front-plank"] + [x("dumbbell-reverse-lunge")]
+    fix = next(c.fix for c in failed(check_program(ProgramDraft.model_validate(no_core), profile(), {"notes-program-design-1"}))
+               if c.name == "core or carry at least once a week")
+    assert "Farmer Carry" in fix

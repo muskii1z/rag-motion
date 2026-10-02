@@ -1078,7 +1078,10 @@ When a check fails, what you tell the model decides whether it can fix it. At fi
 
 **In an interview:** "Telling the model which rule it broke wasn't enough; it made the same mistake three times. Telling it exactly what to change, like 'Day 1 has 7 exercises: remove 1', is what got programs through."
 
-*First seen: Phase 2, step 2.*
+*Phase 2, P4 update: name the options.* "Chest has 3 weekly sets: add 3 more" left a 70-year-old client's program stuck at 3 chest sets for 3 submissions. The fix now names up to 4 exercises this client can use that train the short group ("... e.g. Push-Up"). After the change, 1 of 2 runs passed. One check still sends no fix at all ("core or carry at least once a week"), and it was one of the remaining failures.
+
+
+*First seen: Phase 2, step 2. Extended: Phase 2, P4.*
 
 ### Role confusion (the agent hands its job to the user)
 An agent sees several voices in its message list: the system prompt, the client, and tool results. It can mix them up. When the checker rejected a program, the agent read the feedback as something for the client and asked the *client* to fix the program. Two fixes: the prompt says "fix it yourself, never ask the client to fix the program", and code forces the next call to be `submit_program` ([forced tool choice](#tool-calling-function-calling)), so replying to the client isn't possible at that moment.
@@ -1103,7 +1106,12 @@ A false positive is a check that fires when nothing is wrong. The referral check
 
 *Phase 2, step 2 fixes update:* the narrow whole-word pattern was replaced by a deliberately broad backup plus an AI-read `health_issues` field, because the narrow one missed real complaints. False alarms on exercise names are now accepted on purpose. See [Two-layer safety check](#two-layer-safety-check-ai-reading-plus-broad-backup).
 
-*First seen: Phase 2, step 2. Extended: step 2 follow-up, step 2 fixes.*
+*Phase 2, P4 update: domain-aware exclusions.* The accepted false alarm happened in the eval: "I love back squats and hip thrusts" got a referral reminder. A keyword backup needs to know the domain's vocabulary, so exercise names are now excluded: a body part followed by press, thrust, hinge, bridge, raise, curl, extension, tuck, or abduct doesn't count, and neither does "back" before squat(s), extension(s), or row(s). Real complaints still match (sore knee, my hip hurts, bad shoulder, lower back pain, tweaked my back). See [0072](decisions/0072-exercise-names-excluded-from-the-health-backup.md).
+
+**In an interview (P4):** "In exercise, 'back' and 'hip' are as often exercise names as complaints. My health backup flagged a client who loves back squats, so I taught it the difference and kept tests for both sides."
+
+
+*First seen: Phase 2, step 2. Extended: step 2 follow-up, step 2 fixes, Phase 2, P4.*
 
 ### False negatives vs false positives in a safety check
 A false positive is a check that fires when nothing is wrong. A false negative is a check that stays silent when it should fire. Tightening a rule to remove false positives usually adds false negatives, so the two have to be weighed. For a safety reminder ("check with a health professional"), a false negative is worse: a client with a bad back gets no reminder. A probe of the new `HEALTH_PATTERN`, run while documenting the step, found both kinds: no referral for "hurt my back", "my back hurts", "tweaked my back", "strained my hamstring", or "herniated disc"; a referral for "wants to do hip thrusts", "likes the shoulder press", and "knee-friendly please". The back phrases are a regression (something that used to work and now doesn't): under the old part-of-word matching, any note with "back" triggered, so "my back hurts" got a reminder before the fix and doesn't now. A word list will always have gaps like these. Not fixed yet.
@@ -1154,7 +1162,10 @@ One way to catch something important is two independent checks with different we
 
 **In an interview:** "For health mentions I don't rely on one detector. The AI reads them in context, and a deliberately broad word check backs it up. A false alarm costs one sentence; a miss costs a client their reminder."
 
-*First seen: Phase 2, step 2 fixes.*
+*Phase 2, P4 update: when one layer is wrong.* An OR of two checks (either one triggers) inherits the false alarms of both. For "I love back squats and hip thrusts" the AI layer was right (no health issue) and the word layer was wrong, so the referral fired anyway. Narrowing the word layer to skip exercise names fixed it ([0072](decisions/0072-exercise-names-excluded-from-the-health-backup.md)); the sore-knee client still got a referral in 3/3 runs.
+
+
+*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P4.*
 
 ### Rules must be satisfiable (every valid input must be able to pass)
 A check has to be passable for every input it can see; otherwise it fails forever and burns every retry. The checker required pull exercises on 2+ days, but the catalog has no pull exercise usable without equipment. For a bodyweight client, all 3 submissions failed that check whatever the agent did. The fix: a main pattern with no usable exercises for this client isn't required; the check passes with "no exercises available with this equipment", and the agent is told to say which equipment would add it (pull-up bar or bands) ([0056](decisions/0056-patterns-with-no-usable-exercises-are-not-required.md)). The rule now depends on what is actually possible.
@@ -1200,6 +1211,13 @@ An agent can say what it is about to do instead of doing it. After gathering exe
 *First seen: Phase 2 quality pass, Q2.*
 
 ---
+
+### Prompt rules that matter become checks
+A rule in the prompt is a request; the model can skip it. When a skipped rule would mislead a client, it should be checked in code, like any other rule. The prompt already told the agent to say nutrition isn't covered on fat-loss programs; in the P4 eval it didn't. Now a checker rule requires "nutrition" or "diet" in the rationale or safety notes when the goal is fat loss, and sends an exact fix if not ([0071](decisions/0071-fat-loss-nutrition-statement-enforced-in-code.md)). The kettlebell fat-loss client then passed 2/2. Same pattern as the weekly-set totals in P3 ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)). The limit: a word check confirms the topic is mentioned, not what the sentence says.
+
+**In an interview:** "When an eval shows the model ignoring an instruction that matters, I stop rewording the prompt and add a check. The prompt says what to do; the checker makes sure it happened."
+
+*First seen: Phase 2, P4.*
 
 ## Program design
 
@@ -1651,7 +1669,10 @@ Seven questions' lists changed; four gained acceptable lists; the rest were conf
 
 *Going-public update: the original 20 reviewed, and keys followed.* The last 20 unreviewed exercises (from Step 5) went to the coach. Three calls: Broad Jump intermediate → beginner; Inverted Row needs barbell + rack, not just a barbell; Farmer Carry keeps glutes as a main muscle ("it's really a full body workout"). The other 17 were confirmed. All 42 are now "reviewed by M. Saraswat". The coach also approved the 11 claims in the AI-drafted program-design notes ("those look fine"). See [0043](decisions/0043-coach-review-outcomes-original-20-and-program-design-notes.md).
 
-*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F1, going public (2026-10-01).*
+*Phase 2, P4 update: a review sheet for programs.* Code can score structure and behavior; whether a program is good is the coach's call. The program eval writes a Markdown sheet per run (`evals/results/programs-review-<timestamp>.md`): each client's message, the program day by day, weekly sets counted by code, failed checks, missed expectations, and a "Coach verdict: ______" line. The review of the first sheet is pending.
+
+
+*First seen: Eval walkthrough, part 1. Extended: Phase 1F, F1, going public (2026-10-01), Phase 2, P4.*
 
 ### When the answer key changes, the scores change
 Scores can move with no change to the system, just because the ruler changed. During the review, semantic exercise recall went 0.89 → 0.90 → 0.91 → 0.90 → 0.91 across re-runs, and hybrid passage recall rose from 0.89 to 0.95 when one question's key was revised. A better key can even change which search mode looks best. So compare only runs graded against the same version of the key. When the key must change (new material changes what's correct, or an expert finds an error), change specific keys deliberately, write down why, and treat that version as the new baseline. The LangSmith dataset name includes a hash of the file, so the reviewed key automatically became a new dataset (`rag-motion-eval-a2d30357`). See also [Eval maintenance when the corpus grows](#eval-maintenance-when-the-corpus-grows).
@@ -1769,7 +1790,10 @@ The same question can get a different LLM answer on different runs, because answ
 
 *Step 16 revisit update: noise when nothing should have changed.* After adding timeouts and error handling (no prompt or retrieval change), 3 answer runs gave citations 117/120 vs 120/120 on Monday, and coverage 110/120 vs 111/120. Retrieval, which has no model in it, matched exactly. So "the evals should match exactly" is a fair test for retrieval; for answers the fair test is "within the range seen before" (F6 had 118/120 citations).
 
-*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6; Step 16 revisit.*
+*Phase 2, P4 update: agents vary more.* An agent makes many model calls per turn, so small differences compound. With the same code, the full-gym 4-day client met every expectation in one run and missed in the next; the no-bodyweight client passed in the first run and failed both later runs, on different checks each time. So the program eval uses `--runs N` and reports counts over all runs (19/24), not one run per client.
+
+
+*First seen: Phase 1F, F3 + F4. Extended: Phase 1F, F5, F6; Step 16 revisit; Phase 2, P4.*
 
 ### Coverage label drift (a metric drop that may not be a regression)
 A score can fall because the answer key is debatable, not because the answers got worse. In F5, filters changed what the model sees: for "bands only, full-body workout" it now sees only the few band and bodyweight exercises and says coverage is `partial`, while the key says `full`. `coverage_correct` fell from 36/40 to 33/40 while forbidden citations improved to 13/13. Before calling that a regression, check each miss: is the key right, is the label honest given the evidence, or is it run-to-run noise? Here that needs the coach.
@@ -1859,6 +1883,20 @@ When a question fails with an error during an eval (a timeout, an unreadable rep
 **In an interview:** "In my final eval, 4 of 156 question-runs failed: three timeouts and one unreadable reply. I could have re-run them until they passed. I reported them instead, with the cause, because a user would hit those failures too, and I'd rather a reviewer trust my numbers than admire them."
 
 *First seen: going public (2026-10-01).*
+
+### Scenario-based agent eval (conversations plus expectations)
+An eval for an agent can't be a list of single questions, because what matters is behavior across a conversation: does it ask when details are missing, refuse when it should, and build a sound program when it can. A scenario-based eval writes fictional clients as short conversations, each with expectations for how the last turn should look (a program, a question, or a message, plus things like "has a referral" or "cites no adult research"). A runner plays each conversation through the real agent, scores the expectations in code, repeats the whole set several times, and saves a sheet a human expert can read. In P4: 12 clients, first run 9/12 met every expectation; after three fixes, 19/24 over 2 runs, $0.20 total.
+
+**In an interview:** "For the agent I don't test single prompts. I wrote 12 fictional clients as conversations, including a pregnant client, a teenager, and someone with a sore knee, each with expectations scored in code, ran each twice, and gave my coach a review sheet for the parts code can't judge."
+
+*First seen: Phase 2, P4.*
+
+### Behavior expectations beyond the checker
+The program checker judges a program: equipment, structure, volume. Some of the most important behavior isn't a property of a program at all: asking for every missing detail, refusing to build for pregnancy, adding a health-professional reminder for a sore knee and *not* adding one for "I love back squats", not citing research on healthy adults for a 15- or 70-year-old. These belong in the eval's expectations, per client. In P4 they caught two things the checker passed: a false referral, and a fat-loss program with no nutrition statement.
+
+**In an interview:** "My checker says whether a program is valid. My eval also says whether the agent behaved right: did it ask, refuse, or refer when it should, and not when it shouldn't. Two bugs in my first run were behavior bugs the checker had passed."
+
+*First seen: Phase 2, P4.*
 
 ## Testing
 
@@ -1995,7 +2033,10 @@ Unit tests check what someone thought to write down. Using the product the way a
 
 **In an interview:** "My tests were green and the first real browser session still found five problems, including a 14-minute hang. Now every live bug becomes a test, but I keep doing live sessions, because that's where the new ones show up."
 
-*First seen: Phase 2, P3.*
+*Phase 2, P4 update: turn live sessions into scenarios.* Live use finds new problems but can't be repeated. The P4 eval turns the kinds of conversations used in the browser into 12 fixed scenarios (about 8 cents for one pass of all 12, $0.083 in the first run), so a fix can be checked against all of them. Both are needed: the eval for "did this fix hold everywhere", live use for "what haven't I thought of".
+
+
+*First seen: Phase 2, P3. Extended: Phase 2, P4.*
 
 ## Terminal basics
 

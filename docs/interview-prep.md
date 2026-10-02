@@ -672,6 +672,9 @@ Evidence so far:
 
 - [Phase 2 quality pass, Q3](build-log.md#phase-2-quality-pass-q3-sources-on-time-efficient-training-proximity-to-failure-and-rir-scales): **a hidden size limit in a test.** A database test fetched the top 300 passages and assumed that was all of them; at 358 passages it wasn't. The limit went to 5,000, and the question-count test to 55. A new unit test uses a small made-up article to prove nested tables come out row by row. 78 tests pass. See [Tests encode data assumptions](concepts.md#tests-encode-data-assumptions) (extended).
 
+- [Phase 2, P4](build-log.md#phase-2-step-4-p4-program-builder-eval-on-12-fictional-clients-and-three-checker-fixes-it-found): **an eval for the agent, not just the answers.** 12 fictional clients written as conversations, each with expectations scored in code (`evals/run_program_eval.py`); errors recorded, not dropped; `--runs N` for repeats; a review sheet for the coach. Two offline tests check the scoring itself. First run 9/12 met every expectation; after three fixes, 19/24 over 2 runs, 15/20 programs passing every check, 0 errors, $0.20. 94 tests pass. See [Scenario-based agent eval](concepts.md#scenario-based-agent-eval-conversations-plus-expectations) and [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md).
+  - Point to make: "Unit tests prove the guardrails work with a fake model. The scenario eval shows what the real agent does across a dozen clients, and it found three bugs in its first run."
+
 ## Agents
 
 ### What makes this an agent rather than a chatbot?
@@ -693,6 +696,9 @@ Evidence so far:
 
 - [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **an agent with a page.** The coach chats with it in the browser; it shows each program with its checks, the tool calls it made ("How it was built · N tool calls"), and the passage behind every citation. Live use showed agent-like failure modes a chatbot doesn't have: asking for details it already had (fixed with one nudge, [0067](decisions/0067-agent-asks-only-when-something-is-missing.md)), and stating numbers about its own work that were wrong ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)).
   - Point to make: "The agent decides what to do next, so it can also decide to ask a question it doesn't need to. My code knows what's missing, and if the answer is 'nothing', it tells the agent to build."
+
+- [Phase 2, P4](build-log.md#phase-2-step-4-p4-program-builder-eval-on-12-fictional-clients-and-three-checker-fixes-it-found): **agent behavior measured across a conversation.** The eval checks things only an agent does: asking for every missing detail (3/3), refusing a pregnancy program (3/3), referring a sore knee (3/3) but not a client who loves back squats (2/2 after the fix), and choosing age-appropriate sources for a 15- and a 70-year-old (every run). See [Behavior expectations beyond the checker](concepts.md#behavior-expectations-beyond-the-checker).
+  - Run-to-run variance: the same client passed in one run and failed in the next, so results are counted over repeated runs ([Run-to-run noise](concepts.md#run-to-run-noise)).
 
 ## LangGraph
 
@@ -741,6 +747,9 @@ Evidence so far (partial: no program generation yet):
 - [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **a new rule from the browser.** The agent wrote "glutes/hamstrings: 15" when code counted 21. The checker now rejects per-muscle totals in the text, and the failure goes back with the usual exact fix ([0066](decisions/0066-no-weekly-set-totals-in-program-text.md)). On the page, a program shown after its retries ran out lists its failed checks next to an "X/Y checks passed" badge.
   - In the 6 verification runs on Gemini 2.5 Flash, one full-gym program still failed "squat/lunge on 2+ days" and "one per pattern per day" after 3 submissions, and was returned with those failures. Whether those two rules conflict on a 4-day plan is an open question for P4.
   - Point to make: "A program that fails validation three times still reaches the coach, with the failed checks on screen. Nothing is hidden and nothing loops."
+
+- [Phase 2, P4](build-log.md#phase-2-step-4-p4-program-builder-eval-on-12-fictional-clients-and-three-checker-fixes-it-found): **how often validation still fails, measured.** After 3 submissions, 5 of 20 programs in the second run still failed a check and were returned with the failures listed: one exercise per pattern per day (2), core or carry once a week (1), weekly sets (1), planks in reps instead of seconds (1). Two fixes made failures rarer: the weekly-set fix now names exercises the client can use ([Actionable feedback](concepts.md#actionable-feedback-exact-fix-instructions)), and a skipped prompt rule became a check ([0071](decisions/0071-fat-loss-nutrition-statement-enforced-in-code.md), [Prompt rules that matter become checks](concepts.md#prompt-rules-that-matter-become-checks)). Open: the "core or carry" check sends no fix instruction.
+  - Point to make: "About a quarter of programs still need more than three tries on structural rules. I report that number instead of hiding the failures, and the eval tells me which rules to work on."
 
 ## Human-in-the-loop
 
@@ -797,6 +806,9 @@ Evidence so far:
 
 - [Phase 2, P3](build-log.md#phase-2-step-3-p3-the-program-page-fixes-from-live-browser-tests-and-the-agent-back-on-gemini-25-flash): **the page is built for the reviewer.** Every citation opens the real passage; volume bars come from code with the minimum marked; the check count, failed checks, tool calls, and cost are on screen. See [Provenance in the UI](concepts.md#provenance-in-the-ui-citation-drawer-and-code-computed-numbers). The coach also settled the Iversen key ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)), and the developer made the model call ("ok let's switch back to Gemini then", [0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)).
   - Point to make: "I designed the program page so a coach can verify it, not just read it: click a citation, see the passage; look at the bars, see my code's count, not the model's."
+
+- [Phase 2, P4](build-log.md#phase-2-step-4-p4-program-builder-eval-on-12-fictional-clients-and-three-checker-fixes-it-found): **a review sheet per eval run.** `evals/results/programs-review-<timestamp>.md` shows each client's message, the program, code-counted weekly sets, failed checks, missed expectations, and a "Coach verdict: ______" line. Code scores what it can; the coach judges quality. Pending: the coach's verdicts, and whether "no bodyweight exercises" should exclude a plank. See [Domain-expert review](concepts.md#domain-expert-review-of-an-answer-key) (extended).
+  - Point to make: "My eval ends with a sheet for a coach, not just a score. The code can tell me a program has six chest sets; only a coach can tell me it's a program they'd give someone."
 
 ## Observability
 
@@ -1300,3 +1312,6 @@ Evidence so far:
 - **Cheap but stalling vs pricier but predictable** ([0069](decisions/0069-agent-back-on-gemini-2-5-flash-with-flash-lite-fallback.md)): Gemini 2.5 Flash over Qwen3.5 Flash. Given up: about 3–4× the cost per program. Gained: 8–21 s instead of occasional minutes.
   - Point to make: "At 100,000 programs, the cheaper model saves real money on paper, but a few percent of users waiting minutes would cost more in trust. I'd revisit with measured tail latency, not list prices."
 - **Strict key vs accepting a broad review** ([0064](decisions/0064-iversen-counts-as-correct-evidence-for-four-program-design-keys.md)): accepted, on the coach's call. Given up: the eval no longer flags a broad review ranked above the specific study. Gained: a key that matches what the coach accepts.
+- **Accept a known false alarm vs teach the backup exercise names** ([0072](decisions/0072-exercise-names-excluded-from-the-health-backup.md), [Phase 2, P4](build-log.md#phase-2-step-4-p4-program-builder-eval-on-12-fictional-clients-and-three-checker-fixes-it-found)): exclusions for exercise names. Given up: a complaint that names a body part only inside an exercise name, with no pain word, isn't caught by the backup. Gained: "I love back squats" no longer gets a referral; real complaints still match.
+- **Prompt rule vs checker rule for the nutrition statement** ([0071](decisions/0071-fat-loss-nutrition-statement-enforced-in-code.md)): checker rule. Given up: a resubmission when missed; the check matches a word, not a meaning.
+- **Hand testing vs a scripted program eval** ([0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md)): both. Given up: about $0.20 per 2-run eval and simple word-based expectations. Gained: repeatable before/after numbers for every fix.

@@ -215,7 +215,9 @@ def check_program(draft: ProgramDraft, profile: ClientProfile, retrieved_ids: se
         n = days_with(patterns)
         checks.append(Check(name=f"{label} on {need}+ days", passed=n >= need, detail=f"on {n} days"))
     n = days_with(CORE_PATTERNS)
-    checks.append(Check(name="core or carry at least once a week", passed=n >= 1, detail=f"on {n} days"))
+    checks.append(Check(name="core or carry at least once a week", passed=n >= 1, detail=f"on {n} days",
+                        fix="Add one core or carry exercise to any day, e.g. " + ", ".join(sorted(
+                            e["name"] for e in cat.values() if usable(e, profile) and e["movement_pattern"] in CORE_PATTERNS)[:4])))
 
     lo, hi = (4, 6) if max_level(profile) == "beginner" else (3, 8)
     sizes = {d.name: len(d.exercises) for d in draft.days}
