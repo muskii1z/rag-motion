@@ -62,7 +62,7 @@ Update the Status column as steps complete.
 | Q1 | Quality checks: weekly sets per muscle group (6 muscle/strength, 4 otherwise), one per pattern per day, upper/lower day labels | done (115ced2); 0/3 replays passed: upper/lower days need horizontal/vertical labels |
 | Q2 | Catalog: ~20 exercises incl. machine/cable equipment; horizontal/vertical labels on push/pull; coach review; answer keys | done: 18 coach-reviewed exercises (60 total), direction labels; full-gym 4-day replays 4/6 pass all 18 checks (was 0/3); answer-key judgment calls pending |
 | Q3 | Sources: time-efficient design + proximity to failure (license check, download approval) | done: Iversen 2021, Refalo 2023, Bastos 2024 (all CC BY, tagged adults); 3 questions (55 total) all retrieve them; Iversen (broad review) now ranks first on several program questions (passage MRR 0.84 -> 0.76), key decision pending |
-| P3 | Program page (chat + program table) | next |
+| P3 | Program page (chat + program table) | done: /program page and /api/program; agent on Gemini 2.5 Flash (fallback Flash-Lite, 40 s hard deadline); 5/6 test clients pass all checks in 8-21 s |
 | P4 | Program eval: ~10 fictional clients, code checks, coach review; optional model comparison | next |
 
 **Where we are (2026-10-01):** Phase 1 and 1F complete and measured. All 42 exercises and all notes coach-reviewed. Final eval (52 questions, 3 runs): no forbidden advice 45/45, citations 97%, expected evidence 95%, coverage 91%. README rewritten; pre-public checks clean. Next: developer makes the repo public and pins it. Phase 2 (program builder) is being built in this repo, step by step (table above).
