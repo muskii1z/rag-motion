@@ -220,7 +220,9 @@ When a model fills in a form, it tends to fill gaps with a likely default. In F5
 
 *Phase 2, step 2 fixes update: the same habit, on equipment.* The profile reader guessed `['bodyweight']` for "beginner to the gym" in 1 of 3 reads. The prompt now says: record only equipment the text mentions; never default to bodyweight; "new to the gym" says nothing about equipment. Because the guess was rare, the prompt line alone wasn't trusted: a code guard also resets a bodyweight-only reading unless the client's own words say no equipment ([0055](decisions/0055-bodyweight-only-when-the-client-says-so.md)).
 
-*First seen: Phase 1F, F5. Extended: Phase 2, step 2 fixes.*
+*Phase 2 follow-up update: exercise names aren't equipment.* The profile reader read "I love back squats" as owning a barbell and dropped "full gym". The prompt now says never to infer equipment from exercise names, and maps "full gym", "gym access", and "I train at a gym" to "full gym". As with bodyweight, a code backstop sits behind the prompt line ([0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)).
+
+*First seen: Phase 1F, F5. Extended: Phase 2, step 2 fixes, Phase 2 follow-up.*
 
 ### Prompt changes have side effects (one instruction, many answers)
 The system prompt (the standing instructions sent with every question) is shared by every answer. So a rule written with one kind of question in mind also reaches all the others, and the model may apply it where it doesn't fit. In F7b, a rule to group exercises under muscle-group headings was meant for list questions like "a full-body routine for a beginner". It also changed focused questions: "an overhead pressing exercise" got bench press, push-up, triceps extension, and band pull-apart, as if the model needed several groups to fill. Narrowing the rule to list questions (v2) stopped it firing on the beginner list it was written for. Coverage claims also got less accurate in every version, though the rules never mentioned coverage. The habit: after any prompt change, check the questions the rule was *not* for, not only the ones it was for.
@@ -1160,7 +1162,11 @@ A code guardrail checks data; it can't tell if the data is wrong. The agent's bu
 
 *Phase 2, P3 update: the reader dropped a fact entirely.* In one traced read, "full gym" produced no equipment at all (equipment `[]`, unmapped `[]`), so the agent asked for equipment it had been told. A code backstop in `read_profile` now records `["gym"]` when the client's messages mention a gym and nothing was recorded ([0067](decisions/0067-agent-asks-only-when-something-is-missing.md)). Same lesson: check what the LLM reader produced before blaming the agent.
 
-*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P3.*
+*Phase 2 follow-up update: a deterministic backstop for high-impact facts.* A backstop is a code rule that overrides or fills in what an LLM reader returned. Deterministic means it gives the same result for the same input every time. The P3 backstop only fired when the reader returned nothing. Then, for "I love back squats ... full gym", the reader returned barbell + machine in 3 of 3 reads: it dropped "full gym" and guessed equipment from the exercise names. A partial answer slipped past a backstop built for an empty one. Equipment decides every option in the program, so now any gym mention (except "home gym") means all equipment, whatever the reader said ([0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)). The habit: for the few facts that change everything downstream, let code have the last word. The cost is that a word rule is blunt: it also fires on "I'm new to the gym, I train at home with dumbbells" (found by a scribe probe, not yet tested in the eval).
+
+**In an interview (follow-up):** "My backstop only covered the reader returning nothing. It returned something wrong instead, barbell and machine for a full-gym client, and the backstop stayed quiet. For facts that reshape the whole output, code now overrides the model, and I know the tradeoff: a word rule can't read context."
+
+*First seen: Phase 2, step 2 fixes. Extended: Phase 2, P3, Phase 2 follow-up.*
 
 ### Two-layer safety check (AI reading plus broad backup)
 One way to catch something important is two independent checks with different weaknesses. Here, health issues are caught twice: the profile AI records them in `health_issues` in the client's words (it understands "tweaked my back", but can miss or vary), and a broad word pattern scans the context notes as a backup (it never varies, but over-matches). Either one triggers the referral reminder. The two layers fail in different ways, so a miss needs both to miss. Same idea as [Defense in depth](#defense-in-depth-filters-plus-the-models-own-judgment).
@@ -1190,7 +1196,9 @@ A structural check asks whether a result is complete and allowed: right number o
 
 *Phase 2 structure fix update: now structure is guaranteed, "passes every check" means less.* With the skeleton, all 90 eval programs passed every check. But one of them shows the gap: a client who said "I love back squats and hip thrusts ... full gym" got neither, in 9 of 9 runs, with 3-exercise upper days, and still passed everything. Checks cover what someone wrote down; the coach's review covers the rest.
 
-*First seen: Phase 2 quality pass, Q1. Extended: Phase 2 structure fix.*
+*Phase 2 follow-up update: the back-squat gap, explained and closed.* The cause wasn't the checker or the skeleton: the profile said barbell + machine, so the program was correct for the wrong profile (see [Valid output from wrong input](#valid-output-from-wrong-input-checks-verify-consistency-not-truth)). After the fix, the client got both lifts and 4–5 exercises per day in 3/3 runs, and the eval now checks for that ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)).
+
+*First seen: Phase 2 quality pass, Q1. Extended: Phase 2 structure fix, Phase 2 follow-up.*
 
 ### Count, don't trust (compute the model's claims in code)
 When a model states a number about its own output, treat it as a claim, not a fact. The agent's rationale said the program gave "10–13 sets per muscle group". Chest actually got 3. Now code counts weekly sets from the catalog (`weekly_sets()` in `src/ragmotion/program.py`), attaches the table to every program, and the prompt tells the model not to state totals. Anything that can be computed should be computed, not generated. The same idea as [Verify agent output independently](#verify-agent-output-independently).
@@ -1254,7 +1262,11 @@ A client preference ("I don't want bodyweight exercises") is a limit, just softe
 
 **In an interview:** "A client said no bodyweight exercises and the agent kept giving planks. I didn't add a prompt line. Code reads the preference and removes those options before the model chooses, so it went from 0 of 3 to 3 of 3."
 
-*First seen: Phase 2 structure fix.*
+*Phase 2 follow-up update: favorite exercises.* The same idea for a positive preference. `mentioned_exercises()` finds catalog exercises the client names (it strips equipment words from each name, so "back squats" matches Barbell Back Squat) and passes them to the agent as `exercises_the_client_mentioned`. Unlike the no-bodyweight rule, code doesn't force them in: the agent uses them where a slot offers them ([0078](decisions/0078-exercises-the-client-names-found-by-code.md)). The back-squat client went from neither lift in 9 of 9 runs to both in 3 of 3. Limits found by scribe probes: it matches names, not feelings ("I hate deadlifts" returns deadlifts), and a short leftover like "squat" also matches Bodyweight Squat.
+
+**In an interview (follow-up):** "Hard limits, like no bodyweight, code enforces. Soft wishes, like 'I love back squats', code finds and hands to the model, and the model decides where they fit. Code is good at spotting the name; it's not good at knowing whether the client liked it."
+
+*First seen: Phase 2 structure fix. Extended: Phase 2 follow-up.*
 
 ### Labels from state, not from how the model replied
 When code labels a model's output (question, message, program), base the label on facts code already knows, not on which path the model happened to take. The turn's kind used to come from the tool used: `ask_user` meant "question", plain text meant "message". The agent sometimes asked for missing details as plain text, so a correct question was labeled "message" 3/3. Code already knows whether details are missing (`missing_for_program`), so a text reply then is labeled a question ([0076](decisions/0076-reply-kind-labeled-from-state.md)).
@@ -1949,7 +1961,23 @@ The program checker judges a program: equipment, structure, volume. Some of the 
 
 **In an interview:** "My checker says whether a program is valid. My eval also says whether the agent behaved right: did it ask, refuse, or refer when it should, and not when it shouldn't. Two bugs in my first run were behavior bugs the checker had passed."
 
-*First seen: Phase 2, P4.*
+*Phase 2 follow-up update: expectations about what the client asked for.* Two new types: `includes_any` (the program includes at least one of these exercises) and `min_exercises_per_day`. They're written from the client's own words in the conversation, so they don't depend on the profile reader being right. `loves-back-squats` now expects back squat or hip thrust; the four full-gym clients expect at least 4 exercises per day ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)). One weakness: "any" passes if only one of two favorites appears.
+
+*First seen: Phase 2, P4. Extended: Phase 2 follow-up.*
+
+### Valid output from wrong input (checks verify consistency, not truth)
+A checker compares the output with the input it was given. If that input is wrong, a wrong output can pass every check. In rag-motion, the profile reader turned "full gym" into barbell + machine. The skeleton, the agent, and all the program checks then worked perfectly for a client who owned only barbell and machine. The program passed 9 of 9 eval runs while missing both lifts the client said they loved and leaving upper days with 3 exercises. The checks answered "does this program fit the profile?", never "does the profile fit what the client said?". The fix needs both: get the input right ([0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)) and add eval expectations written from the user's own words ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)). A coaching version: a perfectly built program for the wrong assessment.
+
+**In an interview:** "My program passed every check and every expectation, nine runs out of nine, and it was wrong. The checks verified the program against the profile, and the profile was wrong. Now my eval also checks against what the user actually asked for, not just against what my pipeline understood."
+
+*First seen: Phase 2 follow-up.*
+
+### Review the outputs, not just the scores
+A score summarises what someone decided to measure. Reading actual outputs finds what nobody thought to measure. The back-squat bug had a perfect score; it was found because the scribe read the saved programs while writing up the structure fix and saw no back squat, 3-exercise upper days, and a pull-up bar suggested to a full-gym client. The habit: after every eval, read a sample of real outputs, especially the ones that pass, and turn each surprise into an expectation so the score covers it next time. Saving full outputs (here every program in `evals/results/programs-*.json` plus a review sheet) is what makes this possible.
+
+**In an interview:** "My worst bug of the phase had a perfect score. It was found by reading the programs, not the totals. So I read passing outputs too, and each surprise becomes a new scored expectation."
+
+*First seen: Phase 2 follow-up.*
 
 ## Testing
 

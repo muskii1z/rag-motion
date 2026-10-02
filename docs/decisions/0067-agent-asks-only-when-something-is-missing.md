@@ -24,3 +24,6 @@ For "get stronger, 4 days, full gym, intermediate", the agent asked which equipm
 
 ## Revisit when
 - P4 or live use shows the agent building on a wrong "gym" reading, or still asking needlessly after the nudge.
+
+## Update 2026-10-02 (Phase 2 follow-up): the "revisit when" signal happened
+The P4 eval showed the agent building on a wrong gym reading: for "I love back squats ... full gym" the reader returned barbell + machine (3/3 reads), so this backstop, which only fired when nothing was recorded, didn't fire. The backstop now applies whenever a gym is mentioned, even with a partial list; see [0077](0077-a-gym-mention-always-means-all-equipment.md). The "I quit the gym" risk above is now wider: a scribe probe found the regex also matches "beginner to the gym, I train at home with dumbbells".

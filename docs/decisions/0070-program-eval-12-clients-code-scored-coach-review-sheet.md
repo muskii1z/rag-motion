@@ -26,3 +26,6 @@ The program builder (an agent: a model that picks its own tool calls) had been t
 
 ## Update 2026-10-02 (Phase 2 structure fix)
 Three more runs, 3 repeats each, after the skeleton change ([0073](0073-code-builds-the-program-skeleton-agent-fills-slots.md)): 33/36, 33/36, then 36/36 expectations; 30/30 programs passed every check in each; 0 errors; final median 8.4 s, $0.159 total. Each run found one new miss, both fixed in code ([0074](0074-no-bodyweight-preference-read-by-code.md), [0076](0076-reply-kind-labeled-from-state.md)). The review sheet for the coach is now `evals/results/programs-review-20261002-154909.md`. A gap in the expectations: `loves-back-squats` passed in 9 of 9 runs without any back squat or hip thrust, because no expectation checks that a client's stated favorites appear.
+
+## Update 2026-10-02 (Phase 2 follow-up)
+The gap above is closed with two new expectation types ([0079](0079-eval-expectations-for-favorite-lifts-and-full-days.md)): `includes_any` and `min_exercises_per_day` (4 on the four full-gym clients). With them, after the gym and named-exercise fixes: 36/36 expectations, 30/30 programs passing every check, 28/30 accepted on the first submission, 0 errors, median 8.0 s, $0.166 (`evals/results/programs-20261002-155746.json`). New review sheet for the coach: `evals/results/programs-review-20261002-155746.md`.

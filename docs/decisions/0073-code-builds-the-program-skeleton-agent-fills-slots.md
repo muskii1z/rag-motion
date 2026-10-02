@@ -25,3 +25,7 @@ Result: programs passing every check 15/20 (2 runs) → 30/30 (3 runs, every run
 - The coach rejects or changes a layout.
 - Clients need splits the six layouts can't express (for example a sport-specific week or push/pull/legs).
 - The coach's review finds programs that pass every check but don't fit the client (the back-squat case already points this way).
+
+## Update 2026-10-02 (Phase 2 follow-up)
+- **Rotation day names.** When a 4–6-day week falls back to the full-body rotation, days are now lettered in order (Full body A, B, C, D...) instead of repeating "Full body A".
+- **The back-squat case.** It wasn't the skeleton: the profile reader had turned "full gym" into barbell + machine, so the skeleton was built for the wrong equipment. Fixed upstream ([0077](0077-a-gym-mention-always-means-all-equipment.md), [0078](0078-exercises-the-client-names-found-by-code.md)); the client now gets 4–5 exercises per day with back squat and hip thrust in 3/3 runs.

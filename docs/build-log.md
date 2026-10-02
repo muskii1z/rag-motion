@@ -5682,3 +5682,83 @@ uv run pytest                                      # 139 passed (re-run by the s
 - New: [0076. A text reply is labeled a question when details are missing](decisions/0076-reply-kind-labeled-from-state.md)
 - Updated: [0045](decisions/0045-program-builder-guided-agent-with-code-guardrails.md) (its "revisit when" signal happened), [0046](decisions/0046-client-limits-enforced-in-tools-profile-read-by-code.md) (`find_exercises` replaced), [0051](decisions/0051-program-checker-in-code-exact-fixes-three-submissions.md) (core/carry fix; slot problems before the checker), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (new results)
 - Next: coach review of the layouts and the program sheet, README update for Phase 2, make the repo public.
+
+## Phase 2 follow-up: full-gym detection and client-named exercises
+**Date:** 2026-10-02 · **Commit:** `3c1d974` fix: a gym means all equipment; exercises the client names reach the agent (the structure-fix docs were committed just before as `357e239`)
+
+**Goal.** Fix a bug that every check and every eval expectation missed: the "loves back squats" full-gym client got no back squat, no hip thrust, and 3-exercise upper days.
+
+**How it was found.** Not by a score. While writing up the structure fix, the scribe read the saved programs, not just the totals, and noticed that `loves-back-squats` had passed 9 of 9 runs with programs that didn't match the request. The client said: "I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym." Every program had no back squat and no hip thrust, 3-exercise Upper days, only barbell, machine, and bodyweight exercises, and a rationale telling a full-gym client a pull-up bar would help. The scribe flagged a possible cause from reading the code (see the [structure-fix entry](#phase-2-structure-fix-code-builds-the-program-skeleton-the-agent-fills-the-slots)), and it turned out to be right.
+
+**What the investigation showed.** The profile reader (the LLM call that turns the conversation into a structured client profile, `extract_profile`) was run on this client 3 times:
+- It returned equipment `['barbell', 'machine']` and unmapped equipment `[]` every time. "Full gym" was dropped, and the equipment was inferred from "back squats".
+- So the client "owned" barbell, bodyweight, and machine. No squat rack, so no back squat.
+- The skeleton (the days and empty slots code builds for the week) then had Upper A = horizontal push (2 options), horizontal pull (1 option), core, with notes "vertical pull replaced by horizontal pull" and "no vertical push exercise with this equipment". Lower B had "carry replaced by core".
+- The checks passed because the program was valid **for the profile it was given**. The profile was wrong. And no eval expectation checked for full days or for the lifts the client said they love.
+
+**What we did.**
+- **A gym always means all equipment** (`src/ragmotion/agent.py`). The old backstop (a code rule that overrides or fills in what the LLM reader returned) only added "gym" when the reader had recorded no equipment at all. Now, whenever the client's messages mention a gym, "gym" is added to `unmapped_equipment` even if the reader listed some equipment. `has_gym()` / `owned_equipment()` already treat a gym as every piece of equipment. The `GYM` regex (a text pattern) skips "home gym", which says nothing about what's in it ([0077](decisions/0077-a-gym-mention-always-means-all-equipment.md)).
+- **The reader's prompt** (`src/ragmotion/llm.py`): "Full gym", "gym access", or "I train at a gym" go into `unmapped_equipment` as "full gym". New line: never infer equipment from exercise names ("back squats" is not a statement about owning a barbell).
+- **Exercises the client names are found by code** (`mentioned_exercises(conversation)` in `agent.py`). It takes each catalog exercise name, removes the equipment words (barbell, dumbbell, kettlebell, cable, machine, band, bodyweight, one-arm, single-arm), and looks for what's left in the client's messages, allowing a plural ("back squats" → `barbell-back-squat`, "hip thrusts" → `dumbbell-hip-thrust`). The list goes into the profile note the agent sees as `exercises_the_client_mentioned`, and the prompt says: use them where a slot offers them ([0078](decisions/0078-exercises-the-client-names-found-by-code.md)).
+- **Rotation day names** (`src/ragmotion/program.py`). When a 4–6-day week falls back to the full-body rotation, days are now lettered in order: Full body A, B, C, D... Before, names repeated ("Full body A" on day 1 and day 4). This closes an open question from the structure-fix entry.
+- **Two new eval expectation types** (`evals/run_program_eval.py`, `evals/program_clients.yaml`) ([0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)):
+  - `includes_any`: the program includes at least one of these exercise slugs.
+  - `min_exercises_per_day`: every day has at least this many exercises.
+  - `min_exercises_per_day: 4` was added to the four full-gym clients: `full-gym-intermediate-4day`, `youth-soccer`, `sore-knee`, `loves-back-squats`. `loves-back-squats` also got `includes_any: [barbell-back-squat, dumbbell-hip-thrust]`.
+- **Tests** (`tests/test_program_skeleton.py`): a gym means all equipment even when the reader returned a partial list (the reader is faked to return barbell + machine); "I have a home gym with dumbbells" doesn't get "gym"; "I love back squats and hip thrusts" finds both exercises. 141 tests pass.
+
+**Commands.**
+```bash
+uv run python evals/run_program_eval.py --runs 3   # 12 clients x 3 runs; saved programs-20261002-155746.json + review sheet
+uv run pytest                                      # 141 passed (re-run by the scribe: 141 passed in 1.41 s)
+```
+- The exact command used to read the profile 3 times isn't in the brief.
+- The eval invocation above is inferred from the saved file (`runs: 3`, model `google/gemini-2.5-flash`); the brief gives the results, not the command line.
+
+**What we saw.**
+
+| | Expectations met | Programs passing every check | Accepted on first submission | Errors | Median time | Total cost |
+|---|---|---|---|---|---|---|
+| Structure fix, final (`154909`) | 36/36 | 30/30 | 26/30 | 0 | 8.4 s | $0.159 |
+| This fix (`155746`), with the stricter expectations | **36/36** | **30/30** | 28/30 | 0 | 8.0 s | $0.166 |
+
+- **The back-squat client now gets what they asked for, in all 3 runs.** Every run had Barbell Back Squat and Dumbbell Hip Thrust on Lower A, and every day had 4 or 5 exercises. Run 1, for example:
+  - Lower A: Barbell Back Squat, Dumbbell Hip Thrust, Bulgarian Split Squat, Front Plank
+  - Upper A: Barbell Bench Press, Pull-Up, Dumbbell Overhead Press, Barbell Bent-Over Row, plank (side plank)
+  - Lower B: Goblet Squat (Leg Press in run 2), Barbell Deadlift, Dumbbell Reverse Lunge, Farmer Carry
+  - Upper B: Dumbbell Bench Press, a row (One-Arm Dumbbell Row, or Seated Cable Row in run 2), Bench Dip, Lat Pulldown, core (side plank or dead bug)
+- No day notes about missing equipment in any of the three. Runs 2 and 3's rationales say the program includes the client's preferred back squats and hip thrusts. No mention of a pull-up bar.
+- The other three full-gym clients met the new 4-per-day rule in all runs: `full-gym-intermediate-4day` got 4/5/4/5 exercises; `youth-soccer` and `sore-knee` (3 days) got 5/5/5.
+- Scribe notes from the saved JSON (not in the brief):
+  - Only 2 of 30 programs needed a second submission (`one-kettlebell-fat-loss` run 1, `older-adult-new` run 3). In the structure-fix runs, `older-adult-new` needed 2 in all 9 runs. Why it changed isn't known; 3 runs is a small sample.
+- Scribe probes after the commit (not in the brief, run by hand to check edge cases):
+  - The `GYM` regex matches "beginner to the gym, I train at home with dumbbells", "I quit the gym", "gym at home", "home-gym setup", and "Home  gym" (two spaces). It only skips the exact "home gym". So a home-dumbbell client who says they're new to the gym would now be treated as having **all equipment**, and the earlier backstop didn't do that when the reader had recorded dumbbells.
+  - `mentioned_exercises` returns `barbell-deadlift` and `kettlebell-deadlift` for "I hate deadlifts". It finds names, not whether the client likes them, while the prompt calls them exercises the client likes.
+  - "I love back squats and hip thrusts" also returns `bodyweight-squat` (its name minus "bodyweight" is just "squat"). "planks" doesn't match "Front Plank" (the remaining name is "front plank").
+
+**Problems and fixes.**
+- The profile reader dropped "full gym" and inferred barbell + machine from "back squats", 3 of 3 reads → a gym mention always adds "gym" (all equipment) in code; the reader's prompt says not to infer equipment from exercise names.
+- The client's favorite lifts weren't used → code finds named catalog exercises and passes them to the agent.
+- The eval passed a program that ignored the request, 9 of 9 runs → two new expectation types, on four clients.
+- Repeated "Full body A" day names in the 4–6-day rotation → days lettered in order.
+
+**Open questions.**
+- **Is "gym" anywhere in the message too broad?** See the scribe probe: "beginner to the gym" + "at home with dumbbells" now means a full gym. [0067](decisions/0067-agent-asks-only-when-something-is-missing.md) already noted "I quit the gym" as an untested risk. No eval client covers this phrasing.
+- **Should `mentioned_exercises` know likes from dislikes?** "I hate deadlifts" is passed to the agent as a mentioned exercise. Not tested in the eval.
+- **Should a broad word like "squats" bring in `bodyweight-squat`?** For a full-gym intermediate it's an odd suggestion; the agent didn't pick it in these 3 runs.
+- **`includes_any` passes if either favorite appears.** All 3 runs had both, but the expectation wouldn't catch a program that dropped one. Whether that's strict enough is the developer's call.
+- From before, still open: coach review of the layouts and the new program sheet `evals/results/programs-review-20261002-155746.md`; the halved one-session minimum ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)); whether a plank counts as "bodyweight" ([0074](decisions/0074-no-bodyweight-preference-read-by-code.md)).
+
+**Developer questions.**
+None recorded in the brief.
+
+**Learned.**
+- New: [Valid output from wrong input](concepts.md#valid-output-from-wrong-input-checks-verify-consistency-not-truth), [Review the outputs, not just the scores](concepts.md#review-the-outputs-not-just-the-scores)
+- Extended: [A guardrail is only as good as its inputs](concepts.md#a-guardrail-is-only-as-good-as-its-inputs-guard-the-reader-too) (deterministic backstops for high-impact facts), [Saying what not to infer](concepts.md#saying-what-not-to-infer-default-assumptions-in-extraction-prompts) (exercise names aren't equipment), [Preferences as data read by code](concepts.md#preferences-as-data-read-by-code) (named exercises), [Structural vs quality checks](concepts.md#structural-vs-quality-checks) (the back-squat gap closed), [Behavior expectations beyond the checker](concepts.md#behavior-expectations-beyond-the-checker) (two new expectation types)
+
+**Decisions.**
+- New: [0077. A gym mention always means all equipment (except "home gym")](decisions/0077-a-gym-mention-always-means-all-equipment.md)
+- New: [0078. Exercises the client names are found by code and passed to the agent](decisions/0078-exercises-the-client-names-found-by-code.md)
+- New: [0079. Eval expectations for favorite lifts and full days](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md)
+- Updated: [0067](decisions/0067-agent-asks-only-when-something-is-missing.md) (backstop widened), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (new results; the gap it noted is closed), [0073](decisions/0073-code-builds-the-program-skeleton-agent-fills-slots.md) (rotation day names)
+- Next: coach review of the layouts and the program sheet (`evals/results/programs-review-20261002-155746.md`), README for Phase 2, make the repo public.
