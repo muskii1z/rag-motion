@@ -58,12 +58,12 @@ Update the Status column as steps complete.
 | Step | What | Status |
 |---|---|---|
 | P1 | Agent loop: conversation + tools (find_exercises, search_sources, ask_user, submit_program), loop guardrails | done (`src/ragmotion/agent.py`, `program.py`, `scripts/program_chat.py`); run 2 hit the forced submit at 10 tool calls |
-| P2 | Program checker in code; agent fixes failures | done: 16 code checks with exact fix instructions; missing-details refusal, empty-reply retry, forced resubmit after rejection; agent model Qwen3.5 Flash after a 6-model test (3/3 first try, ~0.14c per program; Gemini 2.5 Flash also 3/3 at ~4x the cost) |
+| P2 | Program checker in code; agent fixes failures | done: 16 code checks with exact fix instructions; missing-details refusal, empty-reply retry, forced resubmit after rejection; agent model Qwen3.5 Flash after a 6-model test, then back to Gemini 2.5 Flash on 2026-10-02 after Qwen stalled on program-sized answers (fallback: Flash-Lite) |
 | Q1 | Quality checks: weekly sets per muscle group (6 muscle/strength, 4 otherwise), one per pattern per day, upper/lower day labels | done (115ced2); 0/3 replays passed: upper/lower days need horizontal/vertical labels |
 | Q2 | Catalog: ~20 exercises incl. machine/cable equipment; horizontal/vertical labels on push/pull; coach review; answer keys | done: 18 coach-reviewed exercises (60 total), direction labels; full-gym 4-day replays 4/6 pass all 18 checks (was 0/3); answer-key judgment calls pending |
 | Q3 | Sources: time-efficient design + proximity to failure (license check, download approval) | done: Iversen 2021, Refalo 2023, Bastos 2024 (all CC BY, tagged adults); 3 questions (55 total) all retrieve them; Iversen (broad review) now ranks first on several program questions (passage MRR 0.84 -> 0.76), key decision pending |
 | P3 | Program page (chat + program table) | next |
-| P4 | Program eval: ~10 fictional clients, code checks, coach review; optional model comparison | |
+| P4 | Program eval: ~10 fictional clients, code checks, coach review; optional model comparison | next |
 
 **Where we are (2026-10-01):** Phase 1 and 1F complete and measured. All 42 exercises and all notes coach-reviewed. Final eval (52 questions, 3 runs): no forbidden advice 45/45, citations 97%, expected evidence 95%, coverage 91%. README rewritten; pre-public checks clean. Next: developer makes the repo public and pins it. Phase 2 (program builder) is being built in this repo, step by step (table above).
 
@@ -79,7 +79,7 @@ Update the Status column as steps complete.
 - **Documents**: listed in `data/sources.toml` (committed manifest with license and sha256); files in git-ignored `data/raw/`; PDFs extracted and cleaned with PyMuPDF (`src/ragmotion/ingestion.py`, `scripts/extract_document.py <source_id>`); research articles read from Europe PMC JATS XML (`format = "jats-xml"`, no PDF step); notes are Markdown; then chunked into the `document_chunk` table (`src/ragmotion/chunking.py`, `scripts/chunk_documents.py`). NSCA material enters only as original notes in `data/notes/`. Licensing policy: decision 0017
 - **Tracing**: LangSmith (`langsmith` SDK). `LANGSMITH_API_KEY`, `LANGSMITH_TRACING` (false by default since 2026-09-30: the free plan's monthly trace allowance ran out; set true to debug), `LANGSMITH_PROJECT=rag-motion` in .env; `config.py` loads .env into the environment. Traced steps: answer_question > search_all > embed, llm (OpenRouter), check_citations; extract_profile. Traces include prompts and evidence (fictional/public data only)
 - **Evaluation**: `evals/eval_set.yaml` (52 coach-reviewed questions; `answer_rules` graded by an AI judge, `src/ragmotion/judge.py`, model `anthropic/claude-sonnet-5.5`). `evals/run_retrieval_eval.py` (keyword vs semantic vs hybrid, no LLM) and `evals/run_answer_eval.py [--mode] [--no-filters] [--k-exercises N] [--langsmith]` (runs locally by default and saves every answer and score to `evals/results/answers-*.json`; `--langsmith` also records a LangSmith experiment). Baseline results in `evals/results/`. Semantic stays the default retrieval (best in the Step 15 baseline)
-- **Tests**: `uv run pytest` (78 tests, offline; outside services mocked in `tests/test_api.py`; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
+- **Tests**: `uv run pytest` (89 tests, offline; outside services mocked in `tests/test_api.py`; DB integration tests skip if Postgres is down). Friendly errors in `src/ragmotion/errors.py`
 - CLI scripts plus a local web app (FastAPI + one HTML page, `src/ragmotion/app.py`). Run: `uv run uvicorn ragmotion.app:app --host 127.0.0.1 --port 8010 --reload`, open http://127.0.0.1:8010 (port 8010 avoids another local project on 8000)
 
 ## Rules

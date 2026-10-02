@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     # P3 live test: one Qwen call ran 847 s (OpenRouter keep-alive bytes defeat the per-read timeout), so every
     # agent call also has a hard wall-clock deadline, and a call that misses it is retried once on the fallback.
     agent_call_deadline_seconds: float = 40.0
-    agent_fallback_model: str | None = "google/gemini-2.5-flash"
-    agent_model: str | None = "qwen/qwen3.5-flash-02-23"  # 3/3 first try, ~0.14c/program, 19 s; Gemini 2.5 Flash also 3/3 but ~4x cost (2026-10-01)
+    agent_fallback_model: str | None = "google/gemini-2.5-flash-lite"
+    agent_model: str | None = "google/gemini-2.5-flash"  # back from Qwen3.5 Flash (2026-10-02): Qwen stalled on program-sized answers (116 s, 400+ s, one 847 s call)
 
     # Phase 1F filters (equipment, age group). Only turned off to show the "before" behavior,
     # e.g. for a demo recording: USE_FILTERS=false uv run uvicorn ragmotion.app:app ...
