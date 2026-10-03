@@ -97,10 +97,13 @@ def test_exercises_the_client_names_are_found():
     ("gym at home with a rack", False),
     ("home-gym setup", False),
     ("Home  gym", False),
+    ("I work out at home but have gym access", True),
+    ("I have a gym at work", True),
+    ("I use my work gym", True),
 ])
 def test_gym_access_phrases(text, gym):
-    from ragmotion.agent import AT_HOME, GYM
-    assert bool(GYM.search(text) and not AT_HOME.search(text)) == gym
+    from ragmotion.agent import mentions_gym
+    assert mentions_gym(text) == gym
 
 
 def test_liked_and_avoided_exercises_are_told_apart():
@@ -121,3 +124,13 @@ def test_avoided_exercises_are_removed_where_alternatives_exist():
 def test_a_goal_that_restates_the_request_counts_as_missing(goal, vague):
     from ragmotion.program import missing_for_program
     assert ("goal" in missing_for_program(profile(goal=goal))) == vague
+
+
+@pytest.mark.parametrize("text, avoided", [
+    ("I don't like RDLs", {"dumbbell-romanian-deadlift", "single-leg-romanian-deadlift"}),
+    ("I hate Romanian deadlifts", {"dumbbell-romanian-deadlift", "single-leg-romanian-deadlift"}),
+    ("I hate deadlifts", {"barbell-deadlift", "kettlebell-deadlift", "dumbbell-romanian-deadlift", "single-leg-romanian-deadlift"}),
+])
+def test_shorthand_and_variants_of_disliked_exercises(text, avoided):
+    from ragmotion.agent import mentioned_exercises
+    assert set(mentioned_exercises([{"role": "user", "content": text}])[1]) == avoided

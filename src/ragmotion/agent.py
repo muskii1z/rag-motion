@@ -22,6 +22,7 @@ from pydantic import ValidationError
 from ragmotion.config import settings
 from ragmotion.llm import extract_profile, get_client
 from ragmotion.models import ClientProfile
+from ragmotion.rewrite import GLOSSARY
 from ragmotion.program import (weekly_set_minimum, ProgramDraft, ProgramSubmission, assemble, build_skeleton, catalog, check_program, failed,
                                max_level, weekly_sets,
                                missing_for_program, owned_equipment, population, search_sources)
@@ -122,12 +123,33 @@ class AgentTurn:
     passed_checks: bool = False
 
 
-# Clear gym-access phrases only; any "home" training wording cancels it (build-scribe found the first, looser
-# rule matched "I quit the gym" and "beginner to the gym, I train at home with dumbbells").
-GYM = re.compile(r"\b(full|commercial|public|local)\s+gym\b|\bgym\s+(access|membership)\b|\baccess\s+to\s+(a|the)\s+gym\b"
-                 r"|\b(go|going|train|training|lift|lifting|work out|working out)\s+(to|at|in)\s+(a|the|my)\s+gym\b"
-                 r"|\b(at|in)\s+(a|the)\s+gym\b(?!\s+at\s+home)", re.IGNORECASE)
+# Gym access, read from phrases (build-scribe found the first, looser rule matched "I quit the gym" and
+# "beginner to the gym, I train at home with dumbbells"). Strong phrases ("gym access", "full gym", "a gym at
+# work") always count; weak ones ("at the gym") are cancelled by at-home wording (P4 follow-up: "I work out at
+# home but have gym access" was missed when any home wording cancelled every phrase).
+STRONG_GYM = re.compile(r"\b(full|commercial|public|local|work|office|university|school|hotel)\s+gym\b"
+                        r"|\bgym\s+(access|membership)\b|\baccess\s+to\s+(a|the)\s+gym\b"
+                        r"|\bgym\s+at\s+(work|the office|my (work|job|office)|school|uni)\b", re.IGNORECASE)
+WEAK_GYM = re.compile(r"\b(go|going|train|training|lift|lifting|work out|working out)\s+(to|at|in)\s+(a|the|my)\s+gym\b"
+                      r"|\b(at|in)\s+(a|the)\s+gym\b(?!\s+at\s+home)", re.IGNORECASE)
 AT_HOME = re.compile(r"\bhome[\s-]*gym\b|\bgym\s+at\s+home\b|\b(at|from)\s+home\b", re.IGNORECASE)
+
+
+def mentions_gym(text: str) -> bool:
+    return bool(STRONG_GYM.search(text) or WEAK_GYM.search(text) and not AT_HOME.search(text))
+
+
+# Gym shorthand in client text ("RDLs" -> "Romanian deadlifts"), so named exercises are found (same glossary as Q&A).
+_SLANG = re.compile(r"\b(" + "|".join(re.escape(t) for t in sorted(GLOSSARY, key=len, reverse=True)) + r")(s?)\b", re.IGNORECASE)
+
+
+def _expand_shorthand(text: str) -> str:
+    def full(m):
+        name = {t.lower(): v for t, v in GLOSSARY.items()}[m.group(1).lower()]
+        return name + ("s" if m.group(2) and not name.endswith("s") else "")
+    return _SLANG.sub(full, text)
+
+
 DISLIKE = re.compile(r"\b(hate|hates|dislike|(don'?t|do not|doesn'?t)\s+(like|want|enjoy|do)|can'?t|cannot|avoid|no more|not a fan|never again|skip)\b", re.IGNORECASE)
 AVOID_BODYWEIGHT = re.compile(r"\b(no|don'?t want|not|without|avoid|hate)\b[^.]{0,30}\bbody ?weight\b", re.IGNORECASE)
 NO_EQUIPMENT = re.compile(r"\b(no equipment|without equipment|bodyweight|body weight|no weights|nothing at home|"
@@ -174,7 +196,7 @@ def read_profile(conversation: list[dict]) -> ClientProfile:
         profile.equipment = []
     # Backstop: a gym means all equipment, even if the reader also listed some. The reader dropped "full gym"
     # in a P3 live test, and in the P4 eval turned "back squats ... full gym" into just barbell + machine.
-    if GYM.search(client_text) and not AT_HOME.search(client_text) and not any("gym" in u.lower() for u in profile.unmapped_equipment):
+    if mentions_gym(client_text) and not any("gym" in u.lower() for u in profile.unmapped_equipment):
         profile.unmapped_equipment = [*profile.unmapped_equipment, "gym"]
     return profile
 
@@ -186,7 +208,7 @@ def mentioned_exercises(conversation: list[dict]) -> tuple[list[str], list[str]]
     their equipment word ("back squat", "hip thrust"). A general word on its own ("lunges", "deadlifts") counts
     only as a dislike, and then covers every exercise of that kind unless the clause names a more specific one.
     """
-    text = " ".join(m["content"] for m in conversation if m["role"] == "user")
+    text = _expand_shorthand(" ".join(m["content"] for m in conversation if m["role"] == "user"))
     clauses = re.split(r"[.!?;]+\s*|,?\s+but\s+|,?\s+and\s+(?=i\b|i'm\b)", text, flags=re.IGNORECASE)
     cores = {}
     for slug, e in catalog().items():
@@ -200,7 +222,9 @@ def mentioned_exercises(conversation: list[dict]) -> tuple[list[str], list[str]]
         if DISLIKE.search(clause):
             heads = {c.split()[-1] for c in cores.values()}
             general = {h for h in heads if named(h, clause) and not any(cores[s].endswith(h) for s in specific)}
-            avoided += [s for s, c in cores.items() if s in specific or c.split()[-1:] and c.split()[-1] in general]
+            # A disliked name also covers its variants: "Romanian deadlift" -> the single-leg Romanian deadlift too.
+            variants = [s for s, c in cores.items() if any(named(cores[n], c) for n in specific)]
+            avoided += [s for s, c in cores.items() if s in specific or s in variants or c.split()[-1:] and c.split()[-1] in general]
         else:
             liked += specific
     avoided = list(dict.fromkeys(avoided))
