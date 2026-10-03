@@ -486,7 +486,9 @@ Two ways to expand slang before search. **Dictionary:** a hand-written table ("B
 
 *Going-public update.* Three program-design terms joined the glossary: 1RM (one-repetition maximum, the most weight you can lift once), RPE (rating of perceived exertion, how hard a set felt), RIR (reps in reserve, how many more reps you could have done). Each has a test. Maintaining the dictionary by hand looked like this in practice: new sources brought new jargon, and three lines covered it.
 
-*First seen: Phase 1F, F7c. Extended: going public (2026-10-01).*
+*Phase 2 follow-up 2 update: one glossary, two uses.* The same dictionary now also expands shorthand in a client's messages before the program builder looks for liked and disliked exercises ("I don't like RDLs" → "I don't like Romanian deadlifts"; plural-aware). Before, that sentence found nothing. Reusing the list means one place to maintain, but expansions written for search can be slightly off for exact name matching: "SL RDLs" expands to "single-leg Romanian deadlifts", which also contains the name of the regular RDL ([0087](decisions/0087-disliked-exercises-cover-shorthand-and-variants.md)).
+
+*First seen: Phase 1F, F7c. Extended: going public (2026-10-01), Phase 2 follow-up 2.*
 
 ### Longest match first, whole words, one pass (safe text substitution)
 Three rules that keep a find-and-replace from mangling text. **Longest first:** try "SL RDL" before "RDL" and "SL", or "SL RDL" becomes two separate expansions and the single-leg meaning is split. The same rule puts "DBs" before "DB". **Whole words only:** match "SA" as a word, not inside "Sandbag" (in a regular expression, a text-matching pattern, `\b` marks a word boundary). **One pass:** replace everything in a single sweep, so the text you just inserted ("single-leg Romanian deadlift") is never scanned again and expanded a second time. `expand_slang()` in `src/ragmotion/rewrite.py` does all three with one pattern, case-insensitive, and keeps the original abbreviation next to its expansion.
@@ -1133,7 +1135,9 @@ A false positive is a check that fires when nothing is wrong. A false negative i
 
 **In an interview (follow-up 2):** "For the injury reminder I made the rule broad, because a missed injury is the worse error. For the gym rule I made it narrow, because a wrong gym means a program the client can't do, while a missed gym just means one extra question. Same question, opposite answers."
 
-*First seen: Phase 2, step 2 follow-up. Extended: step 2 fixes, Phase 2 follow-up (likes vs dislikes).*
+*Phase 2 follow-up 2 update: fixing misses can reopen false positives.* To fix the two missed gym phrasings, strong phrases now always count, even with at-home wording ([0086](decisions/0086-strong-and-weak-gym-phrases.md)). That brought a new false-positive gap, found by scribe probes: "I train at home, no gym access" and "I cancelled my gym membership" are read as gym. Each fix to one error type needs a probe for the other type.
+
+*First seen: Phase 2, step 2 follow-up. Extended: step 2 fixes, Phase 2 follow-up (likes vs dislikes), Phase 2 follow-up 2.*
 
 ### Cost per correct result (model capability vs price per token)
 Price per token isn't the whole cost. An agent that fails needs retries, and each retry is more calls, more time, and sometimes still a failed result. The fair comparison is cost and time per *correct* result. On the same conversation, 3 runs each: Gemini 2.5 Flash-Lite passed 2/3, none on the first submission, 15–21 s, $0.0021–0.0026 per run. Gemini 2.5 Flash passed 3/3 on the first submission, 11–13 s, $0.0060–0.0067. The bigger model was **faster** because it needed no retries. By these numbers it still cost more per passing program (about $0.006 vs about $0.003–0.004), so the gain was reliability and speed, at about 0.6 cents a program.
@@ -1276,7 +1280,11 @@ A client preference ("I don't want bodyweight exercises") is a limit, just softe
 
 **In an interview (follow-up 2):** "First my code found the exercise names but not the feelings, so 'I hate deadlifts' was passed on as a favorite. Now it reads each clause for dislike words. A dislike becomes a filter in code; a like stays a suggestion for the model."
 
-*First seen: Phase 2 structure fix. Extended: Phase 2 follow-up, Phase 2 follow-up (likes vs dislikes).*
+*Phase 2 follow-up 2 update: shorthand and variants.* Two gaps from the probes were closed ([0087](decisions/0087-disliked-exercises-cover-shorthand-and-variants.md)). Shorthand is expanded with the Q&A glossary first, so "RDLs" is understood. And a disliked name also covers its variants: "I hate Romanian deadlifts" now removes the single-leg RDL too. The coach confirmed the broad reading for general words: "I hate deadlifts" removes RDLs as well. The rule leans toward removing too much, which is safe here because a slot keeps at least one option. Known side effects: "I hate SL RDLs" also removes the regular RDL, and "I love BSS" also likes the plain split squat.
+
+**In an interview (follow-up 3):** "When a client says they hate an exercise, I'd rather remove one extra variant than program the thing they hate. The cost is small because the program always keeps an alternative, and I list the over-matches so the coach can overrule them."
+
+*First seen: Phase 2 structure fix. Extended: Phase 2 follow-up, Phase 2 follow-up (likes vs dislikes), Phase 2 follow-up 2.*
 
 ### Labels from state, not from how the model replied
 When code labels a model's output (question, message, program), base the label on facts code already knows, not on which path the model happened to take. The turn's kind used to come from the tool used: `ask_user` meant "question", plain text meant "message". The agent sometimes asked for missing details as plain text, so a correct question was labeled "message" 3/3. Code already knows whether details are missing (`missing_for_program`), so a text reply then is labeled a question ([0076](decisions/0076-reply-kind-labeled-from-state.md)).
@@ -1297,7 +1305,23 @@ A checker that rejects bad output guarantees the result, but each rejection cost
 
 **In an interview:** "The checker guarantees the weekly volume, but rejections cost time. So the tool that hands the agent its plan now also hands it the target number. Same guarantee, fewer retries: first-try acceptance went from 1 in 8 to 4 in 8 for my hardest client."
 
-*First seen: Phase 2 follow-up (likes vs dislikes).*
+*Phase 2 follow-up 2 update: check the target itself.* The remaining rejections weren't only a model problem: the target was wrong for this client. Asked about it, the coach said to use the sources, which say older beginners start with 1 set per muscle group per session. With the minimum set from the sources (6 → 2 for this client), first-try acceptance went to 5 of 6 in probes and 3 of 3 in the eval. See [Grounding a rule in the sources](#grounding-a-rule-in-the-sources-citing-evidence-in-code).
+
+*First seen: Phase 2 follow-up (likes vs dislikes). Extended: Phase 2 follow-up 2.*
+
+### Grounding a rule in the sources (citing evidence in code)
+A rule in code (here: the minimum weekly sets per muscle group) needs a number, and the number has to come from somewhere. Instead of guessing, the coach asked the system's own evidence: the retrieved passages from the NSCA older-adults notes (`notes-nsca-older-adults-1`: "beginners and frail clients start with 1 set and build to 2–3"; 2–3 sessions per week per muscle group) and the Physical Activity Guidelines (`pag2-77`: muscle-strengthening at least 2 days a week, no set number). The rule was written from those passages, and the code comment cites the passage id, so anyone reading the code can check the source ([0085](decisions/0085-older-adult-weekly-set-minimum-from-the-sources.md)). It is the same principle as cited answers in the Q&A part of the app, applied to the program checker's own rules. The limit: the source gives a starting dose, so the rule is a floor, and how fast to build up isn't modeled.
+
+**In an interview:** "My checker was rejecting programs for a 70-year-old beginner because the weekly-set minimum was a general number. My coach's answer was 'use the sources'. The older-adult guidance says beginners start at 1 set, so the rule now follows that, and the code comment cites the passage it came from."
+
+*First seen: Phase 2 follow-up 2.*
+
+### Strong vs weak signals (rules with different weights)
+Not every phrase is equally good evidence. A strong signal is decisive on its own: "I have gym access" or "gym membership" almost always means the client can use a gym. A weak signal is only a hint: "at the gym" could be past, someone else's gym, or a beginner who trains at home. A rule that treats both the same must either trust weak hints too much or let contrary evidence cancel strong ones. Splitting them works better: strong phrases always count; weak phrases count only when nothing contradicts them ("at home" wording). This fixed "I work out at home but have gym access" and "I have a gym at work" without bringing back the home-trainer bug ([0086](decisions/0086-strong-and-weak-gym-phrases.md)). The limit: a strong phrase still counts when it's negated or in the past. Scribe probes: "no gym access", "I cancelled my gym membership", and "I used to have gym access" all read as gym. A strong signal is only strong in the right grammar; see [Negation scope](#negation-scope-clause-splitting).
+
+**In an interview:** "Some phrases settle the question, others only hint at it. I gave my gym rule two lists: decisive phrases always count, weak ones can be overruled by 'I train at home'. Then I probed it and found 'no gym access' still counts as a gym, because a strong phrase is only strong when it isn't negated."
+
+*First seen: Phase 2 follow-up 2.*
 
 ## Program design
 
@@ -1306,7 +1330,9 @@ Training volume is how much work a muscle gets. A common way to count it is hard
 
 **In an interview:** "The checker counts hard sets per muscle group per week from the catalog. A beginner who wants muscle needs at least 6 per group; my agent's first passing program gave chest 3, and now it can't."
 
-*First seen: Phase 2 quality pass, Q1.*
+*Phase 2 follow-up 2 update: older adults.* For clients 65 and older, the minimum now follows the NSCA older-adults notes: 1 set per muscle group per session for beginners, 2 for others, never above the general minimum. A 70-year-old beginner training 2 days needs at least 2 weekly sets per group (was 6) ([0085](decisions/0085-older-adult-weekly-set-minimum-from-the-sources.md)). The source describes a starting point ("start with 1 set and build to 2–3"), so this is a floor for the first weeks, not a target.
+
+*First seen: Phase 2 quality pass, Q1. Extended: Phase 2 follow-up 2.*
 
 ### Movement direction (horizontal vs vertical push and pull)
 Pushes and pulls come in two directions. Horizontal: pressing forward or rowing toward you (bench press, push-up, row). Vertical: pressing overhead or pulling down from above (overhead press, pull-up, pulldown). A balanced upper day usually has one of each. The catalog only labels "push" or "pull", so a rule can't tell a bench press + overhead press (a good pair) from two bench-style presses (a near-duplicate). Direction labels are planned for Q2 ([0058](decisions/0058-push-and-pull-get-horizontal-vertical-labels.md)).

@@ -1,5 +1,5 @@
 # 0080. A gym counts only from clear access phrases, and at-home wording cancels it
-**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (gym detection, likes vs dislikes) · **Status:** accepted (narrows [0077](0077-a-gym-mention-always-means-all-equipment.md))
+**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (gym detection, likes vs dislikes) · **Status:** accepted, amended by [0086](0086-strong-and-weak-gym-phrases.md) (narrows [0077](0077-a-gym-mention-always-means-all-equipment.md))
 
 ## Context
 [0077](0077-a-gym-mention-always-means-all-equipment.md) made any mention of "gym" (except the exact words "home gym") mean the client has all equipment. A scribe probe after that commit showed the pattern also matched "I quit the gym", "beginner to the gym, I train at home with dumbbells", "gym at home", and "home-gym setup". A home trainer with dumbbells who said they were new to the gym would have been given barbell, machine, and cable exercises they can't do.
@@ -23,3 +23,6 @@ The cost of a miss is smaller than the cost of a wrong match: a missed gym phras
 ## Revisit when
 - A real or eval client with gym access gets asked for equipment or gets a home-equipment program.
 - Clients often describe both home and gym training (then the rule needs to decide which one the program is for, probably by asking).
+
+## Update 2026-10-03
+Both gaps above were fixed in [0086](0086-strong-and-weak-gym-phrases.md): phrases are now split into strong ones ("gym access", "gym membership", "work gym", "gym at work", ...) that always count, and weak ones ("at the gym") that at-home wording still cancels. "I quit the gym" and the home-dumbbell phrasing are still read as no gym.

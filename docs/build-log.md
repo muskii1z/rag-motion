@@ -5861,3 +5861,102 @@ None this step.
 **Decisions.**
 - New: [0080](decisions/0080-gym-only-from-clear-access-phrases.md) gym only from clear access phrases; [0081](decisions/0081-liked-and-avoided-exercises-by-clause.md) liked vs avoided by clause; [0082](decisions/0082-vague-goal-counts-as-missing.md) vague goal counts as missing; [0083](decisions/0083-fallback-model-after-two-empty-replies.md) fallback after two empty replies; [0084](decisions/0084-weekly-set-minimum-stated-up-front.md) weekly-set target up front, check strict
 - Updated: [0077](decisions/0077-a-gym-mention-always-means-all-equipment.md) (superseded by 0080), [0078](decisions/0078-exercises-the-client-names-found-by-code.md) (extended by 0081), [0079](decisions/0079-eval-expectations-for-favorite-lifts-and-full-days.md) (`includes_all`, `excludes`), [0070](decisions/0070-program-eval-12-clients-code-scored-coach-review-sheet.md) (14 clients, new results)
+
+## Phase 2 follow-up 2: coach answers, older-adult weekly sets from the sources, gym phrases, and shorthand in dislikes
+**Date:** 2026-10-03 · **Commits:** `cf9378d` fix: older-adult weekly-set minimum from the sources; `f413a0e` fix: strong gym phrases beat at-home wording; shorthand and variants in dislikes
+
+**Goal.** Apply the coach's answers to the open questions from the last follow-up, and close the gaps the scribe's probes found in gym detection and disliked-exercise matching.
+
+**Coach answers (developer as coach, 2026-10-03).**
+
+| # | Question | Answer | What changed |
+|---|---|---|---|
+| Q1 | Should "I hate deadlifts" also remove RDLs (Romanian deadlifts)? | "include rdls" | Nothing; already the behavior. [0081](decisions/0081-liked-and-avoided-exercises-by-clause.md) is now coach-confirmed. |
+| Q2 | Is 6 weekly sets per muscle group right for a 70-year-old beginner on 2 days? | "use the sources" | New older-adult rule in `weekly_set_minimum` ([0085](decisions/0085-older-adult-weekly-set-minimum-from-the-sources.md)). |
+| Q3 | Are the 2-, 3-, and 4-day layouts right? | "yes" | Nothing; layouts approved. |
+| Q4 | Review of the program sheet | still open | |
+
+**What we did.**
+- **Q2: the minimum from the sources** (`src/ragmotion/program.py`, commit `cf9378d`). The developer searched the system's own sources:
+  - `notes-nsca-older-adults-1` (coach-reviewed notes on the NSCA older-adults position statement): for healthy older adults, 2–3 sessions per week per muscle group; "beginners and frail clients start with 1 set and build to 2–3"; 1–2 multijoint exercises per major muscle group.
+  - `pag2-77` (Physical Activity Guidelines, page 72): older adults do muscle-strengthening activities at least 2 days a week, all major muscle groups. No number of sets.
+  - New rule: for age 65 or older, the minimum is 1 set per muscle group per session for beginners and 2 per session otherwise, never above the general minimum (6 for muscle or strength goals, 4 otherwise, halved for a 1-day week). The code comment cites `[notes-nsca-older-adults-1]`.
+  - 70-year-old beginner on 2 days: 6 → 2. Adults unchanged. Parametrized test with 5 cases (`tests/test_program_checker.py`).
+- **Gym detection: strong vs weak phrases** (`src/ragmotion/agent.py`, commit `f413a0e`). The single `GYM` pattern was split ([0086](decisions/0086-strong-and-weak-gym-phrases.md)):
+  - `STRONG_GYM` always counts: "full/commercial/public/local/work/office/university/school/hotel gym", "gym access/membership", "access to a/the gym", "gym at work / the office / school / uni".
+  - `WEAK_GYM` counts only when there's no at-home wording: "go/train/lift/work out at/to/in the gym", "at/in the gym".
+  - New function `mentions_gym(text)`, used by `read_profile`.
+  - Now: "I work out at home but have gym access" → gym; "I have a gym at work" → gym; "I quit the gym", "Home gym in my garage", "beginner to the gym, I train at home with dumbbells" → not gym.
+- **Shorthand in client text.** Before looking for liked and disliked exercises, `_expand_shorthand` replaces gym shorthand with full names, using the same glossary as Q&A query rewriting (`GLOSSARY` in `src/ragmotion/rewrite.py`). Plural-aware: "RDLs" → "Romanian deadlifts" ([0087](decisions/0087-disliked-exercises-cover-shorthand-and-variants.md)).
+- **Variants of a disliked exercise.** A disliked specific name also removes every exercise whose name contains it: "I hate Romanian deadlifts" → Dumbbell RDL **and** Single-Leg RDL.
+- **Tests:** 162 after Q2, then 168. New: three gym phrasings in the parametrized gym test; a parametrized shorthand-and-variants test ("I don't like RDLs", "I hate Romanian deadlifts", "I hate deadlifts").
+- **Not part of this step:** the developer also asked for a Miro flowchart of the whole pipeline for a YouTube video. It was made separately.
+
+**Commands.**
+```bash
+uv run pytest -q                                   # 162 passed after Q2; 168 passed after the matching fixes (re-run by the scribe: 168 passed in 1.46 s)
+uv run python evals/run_program_eval.py --runs 3   # after Q2: saved programs-20261003-112019.json + review sheet
+uv run python evals/run_program_eval.py --runs 3   # after the matching fixes: saved programs-20261003-113258.json + review sheet
+```
+- The probe runs of the 70-year-old client (6, then 8 more) used a command that isn't in the brief.
+
+**What we saw.**
+
+| Run | Expectations met | Programs passing every check | Accepted on first submission | Errors | Median time | Total cost |
+|---|---|---|---|---|---|---|
+| Previous follow-up, final (`20261002-161458`) | 42/42 | 36/36 | 34/36 | 0 | 8.5 s | $0.185 |
+| After Q2 (`20261003-112019`) | 42/42 | 36/36 | **36/36** | 0 | 8.7 s | $0.191 |
+| After matching fixes (`20261003-113258`) | 42/42 | 36/36 | 34/36 | 0 | 8.8 s | $0.194 |
+
+The first-submission counts were computed by the scribe from the saved files (programs only; the 6 runs that correctly ended in a question or a refusal aren't counted).
+
+- **The older-adult client stopped bouncing off the checker.**
+  - Probes: accepted on the first submission in 5 of 6 runs. Before: 1/8 with no target stated, 4/8 after the target was stated up front ([0084](decisions/0084-weekly-set-minimum-stated-up-front.md)).
+  - One of those 6 probe runs ended "didn't respond" after 2 submissions. 8 more runs then went through with no error, so it wasn't reproduced.
+  - Both evals: `older-adult-new` accepted first time in 3 of 3 runs (scribe count). In run 1 after Q2, the agent gave 3 sets on every exercise (Full body A: goblet squat, dumbbell RDL, push-up, band pull-apart, front plank; Full body B: dumbbell reverse lunge, glute bridge, push-up, band pull-apart, dumbbell overhead press, farmer carry). That is above the new floor of 2, so the agent didn't drop to the minimum.
+- **The new gym and dislike rules didn't break the guard clients** (scribe check of `113258`): `home-dumbbells-not-gym` 3/3 with no barbell, machine, or cable exercises; `hates-deadlifts` 3/3 with no deadlift.
+- **Two second submissions in the last eval:** `sore-knee` run 3 and `one-kettlebell-fat-loss` run 3 (29.3 s). The saved file doesn't record why they were rejected the first time. Neither client's input contains shorthand, a dislike, or a gym phrase that changed meaning, so it is likely ordinary run-to-run noise. That's not confirmed.
+- **Known leftovers, accepted as small** (from the brief; the scribe re-ran each one by hand and got the same result):
+  - "I hate SL RDLs" also removes the regular Dumbbell RDL. Its expansion, "single-leg Romanian deadlifts", contains "Romanian deadlift".
+  - "I love BSS" also marks the plain Split Squat as liked. The expansion, "Bulgarian split squat", contains "split squat".
+  - "I like DB bench" finds nothing. It expands to "dumbbell bench", which matches no catalog name.
+  - "I like planks" and "I love squats" find no liked exercise. General words never count as likes, on purpose.
+- **Scribe probes after the commit** (not in the brief, run by hand):
+
+  | Input | `mentions_gym` | Correct? |
+  |---|---|---|
+  | "I go to the gym" | gym | yes |
+  | "I cancelled my gym membership" | **gym** | no |
+  | "I used to have gym access" | **gym** | no |
+  | "I train at home, no gym access" | **gym** | no |
+  | "My work gym closed, so I train at home now" | **gym** | no |
+
+  Strong phrases count even when the sentence says the access is gone. Any of these clients would be given barbell, machine, and cable exercises. That is the costly error [0080](decisions/0080-gym-only-from-clear-access-phrases.md) was written to avoid.
+
+  Dislike probes all matched expectations: "I like RDLs but I hate lunges" → likes Dumbbell RDL, avoids Dumbbell Reverse Lunge; "I hate KB swings" → avoids Kettlebell Swing.
+
+**Problems and fixes.**
+- 70-year-old beginner rejected for weekly sets on most runs, with an unconfirmed minimum → the coach said "use the sources"; the minimum now follows the NSCA older-adults notes.
+- "I work out at home but have gym access" and "I have a gym at work" were read as no gym (last scribe probe) → strong phrases always count; weak ones can still be cancelled.
+- "I don't like RDLs" avoided nothing (last scribe probe) → shorthand expanded with the Q&A glossary.
+- "I hate Romanian deadlifts" kept the Single-Leg RDL (last scribe probe) → a disliked name also removes its variants.
+
+**Open questions.**
+- **Negated or past-tense strong gym phrases** ("no gym access", "cancelled my gym membership", "used to have gym access") read as gym. Should strong phrases also be checked for negation in their clause, or should the profile reader get a yes/no/unclear gym-access field? No eval client covers this. **Fixed in 12d200b:** a gym phrase in a clause with a negation or past-tense word (no, not, without, cancelled, quit, used to, lost, closed, gave up, former) is ignored (`GYM_GONE` in `mentions_gym`); 5 new test cases; 173 tests; program eval 14/14 expectations, 12/12 programs pass (1 run).
+- **Why 65?** The rule uses age 65 and over. The NSCA note frames its intensity target for adults "older than 60", and the brief doesn't record why 65 was chosen.
+- **Frail clients.** The source says "beginners and frail clients start with 1 set". The profile has no "frail" field, so a frail client who isn't labeled a beginner gets a minimum of 2 sets per group per session.
+- **The one "didn't respond" probe run** after 2 submissions wasn't reproduced. Did the fallback model ([0083](decisions/0083-fallback-model-after-two-empty-replies.md)) run? Not recorded.
+- **Why did `sore-knee` and `one-kettlebell-fat-loss` need a second submission** in the last eval? The eval file doesn't save the failed checks of the first submission.
+- **Small code note:** in `tests/test_program_checker.py`, `import pytest` was added above the file's docstring, so that string is no longer the module docstring. Tests are unaffected.
+- Still open: coach review of the program sheet (Q4; latest `evals/results/programs-review-20261003-113258.md`); the halved one-session minimum ([0075](decisions/0075-weekly-set-minimum-halved-for-one-session-weeks.md)); whether a plank counts as "bodyweight" ([0074](decisions/0074-no-bodyweight-preference-read-by-code.md)).
+
+**Developer questions.**
+None new.
+
+**Learned.**
+- New: [Grounding a rule in the sources](concepts.md#grounding-a-rule-in-the-sources-citing-evidence-in-code), [Strong vs weak signals](concepts.md#strong-vs-weak-signals-rules-with-different-weights)
+- Extended: [Weekly sets per muscle group](concepts.md#weekly-sets-per-muscle-group-training-volume) (older adults), [Tell the model the target up front, still check in code](concepts.md#tell-the-model-the-target-up-front-still-check-in-code) (check the target itself), [Preferences as data read by code](concepts.md#preferences-as-data-read-by-code) (shorthand and variants), [False negatives vs false positives](concepts.md#false-negatives-vs-false-positives-in-a-safety-check) (fixing misses reopened false positives), [Dictionary vs LLM query rewriting](concepts.md#dictionary-vs-llm-query-rewriting) (one glossary, two uses)
+
+**Decisions.**
+- New: [0085](decisions/0085-older-adult-weekly-set-minimum-from-the-sources.md) older-adult weekly-set minimum from the sources; [0086](decisions/0086-strong-and-weak-gym-phrases.md) strong vs weak gym phrases; [0087](decisions/0087-disliked-exercises-cover-shorthand-and-variants.md) shorthand and variants in dislikes
+- Updated: [0080](decisions/0080-gym-only-from-clear-access-phrases.md) (amended by 0086), [0081](decisions/0081-liked-and-avoided-exercises-by-clause.md) (coach-confirmed; extended by 0087), [0084](decisions/0084-weekly-set-minimum-stated-up-front.md) (coach question answered by 0085)

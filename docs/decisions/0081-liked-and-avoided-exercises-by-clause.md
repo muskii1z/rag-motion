@@ -1,5 +1,5 @@
 # 0081. Liked and avoided exercises are read by clause; avoided ones leave the options where an alternative remains
-**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (gym detection, likes vs dislikes) · **Status:** accepted (extends [0078](0078-exercises-the-client-names-found-by-code.md); coach may revise the deadlift rule)
+**Date:** 2026-10-02 · **Step:** Phase 2 follow-up (gym detection, likes vs dislikes) · **Status:** accepted, coach-confirmed 2026-10-03; extended by [0087](0087-disliked-exercises-cover-shorthand-and-variants.md) (extends [0078](0078-exercises-the-client-names-found-by-code.md))
 
 ## Context
 `mentioned_exercises` ([0078](0078-exercises-the-client-names-found-by-code.md)) found catalog exercises the client named, but not whether they liked them. A scribe probe showed "I hate deadlifts" returned two deadlifts, which the prompt then presented as exercises the client mentioned and should use. It also matched "squats" to Bodyweight Squat.
@@ -31,3 +31,7 @@ Eval: new client `hates-deadlifts` ("Full gym, intermediate, get stronger, 3 day
 - The coach decides "I hate deadlifts" shouldn't remove RDLs.
 - A client gets an exercise they said they dislike, or misses one they asked for.
 - Clients use abbreviations or slang for exercises (the Phase 1F slang dictionary, `src/ragmotion/rewrite.py`, could be reused).
+
+## Update 2026-10-03
+- **Coach answer:** "I hate deadlifts" removes all deadlifts, RDLs included ("include rdls"). No code change; the conservative reading stays.
+- The two probe gaps ("I don't like RDLs" found nothing; "I hate Romanian deadlifts" missed the Single-Leg RDL) were fixed in [0087](0087-disliked-exercises-cover-shorthand-and-variants.md): shorthand is expanded with the Q&A glossary first, and a disliked name also removes its variants.
