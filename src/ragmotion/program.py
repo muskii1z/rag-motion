@@ -171,7 +171,14 @@ def weekly_set_minimum(profile: ClientProfile) -> int:
     """6 sets a week per group for muscle or strength goals, 4 otherwise (coach, from Pelland's minimum effective dose)."""
     base = 6 if MUSCLE_GOAL.search(profile.goal or "") else 4
     # One session a week can't reasonably hold 6 sets for every group; the minimum scales down to half.
-    return base if (profile.sessions_per_week or 2) >= 2 else base // 2
+    base = base if (profile.sessions_per_week or 2) >= 2 else base // 2
+    if profile.age is not None and profile.age >= 65:
+        # Older adults (coach, 2026-10-03: "use the sources"): beginners start with 1 set and build to 2-3,
+        # each muscle group 2-3 sessions a week [notes-nsca-older-adults-1]. So the floor is 1 set per group
+        # per session for beginners, 2 for others; never above the general minimum.
+        per_session = 1 if profile.experience_level == "beginner" else 2
+        return min(base, per_session * (profile.sessions_per_week or 2))
+    return base
 # Backup for the AI-read health_issues field: broad on purpose. For a safety reminder a false alarm
 # (an extra "check with a professional" line) costs little; a miss skips a warning someone needed.
 # Phrases where "back" means returning ("coming back to lifting") are excluded.

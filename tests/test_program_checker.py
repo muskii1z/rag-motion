@@ -1,3 +1,4 @@
+import pytest
 """Phase 2, step 2: the program checker, and the agent-loop guardrails driven by a scripted fake model."""
 
 import json
@@ -319,3 +320,15 @@ def test_missing_core_gets_a_fix_naming_usable_exercises():
     fix = next(c.fix for c in failed(check_program(ProgramDraft.model_validate(no_core), profile(), {"notes-program-design-1"}))
                if c.name == "core or carry at least once a week")
     assert "Farmer Carry" in fix
+
+
+@pytest.mark.parametrize("age, level, days, goal, minimum", [
+    (70, "beginner", 2, "get stronger", 2),      # older beginner: 1 set per group per session
+    (70, "intermediate", 2, "get stronger", 4),  # older, trained: 2 per session
+    (70, "intermediate", 3, "build muscle", 6),  # never above the general minimum
+    (30, "beginner", 2, "get stronger", 6),      # adults unchanged
+    (None, "beginner", 3, "general fitness", 4),
+])
+def test_weekly_set_minimum_follows_the_older_adult_source(age, level, days, goal, minimum):
+    from ragmotion.program import weekly_set_minimum
+    assert weekly_set_minimum(profile(age=age, experience_level=level, sessions_per_week=days, goal=goal)) == minimum
