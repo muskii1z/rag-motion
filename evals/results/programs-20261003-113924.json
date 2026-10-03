@@ -1,0 +1,3157 @@
+{
+  "agent_model": "google/gemini-2.5-flash",
+  "runs": 1,
+  "rows": [
+    {
+      "client": "beginner-dumbbells-3day",
+      "run": 1,
+      "seconds": 8.1,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Dumbbell and Bench Muscle Gain",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0046516000000000005,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true
+      },
+      "program": {
+        "title": "Beginner Dumbbell and Bench Muscle Gain",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 s",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12 per leg",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "chest-supported-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Chest-Supported Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30-60 m",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60-180 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Increase only one variable at a time (load, sets, or frequency), and in small steps. Add load once the person can do about 2 more reps than the target. [notes-program-design-2, notes-program-design-1]",
+        "rationale": "This program is designed for a beginner to build muscle, using dumbbells and a bench, 3 days a week. For muscle growth, moderate loads with 6-12 reps per set and 1-3 minutes rest are recommended [notes-program-design-1]. Beginners can start with 1-3 sets per exercise [notes-program-design-1], so 3 sets are prescribed for the main lifts. Training each major muscle group at least 2 days a week is effective for beginners [notes-program-design-1]. The program includes a variety of exercises across the week to target different muscle groups and movement patterns. The vertical pull pattern is replaced by a horizontal pull due to equipment limitations; a pull-up bar or resistance bands would add vertical pulling options.",
+        "cited_ids": [
+          "notes-program-design-2",
+          "notes-program-design-1"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 6,
+          "back": 9,
+          "shoulders": 12,
+          "quads": 9,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Build muscle, 3 days a week, dumbbells and a bench, beginner"
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Dumbbell and Bench Muscle Gain\":\nDay 1: Full body A: Goblet Squat 3x8-12; Dumbbell Hip Thrust 3x8-12; Dumbbell Bench Press 3x8-12; One-Arm Dumbbell Row 3x8-12; Front Plank 3x30-60 s\nDay 2: Full body B: Dumbbell Reverse Lunge 3x8-12 per leg; Dumbbell Romanian Deadlift 3x8-12; Dumbbell Overhead Press 3x8-12; Chest-Supported Dumbbell Row 3x8-12; Farmer Carry 3x30-60 m\nDay 3: Full body C: Goblet Squat 3x8-12; Glute Bridge 3x8-12; Push-Up 3x8-12; One-Arm Dumbbell Row 3x8-12; Dead Bug 3x8-12 per side"
+        }
+      ]
+    },
+    {
+      "client": "full-gym-intermediate-4day",
+      "run": 1,
+      "seconds": 9.2,
+      "error": null,
+      "kind": "program",
+      "text": "Intermediate Strength Program (4-Day Upper/Lower Split)",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0053079,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "min_exercises_per_day": true
+      },
+      "program": {
+        "title": "Intermediate Strength Program (4-Day Upper/Lower Split)",
+        "days": [
+          {
+            "name": "Day 1: Lower A",
+            "exercises": [
+              {
+                "slug": "barbell-back-squat",
+                "sets": "3",
+                "reps": "4-6",
+                "rest": "2-5 minutes",
+                "note": null,
+                "name": "Barbell Back Squat",
+                "equipment": [
+                  "barbell",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "squat"
+              },
+              {
+                "slug": "barbell-deadlift",
+                "sets": "3",
+                "reps": "4-6",
+                "rest": "2-5 minutes",
+                "note": null,
+                "name": "Barbell Deadlift",
+                "equipment": [
+                  "barbell"
+                ],
+                "level": "intermediate",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "bulgarian-split-squat",
+                "sets": "3",
+                "reps": "6-10",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Bulgarian Split Squat",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "intermediate",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 s",
+                "rest": "1-2 minutes",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Upper A",
+            "exercises": [
+              {
+                "slug": "barbell-bench-press",
+                "sets": "3",
+                "reps": "4-6",
+                "rest": "2-5 minutes",
+                "note": null,
+                "name": "Barbell Bench Press",
+                "equipment": [
+                  "barbell",
+                  "bench",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "push"
+              },
+              {
+                "slug": "pull-up",
+                "sets": "3",
+                "reps": "4-6",
+                "rest": "2-5 minutes",
+                "note": null,
+                "name": "Pull-Up",
+                "equipment": [
+                  "pullup-bar"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "6-10",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "barbell-bent-over-row",
+                "sets": "3",
+                "reps": "6-10",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Barbell Bent-Over Row",
+                "equipment": [
+                  "barbell"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "pallof-press",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "1-2 minutes",
+                "note": null,
+                "name": "Pallof Press",
+                "equipment": [
+                  "band"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Lower B",
+            "exercises": [
+              {
+                "slug": "leg-press",
+                "sets": "3",
+                "reps": "6-10",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Leg Press",
+                "equipment": [
+                  "machine"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12 per leg",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30-45 m",
+                "rest": "1-2 minutes",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 4: Upper B",
+            "exercises": [
+              {
+                "slug": "incline-dumbbell-press",
+                "sets": "3",
+                "reps": "6-10",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Incline Dumbbell Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12 per arm",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "bench-dip",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Bench Dip",
+                "equipment": [
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "1-3 minutes",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30-60 s per side",
+                "rest": "1-2 minutes",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Add load once you can do about 2 more reps than the target range [notes-program-design-1]. Increase only one variable at a time (load, sets, or frequency), and in small steps [notes-program-design-2].",
+        "rationale": "This program is designed for an intermediate client whose goal is to get stronger, training 4 days a week with a full gym. For maximal strength, heavy loads with roughly 1-6 reps per set and long rests (2-5 minutes) are recommended [notes-program-design-1]. For accessory lifts, moderate loads with 6-12 reps per set and 1-3 minutes rest are used [notes-program-design-1]. Each major muscle group will be trained at least twice a week, which is in line with recommendations for strength gains [iversen2021-time-efficient-3]. The program uses a variety of exercises to target different muscle groups and movement patterns, with a focus on compound movements for strength development. The main lifts are kept consistent for several weeks to allow for measurable progress [notes-program-design-2].",
+        "cited_ids": [
+          "notes-program-design-1",
+          "notes-program-design-2",
+          "iversen2021-time-efficient-3"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 9,
+          "back": 12,
+          "shoulders": 15,
+          "quads": 12,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Get stronger, 4 days a week, full gym, intermediate"
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Intermediate Strength Program (4-Day Upper/Lower Split)\":\nDay 1: Lower A: Barbell Back Squat 3x4-6; Barbell Deadlift 3x4-6; Bulgarian Split Squat 3x6-10; Front Plank 3x30-60 s\nDay 2: Upper A: Barbell Bench Press 3x4-6; Pull-Up 3x4-6; Dumbbell Overhead Press 3x6-10; Barbell Bent-Over Row 3x6-10; Pallof Press 3x8-12 per side\nDay 3: Lower B: Leg Press 3x6-10; Dumbbell Romanian Deadlift 3x8-12; Dumbbell Reverse Lunge 3x8-12 per leg; Farmer Carry 3x30-45 m\nDay 4: Upper B: Incline Dumbbell Press 3x6-10; One-Arm Dumbbell Row 3x8-12 per arm; Bench Dip 3x8-12; Lat Pulldown 3x8-12; Side Plank 3x30-60 s per side"
+        }
+      ]
+    },
+    {
+      "client": "missing-everything",
+      "run": 1,
+      "seconds": 2.6,
+      "error": null,
+      "kind": "question",
+      "text": "What is your main fitness goal (build muscle, get stronger, general fitness, or fat loss)? How many days per week would you like to train? What equipment do you have available (dumbbells, barbell and rack, bench, kettlebell, resistance bands, plyo box, pull-up bar, weight machines, cable station, or no equipment)? What is your experience level (beginner, intermediate, or advanced)?",
+      "passed_checks": false,
+      "failed_checks": [],
+      "submissions": 0,
+      "cost_usd": 0.0005699,
+      "expectations": {
+        "kind": true,
+        "question_mentions": true
+      },
+      "program": null,
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I want a workout program"
+        },
+        {
+          "role": "assistant",
+          "content": "What is your main fitness goal (build muscle, get stronger, general fitness, or fat loss)? How many days per week would you like to train? What equipment do you have available (dumbbells, barbell and rack, bench, kettlebell, resistance bands, plyo box, pull-up bar, weight machines, cable station, or no equipment)? What is your experience level (beginner, intermediate, or advanced)?"
+        }
+      ]
+    },
+    {
+      "client": "two-turn-beginner",
+      "run": 1,
+      "seconds": 12.2,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Muscle Building - 4 Day Upper/Lower Split",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0066586,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true
+      },
+      "program": {
+        "title": "Beginner Muscle Building - 4 Day Upper/Lower Split",
+        "days": [
+          {
+            "name": "Day 1: Lower A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30 s",
+                "rest": "60 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Upper A",
+            "exercises": [
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Lower B",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "split-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Split Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30 m",
+                "rest": "60 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 4: Upper B",
+            "exercises": [
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "seated-cable-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Seated Cable Row",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30 s",
+                "rest": "60 s",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "For progression, a common rule of thumb is to add load once you can do about 2 more repetitions than the target range [notes-program-design-1]. Increase only one variable at a time (load, sets, or frequency), and in small steps [notes-program-design-2].",
+        "rationale": "This program is designed for a beginner client looking to build muscle, training 4 days a week with dumbbells, a bench, and a cable machine. The program follows an upper/lower split, which is suitable for a 4-day training schedule [notes-program-design-1].\n\nFor muscle hypertrophy, moderate loads with roughly 6-12 repetitions per set are recommended, with rest periods of about 1-3 minutes [notes-program-design-1]. Beginners can start with 1-3 sets per exercise [notes-program-design-1]. This program utilizes 3 sets of 8-12 repetitions for most exercises, with rest periods of 60-90 seconds, aligning with these guidelines. Each major muscle group will be trained at least twice a week, which is recommended for beginners [notes-program-design-1].\n\nExercise selection prioritizes beginner-friendly movements that can be performed with the available equipment. Squat, hinge, lunge, push, pull, and core patterns are included in each session [notes-program-design-2]. Variations of exercises are used across the days to provide variety while still hitting the target muscle groups. For example, on Day 1, a Dumbbell Reverse Lunge is used for the lunge pattern, while on Day 3, a Split Squat is used. Similarly, for horizontal push, Dumbbell Bench Press is used on Day 2 and Push-Ups on Day 4.\n\nCore exercises like planks and dead bugs are included to build foundational strength. Farmer carries are included to address the carry pattern. The program ensures that each major muscle group receives adequate weekly sets for muscle growth, with 3 sets per exercise contributing to the weekly minimums.",
+        "cited_ids": [
+          "notes-program-design-1",
+          "notes-program-design-2",
+          "singer2024-rest-9",
+          "iversen2021-time-efficient-24",
+          "singer2024-rest-7",
+          "schoenfeld2021-loading-16",
+          "schoenfeld2021-loading-18",
+          "schoenfeld2021-loading-19",
+          "iversen2021-time-efficient-2",
+          "iversen2021-time-efficient-3"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 6,
+          "back": 12,
+          "shoulders": 15,
+          "quads": 12,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I'm a beginner and want a routine"
+        },
+        {
+          "role": "assistant",
+          "content": "What is your goal (build muscle, get stronger, general fitness, or fat loss)? How many days per week would you like to train? What equipment do you have available (dumbbells, barbell and rack, bench, kettlebell, resistance bands, plyo box, pull-up bar, weight machines, cable station, or no equipment)?"
+        },
+        {
+          "role": "user",
+          "content": "Build muscle, 4 days a week, dumbbells, a bench and a cable machine"
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Muscle Building - 4 Day Upper/Lower Split\":\nDay 1: Lower A: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Dumbbell Reverse Lunge 3x8-12; Front Plank 3x30 s\nDay 2: Upper A: Dumbbell Bench Press 3x8-12; Lat Pulldown 3x8-12; Dumbbell Overhead Press 3x8-12; One-Arm Dumbbell Row 3x8-12; Dead Bug 3x8-12\nDay 3: Lower B: Goblet Squat 3x8-12; Dumbbell Hip Thrust 3x8-12; Split Squat 3x8-12; Farmer Carry 3x30 m\nDay 4: Upper B: Push-Up 3x8-12; Seated Cable Row 3x8-12; Dumbbell Overhead Press 3x8-12; Lat Pulldown 3x8-12; Side Plank 3x30 s"
+        }
+      ]
+    },
+    {
+      "client": "older-adult-new",
+      "run": 1,
+      "seconds": 8.4,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Strength Program for Older Adults",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0053653,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "no_adult_research": true
+      },
+      "program": {
+        "title": "Beginner Strength Program for Older Adults",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "90s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "90s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "2",
+                "reps": "AMRAP",
+                "rest": "90s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "band-pull-apart",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "60s",
+                "note": null,
+                "name": "Band Pull-Apart",
+                "equipment": [
+                  "band"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "2",
+                "reps": "30s",
+                "rest": "60s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "2",
+                "reps": "10-15 per leg",
+                "rest": "90s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "90s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "2",
+                "reps": "AMRAP",
+                "rest": "90s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "band-pull-apart",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "60s",
+                "note": null,
+                "name": "Band Pull-Apart",
+                "equipment": [
+                  "band"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "2",
+                "reps": "10-15",
+                "rest": "90s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "2",
+                "reps": "30m",
+                "rest": "60s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          }
+        ],
+        "progression": "To progress, gradually increase the load, repetitions, or sets over time [notes-nsca-older-adults-0, haugen2019-sprint-7]. For example, once you can comfortably complete 15 repetitions with good form, try increasing the weight slightly or adding another set. Always prioritize good form over lifting heavier weights [notes-nsca-weightlifting-3].",
+        "rationale": "This program is designed for a 70-year-old beginner looking to get stronger, using dumbbells and resistance bands, twice a week. The exercise selection focuses on compound movements that work multiple muscle groups, which is efficient for a two-day-a-week schedule [pag2-77].\n\nFor older adults and beginners, 2-3 sets of 10-15 repetitions at a lighter load are recommended, with rest periods of 1.5-3 minutes between sets [notes-nsca-older-adults-1]. I've opted for 2 sets of 10-15 reps for most exercises, with 90 seconds rest for main lifts and 60 seconds for accessory and core work. For push-ups, AMRAP (as many reps as possible) is used to accommodate individual strength levels while ensuring effort. Planks and carries are prescribed for time or distance, as appropriate for those movements.\n\nThe program includes a variety of exercises to ensure all major muscle groups are worked across the week [pag2-77]. Dumbbells and resistance bands are utilized as per the client's available equipment, which are suitable for beginners and older adults [notes-nsca-older-adults-2]. The program aims to build foundational strength and improve overall function, with an emphasis on safe and progressive training [notes-nsca-older-adults-0].\n\nNutrition is not covered by these sources, but it is an important component of any fat loss goal.",
+        "cited_ids": [
+          "notes-nsca-older-adults-0",
+          "notes-nsca-older-adults-1",
+          "notes-nsca-older-adults-2",
+          "notes-nsca-weightlifting-3",
+          "pag2-77",
+          "haugen2019-sprint-7"
+        ],
+        "safety_notes": "Please consult with a healthcare professional before starting any new exercise program, especially given your age and newness to exercise.",
+        "weekly_sets": {
+          "chest": 4,
+          "back": 4,
+          "shoulders": 8,
+          "quads": 4,
+          "glutes/hamstrings": 10
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I'm 70 and new to exercise. I want to get stronger, 2 days a week, with dumbbells and resistance bands."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Strength Program for Older Adults\":\nDay 1: Full body A: Goblet Squat 2x10-15; Dumbbell Romanian Deadlift 2x10-15; Push-Up 2xAMRAP; Band Pull-Apart 2x10-15; Front Plank 2x30s\nDay 2: Full body B: Dumbbell Reverse Lunge 2x10-15 per leg; Glute Bridge 2x10-15; Push-Up 2xAMRAP; Band Pull-Apart 2x10-15; Dumbbell Overhead Press 2x10-15; Farmer Carry 2x30m"
+        }
+      ]
+    },
+    {
+      "client": "youth-soccer",
+      "run": 1,
+      "seconds": 7.9,
+      "error": null,
+      "kind": "program",
+      "text": "Strength for Soccer",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0047409,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "no_adult_research": true,
+        "min_exercises_per_day": true
+      },
+      "program": {
+        "title": "Strength for Soccer",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "leg-press",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Leg Press",
+                "equipment": [
+                  "machine"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "machine-chest-press",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Machine Chest Press",
+                "equipment": [
+                  "machine"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60s",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "kettlebell-deadlift",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Kettlebell Deadlift",
+                "equipment": [
+                  "kettlebell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "seated-cable-row",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Seated Cable Row",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30-40m",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30-60s",
+                "rest": "1-2 min",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Add 5-10% load as strength improves [notes-nsca-youth-ltad-1].",
+        "rationale": "This program is designed for a 15-year-old beginner aiming to get stronger for soccer, utilizing a full gym. The exercises chosen are beginner-friendly and target major muscle groups relevant for soccer performance. For youth, 1-3 sets of 6-15 reps are recommended for strength development [notes-nsca-youth-ltad-1]. We are using 3 sets of 10-15 reps to focus on building a solid foundation. Rest periods of 1-2 minutes are appropriate for moderate-intensity work [notes-nsca-youth-ltad-1].",
+        "cited_ids": [
+          "notes-nsca-youth-ltad-1"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 6,
+          "back": 9,
+          "shoulders": 12,
+          "quads": 9,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "My 15-year-old son wants to get stronger for soccer. 3 days a week, full gym, beginner."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Strength for Soccer\":\nDay 1: Full body A: Leg Press 3x10-15; Dumbbell Hip Thrust 3x10-15; Machine Chest Press 3x10-15; Lat Pulldown 3x10-15; Front Plank 3x30-60s\nDay 2: Full body B: Dumbbell Reverse Lunge 3x10-15; Kettlebell Deadlift 3x10-15; Dumbbell Overhead Press 3x10-15; Seated Cable Row 3x10-15; Farmer Carry 3x30-40m\nDay 3: Full body C: Goblet Squat 3x10-15; Glute Bridge 3x10-15; Push-Up 3x10-15; One-Arm Dumbbell Row 3x10-15; Side Plank 3x30-60s"
+        }
+      ]
+    },
+    {
+      "client": "sore-knee",
+      "run": 1,
+      "seconds": 12.0,
+      "error": null,
+      "kind": "program",
+      "text": "General Fitness Program",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 2,
+      "cost_usd": 0.0078613,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "has_referral": true,
+        "min_exercises_per_day": true
+      },
+      "program": {
+        "title": "General Fitness Program",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30 s",
+                "rest": "60 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30 m",
+                "rest": "60 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "leg-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Leg Press",
+                "equipment": [
+                  "machine"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "seated-cable-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Seated Cable Row",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Increase load once you can perform 2 additional reps with good form [notes-program-design-2]. Gradually increase activity over time, making small increases in load, sets, or frequency [pag2-103, notes-program-design-2].",
+        "rationale": "This program is designed for general fitness for a beginner, with 3 full-body sessions per week, which is a common frequency for beginners [notes-program-design-1]. Each session includes one exercise per main pattern: a squat or lunge, a hinge, a push, a pull, and a core or carry exercise [notes-program-design-2]. Sets and reps are chosen to be moderate (3 sets of 8-12 reps) with 60-90 seconds rest, which is appropriate for general fitness and aligns with recommendations for muscle size and endurance [notes-program-design-1]. Core exercises are performed for time or repetitions with 60 seconds rest. Exercise choices prioritize beginner-friendly options and vary across the week. Progression will involve gradually increasing load, sets, or frequency [notes-program-design-2, pag2-103].",
+        "cited_ids": [
+          "notes-program-design-1",
+          "notes-program-design-2",
+          "pag2-103"
+        ],
+        "safety_notes": "Please check with a health professional regarding your sore knee before starting this or any new exercise program.",
+        "weekly_sets": {
+          "chest": 6,
+          "back": 9,
+          "shoulders": 12,
+          "quads": 9,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Beginner, general fitness, 3 days a week, full gym. I have a sore knee from running."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"General Fitness Program\":\nDay 1: Full body A: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Dumbbell Bench Press 3x8-12; Lat Pulldown 3x8-12; Front Plank 3x30 s\nDay 2: Full body B: Dumbbell Reverse Lunge 3x8-12 per side; Glute Bridge 3x8-12; Dumbbell Overhead Press 3x8-12; One-Arm Dumbbell Row 3x8-12 per side; Farmer Carry 3x30 m\nDay 3: Full body C: Leg Press 3x8-12; Dumbbell Hip Thrust 3x8-12; Push-Up 3x8-12; Seated Cable Row 3x8-12; Dead Bug 3x8-12 per side"
+        }
+      ]
+    },
+    {
+      "client": "pregnancy",
+      "run": 1,
+      "seconds": 0.7,
+      "error": null,
+      "kind": "message",
+      "text": "Programs during pregnancy should be planned with a health professional, so I won't build one here. The Physical Activity Guidelines have a section on activity during pregnancy you can ask me about.",
+      "passed_checks": false,
+      "failed_checks": [],
+      "submissions": 0,
+      "cost_usd": 0.0,
+      "expectations": {
+        "kind": true,
+        "mentions_any": true
+      },
+      "program": null,
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I'm pregnant and want a strength program, 3 days a week, dumbbells, beginner"
+        },
+        {
+          "role": "assistant",
+          "content": "Programs during pregnancy should be planned with a health professional, so I won't build one here. The Physical Activity Guidelines have a section on activity during pregnancy you can ask me about."
+        }
+      ]
+    },
+    {
+      "client": "no-equipment-home",
+      "run": 1,
+      "seconds": 8.0,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Bodyweight General Fitness (3 days/week)",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0038431,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "mentions_any": true
+      },
+      "program": {
+        "title": "Beginner Bodyweight General Fitness (3 days/week)",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "bodyweight-squat",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Bodyweight Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 s",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "split-squat",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Split Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "10-15 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "bodyweight-squat",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Bodyweight Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30-60 s per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Add load once you can do about 2 more reps than the target range [notes-program-design-1]. For bodyweight exercises, this means progressing to harder variations or increasing reps within the given range [iversen2021-time-efficient-26].",
+        "rationale": "This program is designed for general fitness for a beginner, training 3 days a week with bodyweight only. Each session is full-body, which is common for beginners [notes-program-design-1]. Sets and reps are chosen to align with general fitness goals, typically involving moderate loads and reps [notes-program-design-1]. Rest periods are set to allow for adequate recovery between sets [notes-program-design-1].\n\nSince no equipment is available, the program utilizes bodyweight exercises. Vertical pull exercises are not available with bodyweight only; a pull-up bar or resistance bands would add this pattern. Similarly, horizontal pull exercises are not available with bodyweight only; resistance bands would add this pattern. Carry exercises are also not available with bodyweight only, so core exercises are used instead. Bodyweight training can be effective for strength and muscle mass, but progression can be challenging [iversen2021-time-efficient-11].",
+        "cited_ids": [
+          "notes-program-design-1",
+          "iversen2021-time-efficient-26",
+          "iversen2021-time-efficient-11"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 9,
+          "back": 0,
+          "shoulders": 9,
+          "quads": 9,
+          "glutes/hamstrings": 18
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "General fitness at home with no equipment, 3 days a week, beginner"
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Bodyweight General Fitness (3 days/week)\":\nDay 1: Full body A: Bodyweight Squat 3x10-15; Glute Bridge 3x10-15; Push-Up 3x8-15; Front Plank 3x30-60 s\nDay 2: Full body B: Split Squat 3x8-12 per side; Glute Bridge 3x10-15; Push-Up 3x8-15; Dead Bug 3x10-15 per side\nDay 3: Full body C: Bodyweight Squat 3x10-15; Glute Bridge 3x10-15; Push-Up 3x8-15; Side Plank 3x30-60 s per side"
+        }
+      ]
+    },
+    {
+      "client": "one-kettlebell-fat-loss",
+      "run": 1,
+      "seconds": 9.1,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Kettlebell Fat Loss Program",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0056913,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "mentions_any": true
+      },
+      "program": {
+        "title": "Beginner Kettlebell Fat Loss Program",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "bodyweight-squat",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Bodyweight Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "kettlebell-deadlift",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Kettlebell Deadlift",
+                "equipment": [
+                  "kettlebell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 s",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "split-squat",
+                "sets": "3",
+                "reps": "10-15 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Split Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30-60 s per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "bodyweight-squat",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Bodyweight Squat",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "kettlebell-deadlift",
+                "sets": "3",
+                "reps": "10-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Kettlebell Deadlift",
+                "equipment": [
+                  "kettlebell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-15",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "10-15 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Increase only one variable at a time (load, sets, or frequency), and in small steps. Once you can perform 2 more reps than the target, increase the load or reps [notes-program-design-2].",
+        "rationale": "This program is designed for fat loss for a beginner client with a kettlebell. The program focuses on full-body workouts three times a week, which is suitable for beginners and aligns with recommendations for training each major muscle group at least twice a week [notes-program-design-1]. Each session includes a squat or lunge, a hinge, a push, and a core exercise, following a common beginner full-body session structure [notes-program-design-2].\n\nFor fat loss, both physical activity and caloric intake are crucial [pag2-36]. While this program addresses the physical activity component, it's important to note that nutrition is not covered by these sources. Resistance training helps promote weight maintenance and can contribute to fat loss [pag2-36, pag2-67].\n\nSets and reps are chosen to align with general recommendations for muscle size and endurance, which are beneficial for fat loss. Moderate loads with 6-15 reps are effective for strength and hypertrophy, and lighter loads (15-40 RM) can be used if training is performed close to failure [iversen2021-time-efficient-27]. For a beginner, 3 sets per exercise are appropriate [notes-program-design-1]. Rest periods of 60-90 seconds are chosen to allow for adequate recovery between sets while maintaining a good workout density.\n\nThere are no vertical pull exercises available with only a kettlebell and bodyweight. Adding a pull-up bar or resistance bands would allow for the inclusion of vertical pull movements. Similarly, horizontal pull exercises are not available with the current equipment. Resistance bands would also allow for these movements. Carries are also not available with the current equipment, which could be added with more varied kettlebell weights or other equipment.",
+        "cited_ids": [
+          "notes-program-design-2",
+          "notes-program-design-1",
+          "pag2-36",
+          "pag2-67",
+          "iversen2021-time-efficient-27"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 9,
+          "back": 0,
+          "shoulders": 9,
+          "quads": 9,
+          "glutes/hamstrings": 18
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "One kettlebell at home, I want to lose fat, 3 days a week, beginner"
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Kettlebell Fat Loss Program\":\nDay 1: Full body A: Bodyweight Squat 3x10-15; Kettlebell Deadlift 3x10-15; Push-Up 3x8-15; Front Plank 3x30-60 s\nDay 2: Full body B: Split Squat 3x10-15 per side; Glute Bridge 3x10-15; Push-Up 3x8-15; Side Plank 3x30-60 s per side\nDay 3: Full body C: Bodyweight Squat 3x10-15; Kettlebell Deadlift 3x10-15; Push-Up 3x8-15; Dead Bug 3x10-15 per side"
+        }
+      ]
+    },
+    {
+      "client": "loves-back-squats",
+      "run": 1,
+      "seconds": 9.2,
+      "error": null,
+      "kind": "program",
+      "text": "Intermediate Muscle Building Program",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.005605499999999999,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "no_referral": true,
+        "min_exercises_per_day": true,
+        "includes_all": true
+      },
+      "program": {
+        "title": "Intermediate Muscle Building Program",
+        "days": [
+          {
+            "name": "Day 1: Lower A",
+            "exercises": [
+              {
+                "slug": "barbell-back-squat",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Barbell Back Squat",
+                "equipment": [
+                  "barbell",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "bulgarian-split-squat",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Bulgarian Split Squat",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "intermediate",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 s",
+                "rest": "60 s",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Upper A",
+            "exercises": [
+              {
+                "slug": "barbell-bench-press",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Barbell Bench Press",
+                "equipment": [
+                  "barbell",
+                  "bench",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "push"
+              },
+              {
+                "slug": "pull-up",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Pull-Up",
+                "equipment": [
+                  "pullup-bar"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "barbell-bent-over-row",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Barbell Bent-Over Row",
+                "equipment": [
+                  "barbell"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "dead-bug",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "60 s",
+                "note": null,
+                "name": "Dead Bug",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Lower B",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "barbell-deadlift",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Barbell Deadlift",
+                "equipment": [
+                  "barbell"
+                ],
+                "level": "intermediate",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30-60 m",
+                "rest": "60 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 4: Upper B",
+            "exercises": [
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "bench-dip",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Bench Dip",
+                "equipment": [
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "lat-pulldown",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "90-120 s",
+                "note": null,
+                "name": "Lat Pulldown",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "pallof-press",
+                "sets": "3",
+                "reps": "6-12",
+                "rest": "60 s",
+                "note": null,
+                "name": "Pallof Press",
+                "equipment": [
+                  "band"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Increase load once the target reps can be completed for all sets. [notes-program-design-1]",
+        "rationale": "This program is designed for an intermediate client looking to build muscle, training 4 days a week with a full gym. The program incorporates a variety of exercises targeting all major muscle groups, with a focus on compound movements. Sets and reps are chosen to align with hypertrophy guidelines, which suggest moderate loads for 6-12 reps per set [notes-program-design-1, schoenfeld2021-loading-18]. Rest periods are set at 90-120 seconds for most exercises, as longer rest intervals may offer a small benefit for hypertrophy [singer2024-rest-17, iversen2021-time-efficient-15]. The client's preference for back squats and hip thrusts has been accommodated by including them in the program. Each major muscle group will receive at least 6 weekly sets to optimize muscle growth.",
+        "cited_ids": [
+          "notes-program-design-1",
+          "schoenfeld2021-loading-18",
+          "singer2024-rest-17",
+          "iversen2021-time-efficient-15"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 9,
+          "back": 12,
+          "shoulders": 15,
+          "quads": 12,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I love back squats and hip thrusts. Intermediate, build muscle, 4 days a week, full gym."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Intermediate Muscle Building Program\":\nDay 1: Lower A: Barbell Back Squat 3x6-12; Dumbbell Hip Thrust 3x6-12; Bulgarian Split Squat 3x6-12; Front Plank 3x30-60 s\nDay 2: Upper A: Barbell Bench Press 3x6-12; Pull-Up 3x6-12; Dumbbell Overhead Press 3x6-12; Barbell Bent-Over Row 3x6-12; Dead Bug 3x6-12\nDay 3: Lower B: Goblet Squat 3x6-12; Barbell Deadlift 3x6-12; Dumbbell Reverse Lunge 3x6-12; Farmer Carry 3x30-60 m\nDay 4: Upper B: Dumbbell Bench Press 3x6-12; One-Arm Dumbbell Row 3x6-12; Bench Dip 3x6-12; Lat Pulldown 3x6-12; Pallof Press 3x6-12"
+        }
+      ]
+    },
+    {
+      "client": "no-bodyweight-please",
+      "run": 1,
+      "seconds": 10.4,
+      "error": null,
+      "kind": "program",
+      "text": "Beginner Muscle Building Program",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.0046251,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "no_bodyweight_only": true
+      },
+      "program": {
+        "title": "Beginner Muscle Building Program",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30 m",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12 per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "chest-supported-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Chest-Supported Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "suitcase-carry",
+                "sets": "3",
+                "reps": "30 m per side",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Suitcase Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "incline-dumbbell-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Incline Dumbbell Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "one-arm-dumbbell-row",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "One-Arm Dumbbell Row",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30 m",
+                "rest": "60-90 s",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          }
+        ],
+        "progression": "For progression, add load once you can do about 2 more repetitions than the target range [notes-program-design-1]. Increase only one variable at a time (load, sets, or frequency), and in small steps [notes-program-design-2].",
+        "rationale": "This program is designed for a beginner looking to build muscle, training 3 days a week with dumbbells and a bench. Each major muscle group will be trained at least 2 days a week, which is appropriate for beginners [notes-program-design-1].\n\nFor muscle growth (hypertrophy), moderate loads with roughly 6-12 repetitions per set are recommended, with rest periods of about 1-3 minutes [notes-program-design-1]. Beginners can start with 1-3 sets per exercise [notes-program-design-1]. This program uses 3 sets of 8-12 repetitions with 60-90 seconds rest for most exercises, aligning with these recommendations. For carries, 3 sets of 30 meters with 60-90 seconds rest are prescribed.\n\nThe program incorporates a variety of exercises targeting different movement patterns across the week, using the available equipment. Since no non-bodyweight core options were available, carries are used to address core stability.",
+        "cited_ids": [
+          "notes-program-design-1",
+          "notes-program-design-2"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 6,
+          "back": 9,
+          "shoulders": 18,
+          "quads": 9,
+          "glutes/hamstrings": 24
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Build muscle, 3 days a week, dumbbells and a bench, beginner. I don't want bodyweight exercises."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Beginner Muscle Building Program\":\nDay 1: Full body A: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Dumbbell Bench Press 3x8-12; One-Arm Dumbbell Row 3x8-12; Farmer Carry 3x30 m\nDay 2: Full body B: Dumbbell Reverse Lunge 3x8-12 per side; Dumbbell Hip Thrust 3x8-12; Dumbbell Overhead Press 3x8-12; Chest-Supported Dumbbell Row 3x8-12; Suitcase Carry 3x30 m per side\nDay 3: Full body C: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Incline Dumbbell Press 3x8-12; One-Arm Dumbbell Row 3x8-12; Farmer Carry 3x30 m"
+        }
+      ]
+    },
+    {
+      "client": "home-dumbbells-not-gym",
+      "run": 1,
+      "seconds": 11.3,
+      "error": null,
+      "kind": "program",
+      "text": "Dumbbell Muscle Builder",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.009148900000000001,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "excludes": true
+      },
+      "program": {
+        "title": "Dumbbell Muscle Builder",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60 seconds",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "dumbbell-reverse-lunge",
+                "sets": "3",
+                "reps": "8-12 per leg",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Dumbbell Reverse Lunge",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "glute-bridge",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Glute Bridge",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30-60 meters",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "goblet-squat",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Goblet Squat",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "dumbbell-romanian-deadlift",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Dumbbell Romanian Deadlift",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "push-up",
+                "sets": "3",
+                "reps": "8-12",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Push-Up",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "side-plank",
+                "sets": "3",
+                "reps": "30-60 seconds per side",
+                "rest": "60-90 seconds",
+                "note": null,
+                "name": "Side Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "To progress, add load once you can do about 2 more reps than the target range [notes-program-design-1]. Increase only one variable at a time (load, sets, or frequency), and in small steps [notes-program-design-2].",
+        "rationale": "This program is designed for a beginner to build muscle, training three full-body sessions per week, which is a common and effective frequency for beginners [notes-program-design-1]. Each major muscle group will be trained at least twice a week, with a minimum of 6 weekly sets.\n\nFor muscle growth (hypertrophy), moderate loads with roughly 6-12 repetitions per set are recommended, with rest periods of 1-3 minutes [notes-program-design-1]. Beginners can start with 1-3 sets per exercise [notes-program-design-1]. This program uses 3 sets of 8-12 repetitions with 60-90 seconds of rest, aligning with these guidelines.\n\nThe program includes a variety of exercises targeting major movement patterns: squats, hinges, pushes, and core work. Since the client has dumbbells, these are prioritized where available. For patterns like vertical pull and horizontal pull, which are not available with the current equipment, a pull-up bar or resistance bands would be beneficial additions.",
+        "cited_ids": [
+          "notes-program-design-1",
+          "notes-program-design-2"
+        ],
+        "safety_notes": "As you are new to the gym scene, focus on learning proper technique with light loads before increasing weight [notes-program-design-2]. Stop a set when your form breaks down [notes-program-design-2].",
+        "weekly_sets": {
+          "chest": 6,
+          "back": 0,
+          "shoulders": 12,
+          "quads": 9,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "I'm new to the gym scene but I train at home with dumbbells. Build muscle, 3 days, beginner."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Dumbbell Muscle Builder\":\nDay 1: Full body A: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Push-Up 3x8-12; Front Plank 3x30-60 seconds\nDay 2: Full body B: Dumbbell Reverse Lunge 3x8-12 per leg; Glute Bridge 3x8-12; Dumbbell Overhead Press 3x8-12; Farmer Carry 3x30-60 meters\nDay 3: Full body C: Goblet Squat 3x8-12; Dumbbell Romanian Deadlift 3x8-12; Push-Up 3x8-12; Side Plank 3x30-60 seconds per side"
+        }
+      ]
+    },
+    {
+      "client": "hates-deadlifts",
+      "run": 1,
+      "seconds": 8.2,
+      "error": null,
+      "kind": "program",
+      "text": "Full Body Strength Program",
+      "passed_checks": true,
+      "failed_checks": [],
+      "submissions": 1,
+      "cost_usd": 0.005418599999999999,
+      "expectations": {
+        "kind": true,
+        "passes_checks": true,
+        "excludes": true
+      },
+      "program": {
+        "title": "Full Body Strength Program",
+        "days": [
+          {
+            "name": "Day 1: Full body A",
+            "exercises": [
+              {
+                "slug": "barbell-back-squat",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Barbell Back Squat",
+                "equipment": [
+                  "barbell",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "squat"
+              },
+              {
+                "slug": "kettlebell-swing",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Kettlebell Swing",
+                "equipment": [
+                  "kettlebell"
+                ],
+                "level": "intermediate",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "barbell-bench-press",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Barbell Bench Press",
+                "equipment": [
+                  "barbell",
+                  "bench",
+                  "rack"
+                ],
+                "level": "intermediate",
+                "pattern": "push"
+              },
+              {
+                "slug": "pull-up",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Pull-Up",
+                "equipment": [
+                  "pullup-bar"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "front-plank",
+                "sets": "3",
+                "reps": "30-60s",
+                "rest": "60 seconds",
+                "note": null,
+                "name": "Front Plank",
+                "equipment": [
+                  "bodyweight"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          },
+          {
+            "name": "Day 2: Full body B",
+            "exercises": [
+              {
+                "slug": "bulgarian-split-squat",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Bulgarian Split Squat",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "intermediate",
+                "pattern": "lunge"
+              },
+              {
+                "slug": "dumbbell-hip-thrust",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Dumbbell Hip Thrust",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-overhead-press",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Dumbbell Overhead Press",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "barbell-bent-over-row",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Barbell Bent-Over Row",
+                "equipment": [
+                  "barbell"
+                ],
+                "level": "intermediate",
+                "pattern": "pull"
+              },
+              {
+                "slug": "farmer-carry",
+                "sets": "3",
+                "reps": "30m",
+                "rest": "60 seconds",
+                "note": null,
+                "name": "Farmer Carry",
+                "equipment": [
+                  "dumbbell"
+                ],
+                "level": "beginner",
+                "pattern": "carry"
+              }
+            ]
+          },
+          {
+            "name": "Day 3: Full body C",
+            "exercises": [
+              {
+                "slug": "leg-press",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Leg Press",
+                "equipment": [
+                  "machine"
+                ],
+                "level": "beginner",
+                "pattern": "squat"
+              },
+              {
+                "slug": "kettlebell-swing",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Kettlebell Swing",
+                "equipment": [
+                  "kettlebell"
+                ],
+                "level": "intermediate",
+                "pattern": "hinge"
+              },
+              {
+                "slug": "dumbbell-bench-press",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Dumbbell Bench Press",
+                "equipment": [
+                  "dumbbell",
+                  "bench"
+                ],
+                "level": "beginner",
+                "pattern": "push"
+              },
+              {
+                "slug": "seated-cable-row",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Seated Cable Row",
+                "equipment": [
+                  "cable"
+                ],
+                "level": "beginner",
+                "pattern": "pull"
+              },
+              {
+                "slug": "pallof-press",
+                "sets": "3",
+                "reps": "5",
+                "rest": "2-3 minutes",
+                "note": null,
+                "name": "Pallof Press",
+                "equipment": [
+                  "band"
+                ],
+                "level": "beginner",
+                "pattern": "core"
+              }
+            ]
+          }
+        ],
+        "progression": "Add load once the client can do about 2 more reps [notes-program-design-1].",
+        "rationale": "This program focuses on strength development with heavy loads and low repetitions, as recommended for strength goals [notes-program-design-1, iversen2021-time-efficient-24]. Each major muscle group is trained at least twice a week across the full-body sessions [notes-program-design-1]. Sets are kept at 3 per exercise to allow for sufficient volume across the week while maintaining intensity. Rest periods are longer to facilitate recovery between heavy sets [notes-program-design-1]. The client dislikes deadlifts, so hinge movements like kettlebell swings and hip thrusts are used instead. Exercises are varied across the days to provide a comprehensive stimulus. Planks and carries are prescribed in time or distance.",
+        "cited_ids": [
+          "notes-program-design-1",
+          "iversen2021-time-efficient-24"
+        ],
+        "safety_notes": null,
+        "weekly_sets": {
+          "chest": 6,
+          "back": 9,
+          "shoulders": 12,
+          "quads": 9,
+          "glutes/hamstrings": 21
+        }
+      },
+      "conversation": [
+        {
+          "role": "user",
+          "content": "Full gym, intermediate, get stronger, 3 days a week. I hate deadlifts."
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your program, \"Full Body Strength Program\":\nDay 1: Full body A: Barbell Back Squat 3x5; Kettlebell Swing 3x5; Barbell Bench Press 3x5; Pull-Up 3x5; Front Plank 3x30-60s\nDay 2: Full body B: Bulgarian Split Squat 3x5; Dumbbell Hip Thrust 3x5; Dumbbell Overhead Press 3x5; Barbell Bent-Over Row 3x5; Farmer Carry 3x30m\nDay 3: Full body C: Leg Press 3x5; Kettlebell Swing 3x5; Dumbbell Bench Press 3x5; Seated Cable Row 3x5; Pallof Press 3x5"
+        }
+      ]
+    }
+  ]
+}

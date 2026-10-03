@@ -135,8 +135,16 @@ WEAK_GYM = re.compile(r"\b(go|going|train|training|lift|lifting|work out|working
 AT_HOME = re.compile(r"\bhome[\s-]*gym\b|\bgym\s+at\s+home\b|\b(at|from)\s+home\b", re.IGNORECASE)
 
 
+# A gym phrase in a negated or past clause doesn't count ("no gym access", "I cancelled my gym membership",
+# "my work gym closed"; build-scribe probe, 2026-10-03).
+GYM_GONE = re.compile(r"\b(no|not|without|don'?t|do not|cancel\w*|quit|used to|lost|closed|shut|ended|gave up|former|ex)\b",
+                      re.IGNORECASE)
+
+
 def mentions_gym(text: str) -> bool:
-    return bool(STRONG_GYM.search(text) or WEAK_GYM.search(text) and not AT_HOME.search(text))
+    clauses = [c for c in re.split(r"[.!?;,]+\s*|\s+but\s+|\s+so\s+", text, flags=re.IGNORECASE) if not GYM_GONE.search(c)]
+    return any(STRONG_GYM.search(c) for c in clauses) or (
+        any(WEAK_GYM.search(c) for c in clauses) and not AT_HOME.search(text))
 
 
 # Gym shorthand in client text ("RDLs" -> "Romanian deadlifts"), so named exercises are found (same glossary as Q&A).

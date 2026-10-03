@@ -1,5 +1,6 @@
-import pytest
 """Phase 2, step 2: the program checker, and the agent-loop guardrails driven by a scripted fake model."""
+
+import pytest
 
 import json
 from types import SimpleNamespace

@@ -100,6 +100,11 @@ def test_exercises_the_client_names_are_found():
     ("I work out at home but have gym access", True),
     ("I have a gym at work", True),
     ("I use my work gym", True),
+    ("I train at home, no gym access", False),
+    ("I cancelled my gym membership", False),
+    ("I used to have gym access", False),
+    ("My work gym closed, so I train at home now", False),
+    ("I have gym access but I also train at home", True),
 ])
 def test_gym_access_phrases(text, gym):
     from ragmotion.agent import mentions_gym
