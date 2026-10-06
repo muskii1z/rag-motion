@@ -4,7 +4,7 @@ type: coaching-notes
 author: Drafted with AI assistance from widely taught program-design principles (not copied from any book); reviewed by M. Saraswat, 2026-10-01
 license: Original notes (project-owned). No text, tables, or figures copied from any source.
 sources:
-  - title: General strength and conditioning practice, reviewed by the coach
+  - title: General strength and conditioning practice, reviewed by M. Saraswat
 ---
 
 # Resistance Training Program Design
@@ -60,4 +60,4 @@ A program starts with a needs analysis: what the goal demands (strength, muscle 
 
 ## Sources
 
-- Drafted from general strength and conditioning practice; every guideline above was reviewed by the coach (M. Saraswat) on 2026-10-01.
+- Drafted from general strength and conditioning practice; every guideline above was reviewed by M. Saraswat on 2026-10-01.

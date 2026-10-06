@@ -1,6 +1,6 @@
 # rag-motion evaluation set (Step 15)
 #
-# STATUS: expected answers drafted by Claude, then REVIEWED BY THE COACH (M. Saraswat), all 31, on 2026-09-28.
+# STATUS: expected answers drafted by Claude, then REVIEWED BY M. Saraswat, all 31, on 2026-09-28.
 # v3 (F2): answer keys updated for the 42-exercise catalog; 9 equipment/population questions added (40 total).
 # v2 (after adding the Kons 2023 plyometrics and Haugen 2019 sprint papers): sprint is no longer a gap,
 # plyometric/explosive questions accept the new papers as evidence, and two research questions were added.
@@ -341,7 +341,7 @@ questions:
   reviewed: true
   notes: "Coach review: keep as none until nutrition sources are added."
 
-# ---- F2: equipment and population questions (drafted by Claude, answers set by the coach, 2026-09-28) ----
+# ---- F2: equipment and population questions (drafted by Claude, answers set by M. Saraswat, 2026-09-28) ----
 - id: constraint-bands-only
   question: "I only have resistance bands. What can I do for a full-body workout?"
   category: constraint
